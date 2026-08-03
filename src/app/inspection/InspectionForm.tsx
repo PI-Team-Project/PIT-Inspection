@@ -89,13 +89,13 @@ export default function InspectionForm({
         </div>
       </div>
 
-      <div className="flex flex-1 flex-col justify-center py-10">
-        {showGreeting && (
-          <p className="mb-2 text-sm font-semibold text-blue-600">
-            Hello, {values.firstName}!
-          </p>
-        )}
+      {showGreeting && (
+        <p className="mt-4 text-sm font-semibold text-blue-600">
+          Hello, {values.firstName}!
+        </p>
+      )}
 
+      <div className="flex flex-1 flex-col pt-8">
         {/* Date */}
         <div hidden={current.kind !== "date"}>
           <StepHeading text="Inspection Date" />
@@ -205,7 +205,7 @@ export default function InspectionForm({
         )}
       </div>
 
-      <div className="flex gap-3">
+      <div className="flex gap-3 pt-8">
         {step > 0 && (
           <button
             type="button"
