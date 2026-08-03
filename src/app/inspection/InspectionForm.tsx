@@ -95,7 +95,8 @@ export default function InspectionForm({
         </p>
       )}
 
-      <div className="flex flex-1 flex-col pt-8">
+      <div className="flex flex-1 flex-col">
+        <div className="grow-[2]" />
         {/* Date */}
         <div hidden={current.kind !== "date"}>
           <StepHeading text="Inspection Date" />
@@ -145,7 +146,10 @@ export default function InspectionForm({
 
         {/* Equipment */}
         <div hidden={current.kind !== "equipment"}>
-          <StepHeading text="Equipment (Serial# on data plate)" />
+          <StepHeading text="Which equipment are you inspecting?" />
+          <p className="mb-3 text-sm text-gray-500">
+            Serial# is on the data plate.
+          </p>
           <select
             name="equipmentSerial"
             value={values.equipmentSerial ?? ""}
@@ -203,6 +207,7 @@ export default function InspectionForm({
         {!canAdvance && (
           <p className="mt-3 text-sm text-gray-500">Answer to continue.</p>
         )}
+        <div className="grow" />
       </div>
 
       <div className="flex gap-3 pt-8">

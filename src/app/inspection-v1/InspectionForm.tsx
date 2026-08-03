@@ -46,7 +46,11 @@ export default function InspectionForm({
         />
       </Field>
 
-      <Field number={5} label="Equipment (Serial# on data plate)">
+      <Field
+        number={5}
+        label="Which equipment are you inspecting?"
+        note="Serial# is on the data plate."
+      >
         <select
           name="equipmentSerial"
           required
