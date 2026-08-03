@@ -96,7 +96,7 @@ export default function InspectionForm({
       )}
 
       <div className="flex flex-1 flex-col">
-        <div className="grow-[2]" />
+        <div className="grow" />
         {/* Date */}
         <div hidden={current.kind !== "date"}>
           <StepHeading text="Inspection Date" />
