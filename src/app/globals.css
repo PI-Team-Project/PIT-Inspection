@@ -12,12 +12,8 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
+/* Intentionally no dark-mode media query: this app is styled for light
+   mode only, so it always renders the same regardless of system theme. */
 
 body {
   background: var(--background);

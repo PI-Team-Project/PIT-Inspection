@@ -21,6 +21,21 @@ export default function Home() {
           Manager Dashboard
         </Link>
       </div>
+
+      <div className="mt-8 w-full rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-800">
+        <p className="font-medium">Prototype comparison</p>
+        <p className="mt-1 flex flex-wrap gap-x-3 gap-y-1">
+          <Link href="/inspection" className="underline">
+            v1 — current
+          </Link>
+          <Link href="/inspection-v2" className="underline">
+            v2 — compact chips
+          </Link>
+          <Link href="/inspection-v3" className="underline">
+            v3 — one question per screen
+          </Link>
+        </p>
+      </div>
     </main>
   )
 }

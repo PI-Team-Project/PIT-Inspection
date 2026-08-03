@@ -66,6 +66,10 @@ export const QUESTIONS: Question[] = [
   },
 ]
 
+export const QUESTIONS_BY_ID: Record<string, Question> = Object.fromEntries(
+  QUESTIONS.map((q) => [q.id, q])
+)
+
 export function needsSpecify(value: string) {
   return value.startsWith("Other")
 }

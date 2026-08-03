@@ -17,7 +17,7 @@ export default function InspectionForm({
   const [selected, setSelected] = useState<Record<string, string>>({})
 
   return (
-    <form action={submitInspection} className="space-y-6">
+    <form action={submitInspection} className="space-y-8">
       <Field number={1} label="Date">
         <input
           type="date"
@@ -66,7 +66,7 @@ export default function InspectionForm({
 
       {questions.map((q) => (
         <Field key={q.id} number={q.number} label={q.label} note={q.note}>
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-2.5">
             {q.options.map((opt) => (
               <label
                 key={opt}
@@ -80,7 +80,7 @@ export default function InspectionForm({
                   onChange={() => setSelected((s) => ({ ...s, [q.id]: opt }))}
                   className="h-4 w-4"
                 />
-                <span className="text-base">{opt}</span>
+                <span className="text-base text-gray-800">{opt}</span>
               </label>
             ))}
           </div>
@@ -96,12 +96,14 @@ export default function InspectionForm({
         </Field>
       ))}
 
-      <button
-        type="submit"
-        className="w-full rounded-lg bg-blue-600 px-4 py-4 text-lg font-semibold text-white transition-transform duration-100 active:scale-95 active:bg-blue-700"
-      >
-        Submit Inspection
-      </button>
+      <div className="pt-6">
+        <button
+          type="submit"
+          className="w-full rounded-lg bg-blue-600 px-4 py-4 text-lg font-semibold text-white transition-transform duration-100 active:scale-95 active:bg-blue-700"
+        >
+          Submit Inspection
+        </button>
+      </div>
     </form>
   )
 }
@@ -118,11 +120,11 @@ function Field({
   children: React.ReactNode
 }) {
   return (
-    <fieldset className="m-0 border-0 p-0">
-      <legend className="mb-2 text-sm font-medium text-gray-700">
+    <fieldset className="border-0 p-0">
+      <legend className="mb-1.5 text-base font-semibold text-gray-900">
         {number}. {label}
       </legend>
-      {note && <p className="mb-2 text-sm text-gray-500">{note}</p>}
+      {note && <p className="mb-1.5 text-sm text-gray-500">{note}</p>}
       {children}
     </fieldset>
   )
