@@ -18,7 +18,7 @@ export default function InspectionForm({
 
   return (
     <form action={submitInspection} className="space-y-8">
-      <Field number={1} label="Date">
+      <Field number={1} label="Inspection Date">
         <input
           type="date"
           name="date"

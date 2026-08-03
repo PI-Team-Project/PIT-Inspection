@@ -20,30 +20,11 @@ export default function InspectionFormV2({
   const total = questions.length
   const percent = Math.round((answeredCount / total) * 100)
 
-  function markRemainingGood() {
-    setSelected((s) => {
-      const next = { ...s }
-      for (const q of questions) {
-        if (!next[q.id]) next[q.id] = q.options[0]
-      }
-      return next
-    })
-  }
-
   return (
     <form action={submitInspection} className="space-y-8">
       <div className="sticky top-0 z-10 -mx-4 mb-2 border-b border-gray-200 bg-white/95 px-4 py-3 backdrop-blur">
-        <div className="flex items-center justify-between text-xs text-gray-600">
-          <span>
-            {answeredCount}/{total} answered
-          </span>
-          <button
-            type="button"
-            onClick={markRemainingGood}
-            className="rounded-full border border-gray-300 px-3 py-1 font-medium text-gray-700 transition-transform duration-100 active:scale-95 active:bg-gray-100"
-          >
-            Mark remaining as Good
-          </button>
+        <div className="text-xs text-gray-600">
+          {answeredCount}/{total} answered
         </div>
         <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-gray-100">
           <div
@@ -53,7 +34,7 @@ export default function InspectionFormV2({
         </div>
       </div>
 
-      <Field number={1} label="Date">
+      <Field number={1} label="Inspection Date">
         <input
           type="date"
           name="date"
@@ -105,7 +86,7 @@ export default function InspectionFormV2({
             <div className="flex flex-wrap gap-2">
               {q.options.map((opt) => {
                 const isOther = opt.startsWith("Other")
-                const chipLabel = isOther ? "Other" : opt
+                const qualifierMatch = !isOther && opt.match(/^(.+?)\s\((.+)\)$/)
                 return (
                   <label
                     key={opt}
@@ -122,9 +103,24 @@ export default function InspectionFormV2({
                       }
                       className="sr-only"
                     />
-                    <span className="text-gray-800 has-checked:text-blue-700">
-                      {chipLabel}
-                    </span>
+                    {isOther ? (
+                      <span className="text-gray-800 has-checked:text-blue-700">
+                        Other
+                      </span>
+                    ) : qualifierMatch ? (
+                      <span className="flex flex-col items-center">
+                        <span className="text-gray-800 has-checked:text-blue-700">
+                          {qualifierMatch[1]}
+                        </span>
+                        <span className="text-xs text-sky-600">
+                          {qualifierMatch[2]}
+                        </span>
+                      </span>
+                    ) : (
+                      <span className="text-gray-800 has-checked:text-blue-700">
+                        {opt}
+                      </span>
+                    )}
                   </label>
                 )
               })}

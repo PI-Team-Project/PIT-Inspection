@@ -98,7 +98,7 @@ export default function InspectionForm({
 
         {/* Date */}
         <div hidden={current.kind !== "date"}>
-          <StepHeading text="Date" />
+          <StepHeading text="Inspection Date" />
           <input
             type="date"
             name="date"
