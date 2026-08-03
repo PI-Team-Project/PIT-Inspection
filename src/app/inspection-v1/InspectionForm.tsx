@@ -71,22 +71,47 @@ export default function InspectionForm({
       {questions.map((q) => (
         <Field key={q.id} number={q.number} label={q.label} note={q.note}>
           <div className="flex flex-col gap-2.5">
-            {q.options.map((opt) => (
-              <label
-                key={opt}
-                className="flex items-center gap-3 rounded-lg border border-gray-300 px-4 py-3 transition-transform duration-100 has-checked:border-blue-600 has-checked:bg-blue-50 active:scale-95 active:bg-gray-50"
-              >
-                <input
-                  type="radio"
-                  name={q.id}
-                  value={opt}
-                  required
-                  onChange={() => setSelected((s) => ({ ...s, [q.id]: opt }))}
-                  className="h-4 w-4"
-                />
-                <span className="text-base text-gray-800">{opt}</span>
-              </label>
-            ))}
+            {q.options.map((opt) => {
+              const isChecked = selected[q.id] === opt
+              return (
+                <label
+                  key={opt}
+                  className={`flex items-center gap-3 rounded-lg border px-4 py-3 transition-transform duration-100 active:scale-95 ${
+                    isChecked ? "border-blue-600 bg-blue-50" : "border-gray-300"
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name={q.id}
+                    value={opt}
+                    required
+                    checked={isChecked}
+                    onChange={() => setSelected((s) => ({ ...s, [q.id]: opt }))}
+                    className="sr-only"
+                  />
+                  <span
+                    className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${
+                      isChecked ? "border-blue-600 bg-blue-600" : "border-gray-300"
+                    }`}
+                  >
+                    {isChecked && (
+                      <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="white"
+                        strokeWidth="3"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        className="h-3 w-3"
+                      >
+                        <path d="M20 6 9 17l-5-5" />
+                      </svg>
+                    )}
+                  </span>
+                  <span className="text-base text-gray-800">{opt}</span>
+                </label>
+              )
+            })}
           </div>
           {selected[q.id]?.startsWith("Other") && (
             <input

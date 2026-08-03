@@ -174,22 +174,50 @@ export default function InspectionForm({
             <StepHeading text={`${q.number}. ${q.label}`} />
             {q.note && <p className="mb-3 text-sm text-gray-500">{q.note}</p>}
             <div className="flex flex-col gap-2.5">
-              {q.options.map((opt) => (
-                <label
-                  key={opt}
-                  className="flex items-center gap-3 rounded-lg border border-gray-300 px-4 py-3 transition-transform duration-100 has-checked:border-blue-600 has-checked:bg-blue-50 active:scale-95"
-                >
-                  <input
-                    type="radio"
-                    name={q.id}
-                    value={opt}
-                    checked={values[q.id] === opt}
-                    onChange={() => set(q.id, opt)}
-                    className="h-4 w-4"
-                  />
-                  <span className="text-base text-gray-800">{opt}</span>
-                </label>
-              ))}
+              {q.options.map((opt) => {
+                const isChecked = values[q.id] === opt
+                return (
+                  <label
+                    key={opt}
+                    className={`flex items-center gap-3 rounded-lg border px-4 py-3 transition-transform duration-100 active:scale-95 ${
+                      isChecked
+                        ? "border-blue-600 bg-blue-50"
+                        : "border-gray-300"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name={q.id}
+                      value={opt}
+                      checked={isChecked}
+                      onChange={() => set(q.id, opt)}
+                      className="sr-only"
+                    />
+                    <span
+                      className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${
+                        isChecked
+                          ? "border-blue-600 bg-blue-600"
+                          : "border-gray-300"
+                      }`}
+                    >
+                      {isChecked && (
+                        <svg
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="white"
+                          strokeWidth="3"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          className="h-3 w-3"
+                        >
+                          <path d="M20 6 9 17l-5-5" />
+                        </svg>
+                      )}
+                    </span>
+                    <span className="text-base text-gray-800">{opt}</span>
+                  </label>
+                )
+              })}
             </div>
             {values[q.id]?.startsWith("Other") && (
               <input
@@ -210,14 +238,14 @@ export default function InspectionForm({
         <div className="grow" />
       </div>
 
-      <div className="flex gap-3 pt-8">
+      <div className="flex items-center gap-3 pt-8">
         {step > 0 && (
           <button
             type="button"
             onClick={handleBack}
-            className="flex-1 rounded-lg border border-gray-300 px-4 py-4 text-lg font-semibold text-gray-700 transition-transform duration-100 active:scale-95 active:bg-gray-100"
+            className="shrink-0 px-2 py-4 text-base font-medium text-gray-500 transition-transform duration-100 active:scale-95 active:text-gray-700"
           >
-            Back
+            ← Back
           </button>
         )}
         {isLast ? (

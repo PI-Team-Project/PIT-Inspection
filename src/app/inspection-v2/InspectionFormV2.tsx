@@ -91,39 +91,54 @@ export default function InspectionFormV2({
               {q.options.map((opt) => {
                 const isOther = opt.startsWith("Other")
                 const qualifierMatch = !isOther && opt.match(/^(.+?)\s\((.+)\)$/)
+                const isChecked = selected[q.id] === opt
+                const textColor = isChecked ? "text-blue-700" : "text-gray-800"
                 return (
                   <label
                     key={opt}
-                    className="flex min-h-16 min-w-[80px] flex-1 basis-0 items-center justify-center rounded-lg border border-gray-300 px-2 py-3 text-center text-sm leading-snug transition-transform duration-100 has-checked:border-blue-600 has-checked:bg-blue-50 has-checked:font-semibold has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-blue-400 active:scale-95"
+                    className={`relative flex min-h-16 min-w-[80px] flex-1 basis-0 items-center justify-center rounded-lg border px-2 py-3 text-center text-sm leading-snug transition-transform duration-100 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-blue-400 active:scale-95 ${
+                      isChecked
+                        ? "border-blue-600 bg-blue-50 font-semibold"
+                        : "border-gray-300"
+                    }`}
                   >
                     <input
                       type="radio"
                       name={q.id}
                       value={opt}
                       required
-                      checked={selected[q.id] === opt}
+                      checked={isChecked}
                       onChange={() =>
                         setSelected((s) => ({ ...s, [q.id]: opt }))
                       }
                       className="sr-only"
                     />
-                    {isOther ? (
-                      <span className="text-gray-800 has-checked:text-blue-700">
-                        Other
+                    {isChecked && (
+                      <span className="absolute top-1 right-1 flex h-4 w-4 items-center justify-center rounded-full bg-blue-600">
+                        <svg
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="white"
+                          strokeWidth="4"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          className="h-2.5 w-2.5"
+                        >
+                          <path d="M20 6 9 17l-5-5" />
+                        </svg>
                       </span>
+                    )}
+                    {isOther ? (
+                      <span className={textColor}>Other</span>
                     ) : qualifierMatch ? (
                       <span className="flex flex-col items-center">
-                        <span className="text-gray-800 has-checked:text-blue-700">
-                          {qualifierMatch[1]}
-                        </span>
+                        <span className={textColor}>{qualifierMatch[1]}</span>
                         <span className="text-xs text-sky-600">
                           {qualifierMatch[2]}
                         </span>
                       </span>
                     ) : (
-                      <span className="text-gray-800 has-checked:text-blue-700">
-                        {opt}
-                      </span>
+                      <span className={textColor}>{opt}</span>
                     )}
                   </label>
                 )
