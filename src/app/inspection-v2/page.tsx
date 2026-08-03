@@ -18,11 +18,6 @@ export default function InspectionV2Page() {
           v3 (current)
         </Link>
       </div>
-      <h1 className="text-2xl font-bold text-gray-900">PIT Inspection</h1>
-      <p className="mt-1 mb-6 text-sm text-gray-600">
-        Inspection must be completed at beginning of every shift to ensure
-        equipment is good condition to use.
-      </p>
       <InspectionFormV2
         questions={QUESTIONS}
         equipmentList={EQUIPMENT_LIST}

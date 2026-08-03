@@ -34,6 +34,14 @@ export default function InspectionFormV2({
         </div>
       </div>
 
+      <div>
+        <h1 className="text-2xl font-bold text-gray-900">PIT Inspection</h1>
+        <p className="mt-1 text-sm text-gray-600">
+          Inspection must be completed at beginning of every shift to ensure
+          equipment is good condition to use.
+        </p>
+      </div>
+
       <Field number={1} label="Inspection Date">
         <input
           type="date"
