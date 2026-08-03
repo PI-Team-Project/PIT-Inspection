@@ -6,17 +6,12 @@ export default function InspectionPage() {
   const today = new Date().toISOString().slice(0, 10)
 
   return (
-    <main className="mx-auto max-w-lg px-4 py-8">
-      <h1 className="text-2xl font-bold text-gray-900">PIT Inspection</h1>
-      <p className="mt-1 mb-6 text-sm text-gray-600">
-        Inspection must be completed at beginning of every shift to ensure
-        equipment is good condition to use.
-      </p>
+    <div className="mx-auto flex min-h-dvh w-full max-w-lg flex-col">
       <InspectionForm
         questions={QUESTIONS}
         equipmentList={EQUIPMENT_LIST}
         today={today}
       />
-    </main>
+    </div>
   )
 }

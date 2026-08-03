@@ -1,17 +1,17 @@
 import Link from "next/link"
-import InspectionFormV2 from "./InspectionFormV2"
+import InspectionForm from "./InspectionForm"
 import { QUESTIONS } from "@/lib/questions"
 import { EQUIPMENT_LIST } from "@/lib/equipment"
 
-export default function InspectionV2Page() {
+export default function InspectionV1Page() {
   const today = new Date().toISOString().slice(0, 10)
 
   return (
     <main className="mx-auto max-w-lg px-4 py-8">
       <div className="mb-4 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
-        Version 2: compact chips.{" "}
-        <Link href="/inspection-v1" className="underline">
-          v1
+        Version 1: full checklist on one page.{" "}
+        <Link href="/inspection-v2" className="underline">
+          v2
         </Link>{" "}
         ·{" "}
         <Link href="/inspection" className="underline">
@@ -23,7 +23,7 @@ export default function InspectionV2Page() {
         Inspection must be completed at beginning of every shift to ensure
         equipment is good condition to use.
       </p>
-      <InspectionFormV2
+      <InspectionForm
         questions={QUESTIONS}
         equipmentList={EQUIPMENT_LIST}
         today={today}

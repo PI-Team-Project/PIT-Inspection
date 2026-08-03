@@ -109,7 +109,7 @@ export default function InspectionFormV2({
                 return (
                   <label
                     key={opt}
-                    className="flex min-w-[80px] flex-1 basis-0 items-center justify-center rounded-lg border border-gray-300 px-2 py-3 text-center text-sm transition-transform duration-100 has-checked:border-blue-600 has-checked:bg-blue-50 has-checked:font-semibold has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-blue-400 active:scale-95"
+                    className="flex min-h-16 min-w-[80px] flex-1 basis-0 items-center justify-center rounded-lg border border-gray-300 px-2 py-3 text-center text-sm leading-snug transition-transform duration-100 has-checked:border-blue-600 has-checked:bg-blue-50 has-checked:font-semibold has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-blue-400 active:scale-95"
                   >
                     <input
                       type="radio"

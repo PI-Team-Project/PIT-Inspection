@@ -13,7 +13,7 @@ export default function InspectionSuccessPage() {
   }, [router])
 
   return (
-    <main className="mx-auto flex max-w-lg flex-col items-center px-4 py-24 text-center">
+    <main className="mx-auto flex w-full max-w-lg flex-col items-center px-4 py-24 text-center">
       <div className="text-6xl">🚜</div>
       <h1 className="mt-4 text-2xl font-bold text-gray-900">
         Thank you for your submission!

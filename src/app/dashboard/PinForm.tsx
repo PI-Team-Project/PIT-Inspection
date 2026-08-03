@@ -5,7 +5,7 @@ import HomeLink from "./HomeLink"
 
 export default function PinForm({ error }: { error?: boolean }) {
   return (
-    <main className="mx-auto flex max-w-sm flex-col items-center px-4 py-16">
+    <main className="mx-auto flex w-full max-w-sm flex-col items-center px-4 py-16">
       <div className="mb-2 self-start">
         <HomeLink />
       </div>
