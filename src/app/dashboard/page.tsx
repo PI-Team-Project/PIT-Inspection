@@ -74,6 +74,12 @@ export default async function DashboardPage({
           >
             {onlyIssues ? "Show all" : "Show only issues"}
           </Link>
+          <a
+            href="/dashboard/export"
+            className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 transition-transform duration-100 active:scale-95 active:bg-gray-100"
+          >
+            Export CSV
+          </a>
           <form action={lockDashboard}>
             <button
               type="submit"
