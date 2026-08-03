@@ -163,7 +163,7 @@ function Field({
 }) {
   return (
     <fieldset className="border-0 p-0">
-      <legend className="mb-1.5 text-base font-semibold text-gray-900">
+      <legend className="mb-1 text-base font-semibold text-gray-900">
         {number}. {label}
       </legend>
       {note && <p className="mb-1.5 text-sm text-gray-500">{note}</p>}
