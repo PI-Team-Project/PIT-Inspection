@@ -30,12 +30,6 @@ export async function unlockDashboard(formData: FormData) {
   redirect("/dashboard")
 }
 
-export async function lockDashboard() {
-  const cookieStore = await cookies()
-  cookieStore.delete(DASHBOARD_COOKIE)
-  redirect("/dashboard")
-}
-
 export async function saveActivity(formData: FormData) {
   const inspectionId = String(formData.get("inspectionId") ?? "")
   const authorName = String(formData.get("reviewerName") ?? "").trim() || "Unknown"

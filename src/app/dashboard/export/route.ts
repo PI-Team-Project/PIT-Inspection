@@ -39,6 +39,7 @@ export async function GET() {
   const headers = [
     "Submitted At",
     "Date",
+    "Shift",
     "Last Name",
     "First Name",
     "Equipment",
@@ -82,6 +83,7 @@ export async function GET() {
     return toCsvRow([
       inspection.createdAt.toISOString(),
       inspection.date,
+      inspection.shift,
       inspection.lastName,
       inspection.firstName,
       inspection.equipmentLabel,

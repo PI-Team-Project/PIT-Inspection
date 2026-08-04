@@ -2,6 +2,7 @@ export type Question = {
   id: string
   number: number
   label: string
+  shortLabel?: string
   options: string[]
   note?: string
 }
@@ -19,6 +20,7 @@ export const QUESTIONS: Question[] = [
     id: "fluidBattery",
     number: 7,
     label: "Fluid Levels/Battery",
+    shortLabel: "Fluid Low",
     note: "If water is needed, only fill AFTER a fully charged battery.",
     options: ["Good", "Needs to be watered", "Other (Specify)"],
   },
@@ -32,18 +34,21 @@ export const QUESTIONS: Question[] = [
     id: "batteryIndicator",
     number: 9,
     label: "Battery Indicator",
+    shortLabel: "Battery",
     options: ["Good", "Damaged", "Other (Specify)"],
   },
   {
     id: "fluidLeaks",
     number: 10,
     label: "Any Fluid Leaks",
+    shortLabel: "Leakage",
     options: ["No", "Yes", "Other (Specify)"],
   },
   {
     id: "bodyCondition",
     number: 11,
     label: "Body Condition",
+    shortLabel: "Body Damage",
     options: ["Good", "Poor", "Other (Specify)"],
   },
   {
@@ -56,12 +61,14 @@ export const QUESTIONS: Question[] = [
     id: "forwardBackward",
     number: 13,
     label: "Forward & Backward Movement",
+    shortLabel: "Movement",
     options: ["Working condition", "Not working condition", "Other (Specify)"],
   },
   {
     id: "liftLowering",
     number: 14,
     label: "Lift/Lowering Movement",
+    shortLabel: "Lift/Lower",
     options: ["Working condition", "Not working condition", "Other (Specify)"],
   },
 ]

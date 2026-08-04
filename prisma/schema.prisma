@@ -16,6 +16,7 @@ model Inspection {
   id              String   @id @default(cuid())
   createdAt       DateTime @default(now())
   date            String
+  shift           String   @default("Unknown")
   lastName        String
   firstName       String
   equipmentLabel  String

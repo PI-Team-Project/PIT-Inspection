@@ -15,6 +15,16 @@
 /* Intentionally no dark-mode media query: this app is styled for light
    mode only, so it always renders the same regardless of system theme. */
 
+@keyframes status-blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
 body {
   background: var(--background);
   color: var(--foreground);
