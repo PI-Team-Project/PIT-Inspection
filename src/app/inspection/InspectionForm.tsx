@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import Image from "next/image"
 import { submitInspection } from "./actions"
 import { needsAttention, type Question } from "@/lib/questions"
@@ -38,9 +38,27 @@ export default function InspectionForm({
     date: today,
     shift: currentShift,
   })
-  const [photoPreviews, setPhotoPreviews] = useState<
-    Record<string, (string | null)[]>
-  >({})
+  const [photos, setPhotos] = useState<Record<string, { file: File; preview: string }[]>>(
+    {}
+  )
+  const cameraInputs = useRef<Record<string, HTMLInputElement | null>>({})
+  const galleryInputs = useRef<Record<string, HTMLInputElement | null>>({})
+  const filesInputs = useRef<Record<string, HTMLInputElement | null>>({})
+  const canonicalInputs = useRef<Record<string, HTMLInputElement | null>>({})
+
+  // The camera/gallery/files buttons are separate trigger inputs (each needs
+  // its own `capture`/`multiple` behavior); this keeps one canonical
+  // <input name={...}> in sync via DataTransfer so form submission still just
+  // reads a single, ordinary file input per question.
+  useEffect(() => {
+    for (const [questionId, list] of Object.entries(photos)) {
+      const el = canonicalInputs.current[questionId]
+      if (!el) continue
+      const dt = new DataTransfer()
+      list.forEach(({ file }) => dt.items.add(file))
+      el.files = dt.files
+    }
+  }, [photos])
 
   const total = steps.length
   const isLast = step === total - 1
@@ -60,12 +78,23 @@ export default function InspectionForm({
     advance()
   }
 
-  function setPhotoPreview(questionId: string, index: number, file: File | null) {
-    setPhotoPreviews((prev) => {
-      const slots = [...(prev[questionId] ?? [null, null, null, null])]
-      slots[index] = file ? URL.createObjectURL(file) : null
-      return { ...prev, [questionId]: slots }
+  function addPhotos(questionId: string, fileList: FileList | null) {
+    if (!fileList || fileList.length === 0) return
+    setPhotos((prev) => {
+      const current = prev[questionId] ?? []
+      const room = Math.max(0, 4 - current.length)
+      const additions = Array.from(fileList)
+        .slice(0, room)
+        .map((file) => ({ file, preview: URL.createObjectURL(file) }))
+      return { ...prev, [questionId]: [...current, ...additions] }
     })
+  }
+
+  function removePhoto(questionId: string, index: number) {
+    setPhotos((prev) => ({
+      ...prev,
+      [questionId]: (prev[questionId] ?? []).filter((_, i) => i !== index),
+    }))
   }
 
   function stepIsAnswered(s: StepDef): boolean {
@@ -85,7 +114,9 @@ export default function InspectionForm({
     !isLast &&
     (current.kind === "date" ||
       current.kind === "name" ||
-      (current.kind === "question" && Boolean(values[current.question.id]?.startsWith("Other"))))
+      (current.kind === "question" &&
+        Boolean(values[current.question.id]) &&
+        needsAttention(values[current.question.id])))
 
   function handleNext() {
     if (!canAdvance) return
@@ -110,6 +141,11 @@ export default function InspectionForm({
             style={{ width: `${((step + 1) / total) * 100}%` }}
           />
         </div>
+        {showGreeting && (
+          <p className="mt-3 text-sm font-semibold text-blue-600">
+            Hello, {values.firstName}!
+          </p>
+        )}
       </div>
 
       <div className="flex-1 px-4 pt-4 pb-6">
@@ -121,12 +157,6 @@ export default function InspectionForm({
               ensure equipment is good condition to use.
             </p>
           </div>
-        )}
-
-        {showGreeting && (
-          <p className="mb-3 text-sm font-semibold text-blue-600">
-            Hello, {values.firstName}!
-          </p>
         )}
 
         {/* Date */}
@@ -275,7 +305,7 @@ export default function InspectionForm({
                       checked={isChecked}
                       onChange={() => {
                         set(q.id, opt)
-                        if (!opt.startsWith("Other")) advance()
+                        if (!needsAttention(opt)) advance()
                       }}
                       className="sr-only"
                     />
@@ -319,57 +349,137 @@ export default function InspectionForm({
               <div className="mt-4 space-y-3">
                 <div>
                   <label className="mb-1.5 block text-sm font-medium text-gray-700">
-                    Note
-                  </label>
-                  <textarea
-                    name={`${q.id}_note`}
-                    rows={2}
-                    placeholder="Describe the issue"
-                    className="w-full rounded-lg border border-gray-300 px-4 py-3 text-base"
-                  />
-                </div>
-                <div>
-                  <label className="mb-1.5 block text-sm font-medium text-gray-700">
                     Photos
                   </label>
                   <div className="grid grid-cols-4 gap-2">
                     {[0, 1, 2, 3].map((i) => {
-                      const preview = photoPreviews[q.id]?.[i]
+                      const item = photos[q.id]?.[i]
                       return (
-                        <label
+                        <div
                           key={i}
                           className="relative flex aspect-square items-center justify-center overflow-hidden rounded-lg border-2 border-dashed border-gray-300 bg-gray-50"
                         >
-                          <input
-                            type="file"
-                            accept="image/*"
-                            name={`${q.id}_photo`}
-                            className="sr-only"
-                            onChange={(e) =>
-                              setPhotoPreview(q.id, i, e.target.files?.[0] ?? null)
-                            }
-                          />
-                          {preview ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
-                              src={preview}
-                              alt=""
-                              className="h-full w-full object-cover"
-                            />
+                          {item ? (
+                            <>
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img
+                                src={item.preview}
+                                alt=""
+                                className="h-full w-full object-cover"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => removePhoto(q.id, i)}
+                                className="absolute top-1 right-1 flex h-5 w-5 items-center justify-center rounded-full bg-black/60 text-xs text-white"
+                              >
+                                ×
+                              </button>
+                            </>
                           ) : (
-                            <CameraIcon className="h-6 w-6 text-gray-400" />
+                            <CameraIcon className="h-6 w-6 text-gray-300" />
                           )}
-                        </label>
+                        </div>
                       )
                     })}
                   </div>
+
+                  <div className="mt-2 flex gap-2">
+                    <button
+                      type="button"
+                      disabled={(photos[q.id]?.length ?? 0) >= 4}
+                      onClick={() => cameraInputs.current[q.id]?.click()}
+                      className="flex-1 rounded-lg border border-gray-300 px-2 py-2 text-xs font-medium text-gray-700 transition-transform duration-100 active:scale-95 active:bg-gray-100 disabled:opacity-40"
+                    >
+                      📷 Camera
+                    </button>
+                    <button
+                      type="button"
+                      disabled={(photos[q.id]?.length ?? 0) >= 4}
+                      onClick={() => galleryInputs.current[q.id]?.click()}
+                      className="flex-1 rounded-lg border border-gray-300 px-2 py-2 text-xs font-medium text-gray-700 transition-transform duration-100 active:scale-95 active:bg-gray-100 disabled:opacity-40"
+                    >
+                      🖼️ Gallery
+                    </button>
+                    <button
+                      type="button"
+                      disabled={(photos[q.id]?.length ?? 0) >= 4}
+                      onClick={() => filesInputs.current[q.id]?.click()}
+                      className="flex-1 rounded-lg border border-gray-300 px-2 py-2 text-xs font-medium text-gray-700 transition-transform duration-100 active:scale-95 active:bg-gray-100 disabled:opacity-40"
+                    >
+                      📁 Files
+                    </button>
+                  </div>
+
+                  {/* Hidden triggers: each opens a different native picker source. */}
+                  <input
+                    ref={(el) => {
+                      cameraInputs.current[q.id] = el
+                    }}
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    className="hidden"
+                    onChange={(e) => {
+                      addPhotos(q.id, e.target.files)
+                      e.target.value = ""
+                    }}
+                  />
+                  <input
+                    ref={(el) => {
+                      galleryInputs.current[q.id] = el
+                    }}
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    className="hidden"
+                    onChange={(e) => {
+                      addPhotos(q.id, e.target.files)
+                      e.target.value = ""
+                    }}
+                  />
+                  <input
+                    ref={(el) => {
+                      filesInputs.current[q.id] = el
+                    }}
+                    type="file"
+                    multiple
+                    className="hidden"
+                    onChange={(e) => {
+                      addPhotos(q.id, e.target.files)
+                      e.target.value = ""
+                    }}
+                  />
+                  {/* Canonical input actually submitted with the form. */}
+                  <input
+                    ref={(el) => {
+                      canonicalInputs.current[q.id] = el
+                    }}
+                    type="file"
+                    name={`${q.id}_photo`}
+                    multiple
+                    className="hidden"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium text-gray-700">
+                    Note
+                  </label>
+                  <textarea
+                    name={`${q.id}_note`}
+                    rows={3}
+                    placeholder="Describe in as much detail as possible"
+                    className="w-full rounded-lg border border-gray-300 px-4 py-3 text-base"
+                  />
                 </div>
               </div>
             )}
           </div>
         ))}
+      </div>
 
-        <div className="sticky bottom-0 -mx-4 mt-6 flex items-center gap-3 border-t border-gray-100 bg-white px-4 py-4">
+      <div className="sticky bottom-0 z-10 border-t border-gray-100 bg-white px-4 py-4">
+        <div className="flex items-center gap-3">
           {step > 0 && (
             <button
               type="button"
@@ -401,7 +511,7 @@ export default function InspectionForm({
           )}
         </div>
 
-        <div className="flex justify-center pt-4">
+        <div className="flex justify-center pt-3">
           <Image
             src="/lx-pantos-logo.png"
             alt="LX Pantos"

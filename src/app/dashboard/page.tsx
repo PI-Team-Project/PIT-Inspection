@@ -189,7 +189,9 @@ export default async function DashboardPage({
                     {equipment.label}
                   </p>
                 </div>
-                <p className="text-sm text-gray-600">Unit #{equipment.number}</p>
+                <p className="text-sm text-gray-600">
+                  Unit #{equipment.number} · Serial#: {equipment.serial}
+                </p>
                 {latest ? (
                   <p className="mt-1 text-sm text-gray-600">
                     Last inspected {latest.inspection.date} ·{" "}
