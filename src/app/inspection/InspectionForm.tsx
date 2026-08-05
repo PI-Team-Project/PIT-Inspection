@@ -9,10 +9,13 @@ import { SHIFTS } from "@/lib/shifts"
 
 const EQUIPMENT_CATEGORIES: EquipmentCategory[] = ["Forklift", "Pallet Jack"]
 const FORKLIFT_TYPES: EquipmentType[] = ["Sit Down", "Propane", "Standup"]
+const INSPECTION_TYPES = ["Daily Inspection", "Repair Request"] as const
 
 type StepDef =
   | { kind: "date" }
   | { kind: "name" }
+  | { kind: "inspectionType" }
+  | { kind: "repairPlaceholder" }
   | { kind: "shift" }
   | { kind: "equipment" }
   | { kind: "question"; question: Question }
@@ -26,18 +29,27 @@ export default function InspectionForm({
   equipmentList: Equipment[]
   today: string
 }) {
-  const steps: StepDef[] = [
-    { kind: "date" },
-    { kind: "name" },
-    { kind: "shift" },
-    { kind: "equipment" },
-    ...questions.map((q) => ({ kind: "question" as const, question: q })),
-  ]
-
   const [step, setStep] = useState(0)
   const [values, setValues] = useState<Record<string, string>>({
     date: today,
   })
+
+  const steps: StepDef[] =
+    values.inspectionType === "Repair Request"
+      ? [
+          { kind: "date" },
+          { kind: "name" },
+          { kind: "inspectionType" },
+          { kind: "repairPlaceholder" },
+        ]
+      : [
+          { kind: "date" },
+          { kind: "name" },
+          { kind: "inspectionType" },
+          { kind: "shift" },
+          { kind: "equipment" },
+          ...questions.map((q) => ({ kind: "question" as const, question: q })),
+        ]
   const [photoPreviews, setPhotoPreviews] = useState<
     Record<string, (string | null)[]>
   >({})
@@ -72,12 +84,13 @@ export default function InspectionForm({
     if (s.kind === "date") return Boolean(values.date)
     if (s.kind === "name")
       return Boolean(values.lastName?.trim()) && Boolean(values.firstName?.trim())
+    if (s.kind === "inspectionType") return Boolean(values.inspectionType)
+    if (s.kind === "repairPlaceholder") return false
     if (s.kind === "shift") return Boolean(values.shift)
     if (s.kind === "equipment") return Boolean(values.equipmentSerial)
     const v = values[s.question.id]
     if (!v) return false
     if (v.startsWith("Other") && !values[`${s.question.id}_specify`]?.trim()) return false
-    if (needsAttention(v) && !values[`${s.question.id}_repairRequest`]) return false
     return true
   }
 
@@ -113,14 +126,17 @@ export default function InspectionForm({
             style={{ width: `${((step + 1) / total) * 100}%` }}
           />
         </div>
+        <p className="mt-3 text-sm text-gray-500">
+          You&apos;re the first to notice. Thank you for checking.
+        </p>
         {showGreeting && (
-          <p className="mt-3 text-sm font-semibold text-blue-600">
-            Hello, {values.firstName}!
+          <p className="mt-1.5 text-sm font-semibold text-blue-600">
+            {timeOfDayIcon(new Date())} Hello, {values.firstName}!
           </p>
         )}
       </div>
 
-      <div className="flex-1 px-4 pt-4 pb-6">
+      <div className="flex-1 px-4 pt-6 pb-6">
         {step === 0 && (
           <div className="mb-8">
             <h1 className="text-2xl font-bold text-gray-900">PIT Inspection</h1>
@@ -176,6 +192,62 @@ export default function InspectionForm({
               />
             </div>
           </div>
+        </div>
+
+        {/* Inspection Type */}
+        <div hidden={current.kind !== "inspectionType"}>
+          <StepHeading text="What type of inspection is this?" />
+          <div className="flex flex-col gap-5">
+            {INSPECTION_TYPES.map((type) => {
+              const isChecked = values.inspectionType === type
+              return (
+                <label
+                  key={type}
+                  className={`flex items-center gap-3 rounded-lg border px-4 py-3 transition-transform duration-100 active:scale-95 ${
+                    isChecked ? "border-blue-600 bg-blue-50" : "border-gray-300"
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="inspectionType"
+                    value={type}
+                    checked={isChecked}
+                    onChange={() => selectAndAdvance("inspectionType", type)}
+                    className="sr-only"
+                  />
+                  <span
+                    className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${
+                      isChecked ? "border-blue-600 bg-blue-600" : "border-gray-300"
+                    }`}
+                  >
+                    {isChecked && (
+                      <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="white"
+                        strokeWidth="3"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        className="h-3 w-3"
+                      >
+                        <path d="M20 6 9 17l-5-5" />
+                      </svg>
+                    )}
+                  </span>
+                  <span className="text-base text-gray-800">{type}</span>
+                </label>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* Repair Request (not built yet) */}
+        <div hidden={current.kind !== "repairPlaceholder"}>
+          <StepHeading text="Repair Request" />
+          <p className="text-sm text-gray-600">
+            This flow isn&apos;t ready yet. For now, please go back and choose
+            &quot;Daily Inspection&quot; to continue.
+          </p>
         </div>
 
         {/* Shift */}
@@ -456,43 +528,6 @@ export default function InspectionForm({
             {Boolean(values[q.id]) && needsAttention(values[q.id]) && (
               <div className="mt-4 space-y-3">
                 <div>
-                  <p className="mb-1.5 text-sm font-medium text-gray-700">
-                    Does this need a Repair &amp; Inspection Request?
-                  </p>
-                  <p className="mb-2 text-xs text-gray-500">
-                    Select Yes if the equipment should not be used until a manager
-                    reviews it. Select No if it&apos;s still safe to use but needs
-                    attention soon.
-                  </p>
-                  <div className="flex gap-2">
-                    {(["Yes", "No"] as const).map((choice) => {
-                      const isChecked = values[`${q.id}_repairRequest`] === choice
-                      return (
-                        <button
-                          key={choice}
-                          type="button"
-                          onClick={() => set(`${q.id}_repairRequest`, choice)}
-                          className={`flex-1 rounded-lg border px-3 py-3 text-sm font-semibold transition-transform duration-100 active:scale-95 ${
-                            isChecked
-                              ? choice === "Yes"
-                                ? "border-red-600 bg-red-50 text-red-700"
-                                : "border-green-600 bg-green-50 text-green-700"
-                              : "border-gray-300 text-gray-700"
-                          }`}
-                        >
-                          {choice === "Yes" ? "Yes — Stop using it" : "No — Still usable"}
-                        </button>
-                      )
-                    })}
-                  </div>
-                  <input
-                    type="hidden"
-                    name={`${q.id}_repairRequest`}
-                    value={values[`${q.id}_repairRequest`] ?? ""}
-                  />
-                </div>
-
-                <div>
                   <label className="mb-1.5 block text-sm font-medium text-gray-700">
                     Photos
                   </label>
@@ -557,7 +592,7 @@ export default function InspectionForm({
               ← Back
             </button>
           )}
-          {isLast ? (
+          {isLast && current.kind !== "repairPlaceholder" ? (
             <button
               type="submit"
               disabled={!canAdvance}
@@ -593,8 +628,16 @@ export default function InspectionForm({
   )
 }
 
+// 새벽 (dawn) / 낮 (day) / 밤 (night), based on the inspector's local clock.
+function timeOfDayIcon(date: Date): string {
+  const hour = date.getHours()
+  if (hour < 6) return "🌅"
+  if (hour < 18) return "☀️"
+  return "🌙"
+}
+
 function StepHeading({ text }: { text: string }) {
-  return <h2 className="mb-3 text-xl font-bold text-gray-900">{text}</h2>
+  return <h2 className="mt-6 mb-6 text-xl font-bold text-gray-900">{text}</h2>
 }
 
 function CameraIcon({ className }: { className?: string }) {

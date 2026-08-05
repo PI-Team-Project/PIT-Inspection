@@ -16,6 +16,9 @@ async function filesToDataUris(files: FormDataEntryValue[]): Promise<string[]> {
 }
 
 export async function submitInspection(formData: FormData) {
+  const type = String(formData.get("inspectionType") ?? "Daily Inspection") === "Repair Request"
+    ? "Repair Request"
+    : "Daily"
   const date = String(formData.get("date") ?? "")
   const shift = String(formData.get("shift") ?? "")
   const lastName = String(formData.get("lastName") ?? "")
@@ -25,29 +28,17 @@ export async function submitInspection(formData: FormData) {
 
   const answers: Record<
     string,
-    {
-      value: string
-      specify?: string
-      note?: string
-      photos?: string[]
-      repairRequest?: boolean
-    }
+    { value: string; specify?: string; note?: string; photos?: string[] }
   > = {}
   for (const q of QUESTIONS) {
     const value = String(formData.get(q.id) ?? "")
-    const entry: {
-      value: string
-      specify?: string
-      note?: string
-      photos?: string[]
-      repairRequest?: boolean
-    } = { value }
+    const entry: { value: string; specify?: string; note?: string; photos?: string[] } = {
+      value,
+    }
     if (needsSpecify(value)) {
       entry.specify = String(formData.get(`${q.id}_specify`) ?? "")
     }
     if (needsAttention(value)) {
-      entry.repairRequest = String(formData.get(`${q.id}_repairRequest`) ?? "") === "Yes"
-
       const note = String(formData.get(`${q.id}_note`) ?? "").trim()
       if (note) entry.note = note
 
@@ -59,6 +50,7 @@ export async function submitInspection(formData: FormData) {
 
   await prisma.inspection.create({
     data: {
+      type,
       date,
       shift,
       lastName,

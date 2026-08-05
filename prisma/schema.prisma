@@ -15,6 +15,7 @@ datasource db {
 model Inspection {
   id              String   @id @default(cuid())
   createdAt       DateTime @default(now())
+  type            String   @default("Daily")
   date            String
   shift           String   @default("Unknown")
   lastName        String

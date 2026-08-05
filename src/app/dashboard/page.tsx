@@ -15,24 +15,17 @@ import { saveActivity, confirmResolved } from "./actions"
 
 type Answers = Record<
   string,
-  {
-    value: string
-    specify?: string
-    note?: string
-    photos?: string[]
-    repairRequest?: boolean
-  }
+  { value: string; specify?: string; note?: string; photos?: string[] }
 >
 type InspectionRow = ReturnType<typeof buildRow>
 
 const HISTORY_PREVIEW_COUNT = 5
 
-// A flagged item is only "critical" (drives the RED stage) if the inspector
-// explicitly requested a Repair & Inspection Request for it. A flagged item
-// without that (e.g. just answered "Poor") is a minor issue — still usable,
-// shows as YELLOW, doesn't block anything on its own.
-function isCritical(answers: Answers, q: Question): boolean {
-  return answers[q.id]?.repairRequest === true
+// RED is driven by the inspection's type, not by individual answers: a
+// "Repair Request" submission is inherently critical; a "Daily" submission
+// tops out at YELLOW (usable, needs attention) no matter what's flagged.
+function isCriticalInspection(inspection: { type: string }): boolean {
+  return inspection.type === "Repair Request"
 }
 
 function buildRow(
@@ -41,7 +34,7 @@ function buildRow(
   const answers = inspection.answers as Answers
   const review = parseReview(inspection.review)
   const flagged = QUESTIONS.filter((q) => needsAttention(answers[q.id]?.value ?? ""))
-  const critical = flagged.filter((q) => isCritical(answers, q))
+  const critical = isCriticalInspection(inspection) ? flagged : []
   const unresolved = critical.filter((q) => review.issueStatus[q.id] !== "complete")
   const stage = getStage(flagged.length, unresolved.length, review.confirmedResolved)
   return { inspection, answers, review, flagged, critical, unresolved, stage }
@@ -292,7 +285,7 @@ function EquipmentCard({
               <IssueLine
                 flagged={latest.flagged}
                 review={latest.review}
-                answers={latest.answers}
+                critical={isCriticalInspection(latest.inspection)}
               />
             )}
         </div>
@@ -335,7 +328,7 @@ function EquipmentCard({
               const answer = latest.answers[q.id]
               if (!answer) return null
               const bad = needsAttention(answer.value)
-              const critical = answer.repairRequest === true
+              const critical = isCriticalInspection(latest.inspection) && bad
               const status = latest.review.issueStatus[q.id]
               const fixed = bad && status === "complete"
               const textColor = fixed
@@ -353,11 +346,6 @@ function EquipmentCard({
                     </span>{" "}
                     {answer.value}
                     {answer.specify ? ` — ${answer.specify}` : ""}
-                    {critical && !fixed && (
-                      <span className="ml-1.5 rounded-full bg-red-100 px-1.5 py-0.5 text-[10px] font-semibold text-red-700">
-                        REPAIR REQUEST
-                      </span>
-                    )}
                   </div>
                   {answer.note && (
                     <p className="text-xs text-gray-600">Note: {answer.note}</p>
@@ -569,18 +557,17 @@ function StatusDot({ stage }: { stage: Stage | "none" }) {
 function IssueLine({
   flagged,
   review,
-  answers,
+  critical,
 }: {
   flagged: Question[]
   review: { issueStatus: Record<string, string> }
-  answers: Answers
+  critical: boolean
 }) {
   const shown = flagged.slice(0, ISSUE_PREVIEW_COUNT)
   const remaining = flagged.length - shown.length
   return (
     <div className="mt-1 flex flex-wrap items-center gap-x-1 text-xs font-medium">
       {shown.map((q, i) => {
-        const critical = answers[q.id]?.repairRequest === true
         const resolved = review.issueStatus[q.id] === "complete"
         const isRed = critical && !resolved
         return (

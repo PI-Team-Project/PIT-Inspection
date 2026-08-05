@@ -5,10 +5,7 @@ import { DASHBOARD_COOKIE, dashboardSessionValue } from "@/lib/auth"
 import { QUESTIONS, needsAttention } from "@/lib/questions"
 import { parseReview, getStage } from "@/lib/review"
 
-type Answers = Record<
-  string,
-  { value: string; specify?: string; repairRequest?: boolean }
->
+type Answers = Record<string, { value: string; specify?: string }>
 
 function csvCell(value: string): string {
   if (/[",\n]/.test(value)) {
@@ -41,6 +38,7 @@ export async function GET() {
 
   const headers = [
     "Submitted At",
+    "Type",
     "Date",
     "Shift",
     "Last Name",
@@ -58,12 +56,14 @@ export async function GET() {
     const flaggedCount = QUESTIONS.filter((q) =>
       needsAttention(answers[q.id]?.value ?? "")
     ).length
-    const unresolvedCriticalCount = QUESTIONS.filter(
-      (q) =>
-        needsAttention(answers[q.id]?.value ?? "") &&
-        answers[q.id]?.repairRequest === true &&
-        review.issueStatus[q.id] !== "complete"
-    ).length
+    const isCritical = inspection.type === "Repair Request"
+    const unresolvedCriticalCount = isCritical
+      ? QUESTIONS.filter(
+          (q) =>
+            needsAttention(answers[q.id]?.value ?? "") &&
+            review.issueStatus[q.id] !== "complete"
+        ).length
+      : 0
     const stage = getStage(flaggedCount, unresolvedCriticalCount, review.confirmedResolved)
 
     const answerCells = QUESTIONS.map((q) => {
@@ -86,6 +86,7 @@ export async function GET() {
 
     return toCsvRow([
       inspection.createdAt.toISOString(),
+      inspection.type,
       inspection.date,
       inspection.shift,
       inspection.lastName,
