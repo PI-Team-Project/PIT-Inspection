@@ -62,7 +62,7 @@ export default function InspectionForm({
           </option>
           {equipmentList.map((eq) => (
             <option key={eq.serial} value={eq.serial}>
-              {eq.label} — {eq.serial}
+              {eq.flNumber} — {eq.makeColor} ({eq.type})
             </option>
           ))}
         </select>

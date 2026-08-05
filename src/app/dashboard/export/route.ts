@@ -5,7 +5,10 @@ import { DASHBOARD_COOKIE, dashboardSessionValue } from "@/lib/auth"
 import { QUESTIONS, needsAttention } from "@/lib/questions"
 import { parseReview, getStage } from "@/lib/review"
 
-type Answers = Record<string, { value: string; specify?: string }>
+type Answers = Record<
+  string,
+  { value: string; specify?: string; repairRequest?: boolean }
+>
 
 function csvCell(value: string): string {
   if (/[",\n]/.test(value)) {
@@ -20,7 +23,7 @@ function toCsvRow(cells: string[]): string {
 
 const STAGE_LABEL: Record<string, string> = {
   unresolved: "Unresolved",
-  "pending-confirm": "Fixed - Pending Confirm",
+  "pending-confirm": "Needs Attention",
   confirmed: "Resolved & Confirmed",
   clean: "All Good",
 }
@@ -55,12 +58,13 @@ export async function GET() {
     const flaggedCount = QUESTIONS.filter((q) =>
       needsAttention(answers[q.id]?.value ?? "")
     ).length
-    const unresolvedCount = QUESTIONS.filter(
+    const unresolvedCriticalCount = QUESTIONS.filter(
       (q) =>
         needsAttention(answers[q.id]?.value ?? "") &&
+        answers[q.id]?.repairRequest === true &&
         review.issueStatus[q.id] !== "complete"
     ).length
-    const stage = getStage(flaggedCount, unresolvedCount, review.confirmedResolved)
+    const stage = getStage(flaggedCount, unresolvedCriticalCount, review.confirmedResolved)
 
     const answerCells = QUESTIONS.map((q) => {
       const a = answers[q.id]

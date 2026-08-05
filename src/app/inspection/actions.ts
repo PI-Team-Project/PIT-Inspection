@@ -25,17 +25,29 @@ export async function submitInspection(formData: FormData) {
 
   const answers: Record<
     string,
-    { value: string; specify?: string; note?: string; photos?: string[] }
+    {
+      value: string
+      specify?: string
+      note?: string
+      photos?: string[]
+      repairRequest?: boolean
+    }
   > = {}
   for (const q of QUESTIONS) {
     const value = String(formData.get(q.id) ?? "")
-    const entry: { value: string; specify?: string; note?: string; photos?: string[] } = {
-      value,
-    }
+    const entry: {
+      value: string
+      specify?: string
+      note?: string
+      photos?: string[]
+      repairRequest?: boolean
+    } = { value }
     if (needsSpecify(value)) {
       entry.specify = String(formData.get(`${q.id}_specify`) ?? "")
     }
     if (needsAttention(value)) {
+      entry.repairRequest = String(formData.get(`${q.id}_repairRequest`) ?? "") === "Yes"
+
       const note = String(formData.get(`${q.id}_note`) ?? "").trim()
       if (note) entry.note = note
 
@@ -51,7 +63,9 @@ export async function submitInspection(formData: FormData) {
       shift,
       lastName,
       firstName,
-      equipmentLabel: equipment?.label ?? "",
+      equipmentLabel: equipment
+        ? `${equipment.flNumber} — ${equipment.makeColor} (${equipment.type})`
+        : "",
       equipmentSerial,
       answers,
     },

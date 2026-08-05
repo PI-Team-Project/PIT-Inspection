@@ -4,8 +4,11 @@ import { useState } from "react"
 import Image from "next/image"
 import { submitInspection } from "./actions"
 import { needsAttention, type Question } from "@/lib/questions"
-import type { Equipment } from "@/lib/equipment"
+import type { Equipment, EquipmentCategory, EquipmentType } from "@/lib/equipment"
 import { SHIFTS } from "@/lib/shifts"
+
+const EQUIPMENT_CATEGORIES: EquipmentCategory[] = ["Forklift", "Pallet Jack"]
+const FORKLIFT_TYPES: EquipmentType[] = ["Sit Down", "Propane", "Standup"]
 
 type StepDef =
   | { kind: "date" }
@@ -18,12 +21,10 @@ export default function InspectionForm({
   questions,
   equipmentList,
   today,
-  currentShift,
 }: {
   questions: Question[]
   equipmentList: Equipment[]
   today: string
-  currentShift: string
 }) {
   const steps: StepDef[] = [
     { kind: "date" },
@@ -36,7 +37,6 @@ export default function InspectionForm({
   const [step, setStep] = useState(0)
   const [values, setValues] = useState<Record<string, string>>({
     date: today,
-    shift: currentShift,
   })
   const [photoPreviews, setPhotoPreviews] = useState<
     Record<string, (string | null)[]>
@@ -76,7 +76,8 @@ export default function InspectionForm({
     if (s.kind === "equipment") return Boolean(values.equipmentSerial)
     const v = values[s.question.id]
     if (!v) return false
-    if (v.startsWith("Other")) return Boolean(values[`${s.question.id}_specify`]?.trim())
+    if (v.startsWith("Other") && !values[`${s.question.id}_specify`]?.trim()) return false
+    if (needsAttention(v) && !values[`${s.question.id}_repairRequest`]) return false
     return true
   }
 
@@ -231,25 +232,161 @@ export default function InspectionForm({
         {/* Equipment */}
         <div hidden={current.kind !== "equipment"}>
           <StepHeading text="Which equipment are you inspecting?" />
-          <p className="mb-3 text-sm text-gray-500">
-            Unit # is tagged on the equipment.
+
+          <p className="mb-2 text-sm font-medium text-gray-700">
+            Please select the type of the equipment
           </p>
-          <select
-            name="equipmentSerial"
-            value={values.equipmentSerial ?? ""}
-            onChange={(e) => selectAndAdvance("equipmentSerial", e.target.value)}
-            required
-            className="w-full rounded-lg border border-gray-300 px-4 py-3 text-base"
-          >
-            <option value="" disabled>
-              Select equipment
-            </option>
-            {equipmentList.map((eq) => (
-              <option key={eq.serial} value={eq.serial}>
-                Unit #{eq.number} — {eq.label}
-              </option>
-            ))}
-          </select>
+          <div className="flex flex-wrap gap-2">
+            {EQUIPMENT_CATEGORIES.map((cat) => {
+              const isChecked = values.equipmentCategory === cat
+              return (
+                <button
+                  key={cat}
+                  type="button"
+                  onClick={() => {
+                    set("equipmentCategory", cat)
+                    set("equipmentType", cat === "Pallet Jack" ? "Pallet Jack" : "")
+                    set("equipmentMakeColor", "")
+                    set("equipmentSerial", "")
+                  }}
+                  className={`flex-1 rounded-lg border px-4 py-3 text-base transition-transform duration-100 active:scale-95 ${
+                    isChecked
+                      ? "border-blue-600 bg-blue-50 font-semibold text-blue-700"
+                      : "border-gray-300 text-gray-800"
+                  }`}
+                >
+                  {cat}
+                </button>
+              )
+            })}
+          </div>
+
+          {values.equipmentCategory === "Forklift" && (
+            <div className="mt-4">
+              <p className="mb-2 text-sm font-medium text-gray-700">
+                Select forklift type
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {FORKLIFT_TYPES.map((type) => {
+                  const isChecked = values.equipmentType === type
+                  return (
+                    <button
+                      key={type}
+                      type="button"
+                      onClick={() => {
+                        set("equipmentType", type)
+                        set("equipmentMakeColor", "")
+                        set("equipmentSerial", "")
+                      }}
+                      className={`flex-1 rounded-lg border px-3 py-3 text-sm transition-transform duration-100 active:scale-95 ${
+                        isChecked
+                          ? "border-blue-600 bg-blue-50 font-semibold text-blue-700"
+                          : "border-gray-300 text-gray-800"
+                      }`}
+                    >
+                      {type}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
+          {values.equipmentType && (
+            <div className="mt-4">
+              <p className="mb-2 text-sm font-medium text-gray-700">
+                Select color / make
+              </p>
+              {(() => {
+                const colors = Array.from(
+                  new Set(
+                    equipmentList
+                      .filter((eq) => eq.type === values.equipmentType)
+                      .map((eq) => eq.makeColor)
+                  )
+                )
+                if (colors.length === 0) {
+                  return (
+                    <p className="text-sm text-gray-500">
+                      No {values.equipmentType} equipment on file yet.
+                    </p>
+                  )
+                }
+                return (
+                  <div className="flex flex-wrap gap-2">
+                    {colors.map((color) => {
+                      const isChecked = values.equipmentMakeColor === color
+                      return (
+                        <button
+                          key={color}
+                          type="button"
+                          onClick={() => {
+                            set("equipmentMakeColor", color)
+                            set("equipmentSerial", "")
+                          }}
+                          className={`flex-1 rounded-lg border px-3 py-3 text-sm transition-transform duration-100 active:scale-95 ${
+                            isChecked
+                              ? "border-blue-600 bg-blue-50 font-semibold text-blue-700"
+                              : "border-gray-300 text-gray-800"
+                          }`}
+                        >
+                          {color}
+                        </button>
+                      )
+                    })}
+                  </div>
+                )
+              })()}
+            </div>
+          )}
+
+          {values.equipmentMakeColor && (
+            <div className="mt-4">
+              <label className="mb-2 block text-sm font-medium text-gray-700">
+                Unit
+              </label>
+              {(() => {
+                const matches = equipmentList.filter(
+                  (eq) =>
+                    eq.type === values.equipmentType &&
+                    eq.makeColor === values.equipmentMakeColor
+                )
+                return (
+                  <div className="grid grid-cols-4 gap-2">
+                    {matches.map((eq) => {
+                      const isChecked = values.equipmentSerial === eq.serial
+                      const suffix = eq.flNumber.split("-").pop()
+                      return (
+                        <button
+                          key={eq.serial}
+                          type="button"
+                          onClick={() => selectAndAdvance("equipmentSerial", eq.serial)}
+                          className={`flex flex-col items-center rounded-lg border px-2 py-3 transition-transform duration-100 active:scale-95 ${
+                            isChecked
+                              ? "border-blue-600 bg-blue-50"
+                              : "border-gray-300"
+                          }`}
+                        >
+                          <span
+                            className={`text-lg font-semibold ${
+                              isChecked ? "text-blue-700" : "text-gray-900"
+                            }`}
+                          >
+                            {suffix}
+                          </span>
+                          <span className="mt-0.5 text-[11px] text-gray-500">
+                            {eq.flNumber}
+                          </span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                )
+              })()}
+            </div>
+          )}
+
+          <input type="hidden" name="equipmentSerial" value={values.equipmentSerial ?? ""} />
         </div>
 
         {/* Questions */}
@@ -318,6 +455,43 @@ export default function InspectionForm({
             )}
             {Boolean(values[q.id]) && needsAttention(values[q.id]) && (
               <div className="mt-4 space-y-3">
+                <div>
+                  <p className="mb-1.5 text-sm font-medium text-gray-700">
+                    Does this need a Repair &amp; Inspection Request?
+                  </p>
+                  <p className="mb-2 text-xs text-gray-500">
+                    Select Yes if the equipment should not be used until a manager
+                    reviews it. Select No if it&apos;s still safe to use but needs
+                    attention soon.
+                  </p>
+                  <div className="flex gap-2">
+                    {(["Yes", "No"] as const).map((choice) => {
+                      const isChecked = values[`${q.id}_repairRequest`] === choice
+                      return (
+                        <button
+                          key={choice}
+                          type="button"
+                          onClick={() => set(`${q.id}_repairRequest`, choice)}
+                          className={`flex-1 rounded-lg border px-3 py-3 text-sm font-semibold transition-transform duration-100 active:scale-95 ${
+                            isChecked
+                              ? choice === "Yes"
+                                ? "border-red-600 bg-red-50 text-red-700"
+                                : "border-green-600 bg-green-50 text-green-700"
+                              : "border-gray-300 text-gray-700"
+                          }`}
+                        >
+                          {choice === "Yes" ? "Yes — Stop using it" : "No — Still usable"}
+                        </button>
+                      )
+                    })}
+                  </div>
+                  <input
+                    type="hidden"
+                    name={`${q.id}_repairRequest`}
+                    value={values[`${q.id}_repairRequest`] ?? ""}
+                  />
+                </div>
+
                 <div>
                   <label className="mb-1.5 block text-sm font-medium text-gray-700">
                     Photos

@@ -2,7 +2,7 @@ import Link from "next/link"
 import { cookies } from "next/headers"
 import { prisma } from "@/lib/prisma"
 import { QUESTIONS, QUESTIONS_BY_ID, needsAttention, type Question } from "@/lib/questions"
-import { EQUIPMENT_LIST } from "@/lib/equipment"
+import { EQUIPMENT_LIST, equipmentCategory, type Equipment } from "@/lib/equipment"
 import { parseReview, getStage, type ActivityEntry, type Stage } from "@/lib/review"
 import {
   DASHBOARD_COOKIE,
@@ -15,11 +15,25 @@ import { saveActivity, confirmResolved } from "./actions"
 
 type Answers = Record<
   string,
-  { value: string; specify?: string; note?: string; photos?: string[] }
+  {
+    value: string
+    specify?: string
+    note?: string
+    photos?: string[]
+    repairRequest?: boolean
+  }
 >
 type InspectionRow = ReturnType<typeof buildRow>
 
 const HISTORY_PREVIEW_COUNT = 5
+
+// A flagged item is only "critical" (drives the RED stage) if the inspector
+// explicitly requested a Repair & Inspection Request for it. A flagged item
+// without that (e.g. just answered "Poor") is a minor issue — still usable,
+// shows as YELLOW, doesn't block anything on its own.
+function isCritical(answers: Answers, q: Question): boolean {
+  return answers[q.id]?.repairRequest === true
+}
 
 function buildRow(
   inspection: Awaited<ReturnType<typeof prisma.inspection.findMany>>[number]
@@ -27,9 +41,10 @@ function buildRow(
   const answers = inspection.answers as Answers
   const review = parseReview(inspection.review)
   const flagged = QUESTIONS.filter((q) => needsAttention(answers[q.id]?.value ?? ""))
-  const unresolved = flagged.filter((q) => review.issueStatus[q.id] !== "complete")
+  const critical = flagged.filter((q) => isCritical(answers, q))
+  const unresolved = critical.filter((q) => review.issueStatus[q.id] !== "complete")
   const stage = getStage(flagged.length, unresolved.length, review.confirmedResolved)
-  return { inspection, answers, review, flagged, unresolved, stage }
+  return { inspection, answers, review, flagged, critical, unresolved, stage }
 }
 
 // Bad status is only "seen" if it's been sitting since a prior calendar day —
@@ -118,6 +133,13 @@ export default async function DashboardPage({
   const notWorkingCount = equipmentRows.filter((row) => isNotWorking(row.stage)).length
   const noInspectionCount = equipmentRows.filter((row) => isNotInspected(row.stage)).length
 
+  // Rows are already urgency-sorted; partitioning preserves that order within
+  // each category group.
+  const forkliftRows = rows.filter((row) => equipmentCategory(row.equipment.type) === "Forklift")
+  const palletJackRows = rows.filter(
+    (row) => equipmentCategory(row.equipment.type) === "Pallet Jack"
+  )
+
   return (
     <main className="mx-auto max-w-3xl px-4 py-8">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -173,219 +195,288 @@ export default async function DashboardPage({
         </p>
       )}
 
-      <div className="mt-3 space-y-3">
-        {rows.map(({ equipment, history, latest, stage, since, escalated }) => (
-          <details
-            key={equipment.serial}
-            className={`rounded-lg border bg-white p-4 ${
-              escalated ? "border-red-300" : "border-gray-300"
-            }`}
-          >
-            <summary className="-m-4 flex cursor-pointer items-start justify-between gap-3 rounded-lg p-4 transition-colors duration-100 active:bg-gray-50">
-              <div>
-                <div className="flex items-center gap-2">
-                  <StatusDot stage={stage} />
-                  <p className="text-lg font-semibold text-gray-900">
-                    {equipment.label}
-                  </p>
-                </div>
-                <p className="text-sm text-gray-600">
-                  Unit #{equipment.number} · Serial#: {equipment.serial}
-                </p>
-                {latest ? (
-                  <p className="mt-1 text-sm text-gray-600">
-                    Last inspected {latest.inspection.date} ·{" "}
-                    {latest.inspection.shift} · {latest.inspection.firstName}{" "}
-                    {latest.inspection.lastName}
-                  </p>
-                ) : (
-                  <p className="mt-1 text-sm text-gray-500">No inspection yet</p>
-                )}
-                {latest &&
-                  (stage === "unresolved" || stage === "pending-confirm") &&
-                  latest.flagged.length > 0 && (
-                    <IssueLine flagged={latest.flagged} review={latest.review} />
-                  )}
-              </div>
-              {since && (
-                <p className="shrink-0 pt-0.5 text-right text-xs font-semibold text-red-600">
-                  {daysPassedLabel(since, today)}
-                </p>
-              )}
-            </summary>
+      <EquipmentSection
+        title="Forklifts"
+        rows={forkliftRows}
+        today={today}
+        savedManagerName={savedManagerName}
+      />
+      <EquipmentSection
+        title="Pallet Jacks"
+        rows={palletJackRows}
+        today={today}
+        savedManagerName={savedManagerName}
+      />
+    </main>
+  )
+}
 
-            {latest && (
-              <div className="mt-4 border-t border-gray-200 pt-4">
-                {latest.stage === "pending-confirm" && (
-                  <form
-                    action={confirmResolved}
-                    className="mb-4 flex items-center justify-between gap-3 rounded-lg border border-amber-300 bg-amber-50 p-3"
-                  >
-                    <input type="hidden" name="inspectionId" value={latest.inspection.id} />
-                    <input
-                      type="text"
-                      name="reviewerName"
-                      defaultValue={savedManagerName}
-                      placeholder="Supervisor name"
-                      required
-                      className="min-w-0 flex-1 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
-                    />
-                    <button
-                      type="submit"
-                      className="shrink-0 rounded-lg bg-amber-600 px-3 py-2 text-sm font-semibold text-white transition-transform duration-100 active:scale-95 active:bg-amber-700"
-                    >
-                      ✓ Confirm All Clear
-                    </button>
-                  </form>
-                )}
+type EquipmentRow = {
+  equipment: Equipment
+  history: InspectionRow[]
+  latest: InspectionRow | undefined
+  stage: Stage | "none"
+  since: string | null
+  escalated: boolean
+}
 
-                <form action={saveActivity} className="space-y-2.5">
-                  <input type="hidden" name="inspectionId" value={latest.inspection.id} />
-
-                  {QUESTIONS.map((q) => {
-                    const answer = latest.answers[q.id]
-                    if (!answer) return null
-                    const bad = needsAttention(answer.value)
-                    const status = latest.review.issueStatus[q.id]
-                    const fixed = bad && status === "complete"
-                    return (
-                      <div key={q.id} className={bad ? "space-y-1.5" : ""}>
-                        <div
-                          className={`text-sm ${
-                            fixed ? "text-gray-500" : bad ? "text-red-700" : "text-gray-700"
-                          }`}
-                        >
-                          <span className="font-semibold">
-                            {q.number}. {q.label}:
-                          </span>{" "}
-                          {answer.value}
-                          {answer.specify ? ` — ${answer.specify}` : ""}
-                        </div>
-                        {answer.note && (
-                          <p className="text-xs text-gray-600">Note: {answer.note}</p>
-                        )}
-                        {answer.photos && answer.photos.length > 0 && (
-                          <div className="flex gap-1.5">
-                            {answer.photos.map((src, i) => (
-                              <a key={i} href={src} target="_blank" rel="noreferrer">
-                                {/* eslint-disable-next-line @next/next/no-img-element */}
-                                <img
-                                  src={src}
-                                  alt=""
-                                  className="h-14 w-14 rounded-md border border-gray-200 object-cover"
-                                />
-                              </a>
-                            ))}
-                          </div>
-                        )}
-                        {bad && (
-                          <div className="flex gap-2">
-                            <label className="flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-gray-300 px-2 py-1.5 text-xs font-semibold text-amber-700 has-checked:border-amber-500 has-checked:bg-amber-50">
-                              <input
-                                type="radio"
-                                name={`issue_${q.id}`}
-                                value="in_review"
-                                required
-                                defaultChecked={status === "in_review"}
-                                className="h-3.5 w-3.5"
-                              />
-                              In Review
-                            </label>
-                            <label className="flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-gray-300 px-2 py-1.5 text-xs font-semibold text-blue-700 has-checked:border-blue-500 has-checked:bg-blue-50">
-                              <input
-                                type="radio"
-                                name={`issue_${q.id}`}
-                                value="complete"
-                                required
-                                defaultChecked={status === "complete"}
-                                className="h-3.5 w-3.5"
-                              />
-                              Complete
-                            </label>
-                          </div>
-                        )}
-                      </div>
-                    )
-                  })}
-
-                  <div className="mt-4">
-                    <label className="mb-1 block text-sm font-medium text-gray-700">
-                      Note
-                    </label>
-                    <textarea
-                      name="noteText"
-                      placeholder="What did you check or change?"
-                      rows={2}
-                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-                    />
-                  </div>
-
-                  <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
-                    <label className="mb-1 block text-sm font-medium text-gray-700">
-                      Supervisor Confirmation
-                    </label>
-                    <input
-                      type="text"
-                      name="reviewerName"
-                      defaultValue={savedManagerName}
-                      placeholder="Name of the supervisor"
-                      required
-                      className="mb-2 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
-                    />
-                    <button
-                      type="submit"
-                      className="flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 py-3 text-base font-semibold text-white transition-transform duration-100 active:scale-95 active:bg-blue-700"
-                    >
-                      ✓ Confirm Review
-                    </button>
-                  </div>
-
-                  {latest.review.activity.length > 0 && (
-                    <div className="border-t border-gray-100 pt-2.5">
-                      <p className="mb-1.5 text-xs font-semibold text-gray-500">
-                        Activity
-                      </p>
-                      <ul className="space-y-1.5">
-                        {[...latest.review.activity]
-                          .reverse()
-                          .map((entry) => (
-                            <li key={entry.id} className="text-xs text-gray-600">
-                              <ActivityLine entry={entry} />
-                            </li>
-                          ))}
-                      </ul>
-                    </div>
-                  )}
-                </form>
-
-                <div className="mt-5 border-t border-gray-200 pt-4">
-                  <p className="mb-2 text-xs font-semibold text-gray-500">
-                    Inspection History ({history.length})
-                  </p>
-                  <ul className="space-y-2">
-                    {history.slice(0, HISTORY_PREVIEW_COUNT).map((row) => (
-                      <HistoryLine key={row.inspection.id} row={row} />
-                    ))}
-                  </ul>
-                  {history.length > HISTORY_PREVIEW_COUNT && (
-                    <details className="mt-2">
-                      <summary className="cursor-pointer text-xs font-medium text-blue-600">
-                        Show {history.length - HISTORY_PREVIEW_COUNT} more
-                      </summary>
-                      <ul className="mt-2 space-y-2">
-                        {history.slice(HISTORY_PREVIEW_COUNT).map((row) => (
-                          <HistoryLine key={row.inspection.id} row={row} />
-                        ))}
-                      </ul>
-                    </details>
-                  )}
-                </div>
-              </div>
-            )}
-          </details>
+function EquipmentSection({
+  title,
+  rows,
+  today,
+  savedManagerName,
+}: {
+  title: string
+  rows: EquipmentRow[]
+  today: string
+  savedManagerName: string
+}) {
+  if (rows.length === 0) return null
+  return (
+    <div className="mt-6">
+      <h2 className="mb-2 text-sm font-semibold tracking-wide text-gray-500 uppercase">
+        {title} ({rows.length})
+      </h2>
+      <div className="space-y-3">
+        {rows.map((row) => (
+          <EquipmentCard
+            key={row.equipment.serial}
+            row={row}
+            today={today}
+            savedManagerName={savedManagerName}
+          />
         ))}
       </div>
-    </main>
+    </div>
+  )
+}
+
+function EquipmentCard({
+  row: { equipment, history, latest, stage, since, escalated },
+  today,
+  savedManagerName,
+}: {
+  row: EquipmentRow
+  today: string
+  savedManagerName: string
+}) {
+  return (
+    <details
+      className={`rounded-lg border bg-white p-4 ${
+        escalated ? "border-red-300" : "border-gray-300"
+      }`}
+    >
+      <summary className="-m-4 flex cursor-pointer items-start justify-between gap-3 rounded-lg p-4 transition-colors duration-100 active:bg-gray-50">
+        <div>
+          <div className="flex items-center gap-2">
+            <StatusDot stage={stage} />
+            <p className="text-lg font-semibold text-gray-900">
+              {equipment.makeColor} — {equipment.type}
+            </p>
+          </div>
+          <p className="text-sm text-gray-600">
+            {equipment.flNumber} · Serial#: {equipment.serial}
+          </p>
+          {latest ? (
+            <p className="mt-1 text-sm text-gray-600">
+              Last inspected {latest.inspection.date} ·{" "}
+              {latest.inspection.shift} · {latest.inspection.firstName}{" "}
+              {latest.inspection.lastName}
+            </p>
+          ) : (
+            <p className="mt-1 text-sm text-gray-500">No inspection yet</p>
+          )}
+          {latest &&
+            (stage === "unresolved" || stage === "pending-confirm") &&
+            latest.flagged.length > 0 && (
+              <IssueLine
+                flagged={latest.flagged}
+                review={latest.review}
+                answers={latest.answers}
+              />
+            )}
+        </div>
+        {since && (
+          <p className="shrink-0 pt-0.5 text-right text-xs font-semibold text-red-600">
+            {daysPassedLabel(since, today)}
+          </p>
+        )}
+      </summary>
+
+      {latest && (
+        <div className="mt-4 border-t border-gray-200 pt-4">
+          {latest.stage === "pending-confirm" && (
+            <form
+              action={confirmResolved}
+              className="mb-4 flex items-center justify-between gap-3 rounded-lg border border-amber-300 bg-amber-50 p-3"
+            >
+              <input type="hidden" name="inspectionId" value={latest.inspection.id} />
+              <input
+                type="text"
+                name="reviewerName"
+                defaultValue={savedManagerName}
+                placeholder="Supervisor name"
+                required
+                className="min-w-0 flex-1 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
+              />
+              <button
+                type="submit"
+                className="shrink-0 rounded-lg bg-amber-600 px-3 py-2 text-sm font-semibold text-white transition-transform duration-100 active:scale-95 active:bg-amber-700"
+              >
+                ✓ Confirm All Clear
+              </button>
+            </form>
+          )}
+
+          <form action={saveActivity} className="space-y-2.5">
+            <input type="hidden" name="inspectionId" value={latest.inspection.id} />
+
+            {QUESTIONS.map((q) => {
+              const answer = latest.answers[q.id]
+              if (!answer) return null
+              const bad = needsAttention(answer.value)
+              const critical = answer.repairRequest === true
+              const status = latest.review.issueStatus[q.id]
+              const fixed = bad && status === "complete"
+              const textColor = fixed
+                ? "text-gray-500"
+                : critical
+                  ? "text-red-700"
+                  : bad
+                    ? "text-amber-700"
+                    : "text-gray-700"
+              return (
+                <div key={q.id} className={bad ? "space-y-1.5" : ""}>
+                  <div className={`text-sm ${textColor}`}>
+                    <span className="font-semibold">
+                      {q.number}. {q.label}:
+                    </span>{" "}
+                    {answer.value}
+                    {answer.specify ? ` — ${answer.specify}` : ""}
+                    {critical && !fixed && (
+                      <span className="ml-1.5 rounded-full bg-red-100 px-1.5 py-0.5 text-[10px] font-semibold text-red-700">
+                        REPAIR REQUEST
+                      </span>
+                    )}
+                  </div>
+                  {answer.note && (
+                    <p className="text-xs text-gray-600">Note: {answer.note}</p>
+                  )}
+                  {answer.photos && answer.photos.length > 0 && (
+                    <div className="flex gap-1.5">
+                      {answer.photos.map((src, i) => (
+                        <a key={i} href={src} target="_blank" rel="noreferrer">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={src}
+                            alt=""
+                            className="h-14 w-14 rounded-md border border-gray-200 object-cover"
+                          />
+                        </a>
+                      ))}
+                    </div>
+                  )}
+                  {bad && (
+                    <div className="flex gap-2">
+                      <label className="flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-gray-300 px-2 py-1.5 text-xs font-semibold text-amber-700 has-checked:border-amber-500 has-checked:bg-amber-50">
+                        <input
+                          type="radio"
+                          name={`issue_${q.id}`}
+                          value="in_review"
+                          required
+                          defaultChecked={status === "in_review"}
+                          className="h-3.5 w-3.5"
+                        />
+                        In Review
+                      </label>
+                      <label className="flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-gray-300 px-2 py-1.5 text-xs font-semibold text-blue-700 has-checked:border-blue-500 has-checked:bg-blue-50">
+                        <input
+                          type="radio"
+                          name={`issue_${q.id}`}
+                          value="complete"
+                          required
+                          defaultChecked={status === "complete"}
+                          className="h-3.5 w-3.5"
+                        />
+                        Complete
+                      </label>
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+
+            <div className="mt-4">
+              <label className="mb-1 block text-sm font-medium text-gray-700">
+                Note
+              </label>
+              <textarea
+                name="noteText"
+                placeholder="What did you check or change?"
+                rows={2}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+              />
+            </div>
+
+            <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+              <label className="mb-1 block text-sm font-medium text-gray-700">
+                Supervisor Confirmation
+              </label>
+              <input
+                type="text"
+                name="reviewerName"
+                defaultValue={savedManagerName}
+                placeholder="Name of the supervisor"
+                required
+                className="mb-2 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
+              />
+              <button
+                type="submit"
+                className="flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 py-3 text-base font-semibold text-white transition-transform duration-100 active:scale-95 active:bg-blue-700"
+              >
+                ✓ Confirm Review
+              </button>
+            </div>
+
+            {latest.review.activity.length > 0 && (
+              <div className="border-t border-gray-100 pt-2.5">
+                <p className="mb-1.5 text-xs font-semibold text-gray-500">Activity</p>
+                <ul className="space-y-1.5">
+                  {[...latest.review.activity].reverse().map((entry) => (
+                    <li key={entry.id} className="text-xs text-gray-600">
+                      <ActivityLine entry={entry} />
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </form>
+
+          <div className="mt-5 border-t border-gray-200 pt-4">
+            <p className="mb-2 text-xs font-semibold text-gray-500">
+              Inspection History ({history.length})
+            </p>
+            <ul className="space-y-2">
+              {history.slice(0, HISTORY_PREVIEW_COUNT).map((row) => (
+                <HistoryLine key={row.inspection.id} row={row} />
+              ))}
+            </ul>
+            {history.length > HISTORY_PREVIEW_COUNT && (
+              <details className="mt-2">
+                <summary className="cursor-pointer text-xs font-medium text-blue-600">
+                  Show {history.length - HISTORY_PREVIEW_COUNT} more
+                </summary>
+                <ul className="mt-2 space-y-2">
+                  {history.slice(HISTORY_PREVIEW_COUNT).map((row) => (
+                    <HistoryLine key={row.inspection.id} row={row} />
+                  ))}
+                </ul>
+              </details>
+            )}
+          </div>
+        </div>
+      )}
+    </details>
   )
 }
 
@@ -478,20 +569,24 @@ function StatusDot({ stage }: { stage: Stage | "none" }) {
 function IssueLine({
   flagged,
   review,
+  answers,
 }: {
   flagged: Question[]
   review: { issueStatus: Record<string, string> }
+  answers: Answers
 }) {
   const shown = flagged.slice(0, ISSUE_PREVIEW_COUNT)
   const remaining = flagged.length - shown.length
   return (
     <div className="mt-1 flex flex-wrap items-center gap-x-1 text-xs font-medium">
       {shown.map((q, i) => {
+        const critical = answers[q.id]?.repairRequest === true
         const resolved = review.issueStatus[q.id] === "complete"
+        const isRed = critical && !resolved
         return (
           <span key={q.id} className="flex items-center gap-1">
             {i > 0 && <span className="text-gray-300">·</span>}
-            <span className={resolved ? "text-amber-700" : "text-red-700"}>
+            <span className={isRed ? "text-red-700" : "text-amber-700"}>
               {q.shortLabel ?? q.label}
             </span>
           </span>
@@ -530,7 +625,7 @@ function StageBadge({
   if (stage === "pending-confirm") {
     return (
       <span className={`${base} bg-amber-100 text-amber-700`}>
-        🟡 Fixed — pending confirm
+        🟡 Needs attention
       </span>
     )
   }
