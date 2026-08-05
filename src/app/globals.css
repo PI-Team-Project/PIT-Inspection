@@ -25,6 +25,27 @@
   }
 }
 
+@keyframes text-sweep {
+  0% {
+    background-position: -120% 0;
+  }
+  100% {
+    background-position: 220% 0;
+  }
+}
+
+.text-sweep-highlight {
+  background-image: linear-gradient(
+    100deg,
+    transparent 30%,
+    rgba(56, 189, 248, 0.6) 50%,
+    transparent 70%
+  );
+  background-size: 250% 100%;
+  background-repeat: no-repeat;
+  animation: text-sweep 2.8s ease-in-out infinite;
+}
+
 body {
   background: var(--background);
   color: var(--foreground);
