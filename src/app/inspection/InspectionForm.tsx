@@ -137,16 +137,6 @@ export default function InspectionForm({
       </div>
 
       <div className="flex-1 px-4 pt-6 pb-6">
-        {step === 0 && (
-          <div className="mb-8">
-            <h1 className="text-2xl font-bold text-gray-900">PIT Inspection</h1>
-            <p className="mt-1 text-sm text-gray-600">
-              Inspection must be completed at beginning of every shift to
-              ensure equipment is good condition to use.
-            </p>
-          </div>
-        )}
-
         {/* Date */}
         <div hidden={current.kind !== "date"}>
           <StepHeading text="Inspection Date" />

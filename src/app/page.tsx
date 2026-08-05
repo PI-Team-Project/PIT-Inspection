@@ -7,6 +7,10 @@ export default function Home() {
       <p className="mt-2 text-gray-600">
         Warehouse vehicle pre-shift inspection.
       </p>
+      <p className="mt-1 text-sm text-gray-500">
+        Inspection must be completed at beginning of every shift to ensure
+        equipment is good condition to use.
+      </p>
       <div className="mt-8 flex w-full flex-col gap-3">
         <Link
           href="/inspection"

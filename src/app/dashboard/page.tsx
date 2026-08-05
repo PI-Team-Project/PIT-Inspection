@@ -127,9 +127,20 @@ export default async function DashboardPage({
   const noInspectionCount = equipmentRows.filter((row) => isNotInspected(row.stage)).length
 
   // Rows are already urgency-sorted; partitioning preserves that order within
-  // each category group.
+  // each group. Grouped by equipment category for now — swapping to a
+  // location-based grouping later is just a different partition key here.
   const forkliftRows = rows.filter((row) => equipmentCategory(row.equipment.type) === "Forklift")
   const palletJackRows = rows.filter(
+    (row) => equipmentCategory(row.equipment.type) === "Pallet Jack"
+  )
+
+  // The at-a-glance overview always reflects the full fleet, regardless of
+  // the working/not-working filter above — the point is to see everything
+  // in one sight before scrolling into the filtered, detailed list.
+  const allForkliftRows = equipmentRows.filter(
+    (row) => equipmentCategory(row.equipment.type) === "Forklift"
+  )
+  const allPalletJackRows = equipmentRows.filter(
     (row) => equipmentCategory(row.equipment.type) === "Pallet Jack"
   )
 
@@ -182,6 +193,11 @@ export default async function DashboardPage({
         )}
       </div>
 
+      <div className="mt-4 space-y-3">
+        <FleetOverview title="Forklifts" rows={allForkliftRows} />
+        <FleetOverview title="Pallet Jacks" rows={allPalletJackRows} />
+      </div>
+
       {rows.length === 0 && (
         <p className="mt-3 text-gray-500">
           {filter ? "No equipment matches this filter." : "No equipment on file."}
@@ -211,6 +227,29 @@ type EquipmentRow = {
   stage: Stage | "none"
   since: string | null
   escalated: boolean
+}
+
+function FleetOverview({ title, rows }: { title: string; rows: EquipmentRow[] }) {
+  if (rows.length === 0) return null
+  return (
+    <div>
+      <h3 className="mb-1.5 text-xs font-semibold tracking-wide text-gray-500 uppercase">
+        {title} ({rows.length})
+      </h3>
+      <div className="flex flex-wrap gap-1 rounded-lg border border-gray-200 bg-gray-50 p-2.5">
+        {rows.map((row) => (
+          <a
+            key={row.equipment.serial}
+            href={`#eq-${row.equipment.serial}`}
+            title={`${row.equipment.flNumber} — ${row.equipment.makeColor}`}
+            className="p-1"
+          >
+            <StatusDot stage={row.stage} />
+          </a>
+        ))}
+      </div>
+    </div>
+  )
 }
 
 function EquipmentSection({
@@ -255,6 +294,7 @@ function EquipmentCard({
 }) {
   return (
     <details
+      id={`eq-${equipment.serial}`}
       className={`rounded-lg border bg-white p-4 ${
         escalated ? "border-red-300" : "border-gray-300"
       }`}
