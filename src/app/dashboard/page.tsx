@@ -2,7 +2,7 @@ import Link from "next/link"
 import { cookies } from "next/headers"
 import { prisma } from "@/lib/prisma"
 import { QUESTIONS, QUESTIONS_BY_ID, needsAttention, type Question } from "@/lib/questions"
-import { EQUIPMENT_LIST, equipmentCategory, type Equipment } from "@/lib/equipment"
+import { EQUIPMENT_LIST, type Equipment, type EquipmentType } from "@/lib/equipment"
 import { parseReview, getStage, type ActivityEntry, type Stage } from "@/lib/review"
 import {
   DASHBOARD_COOKIE,
@@ -54,6 +54,24 @@ function badSince(history: InspectionRow[], today: string): string | null {
   return since && since < today ? since : null
 }
 
+const FORKLIFT_TYPES: EquipmentType[] = ["Sit Down", "Propane", "Standup"]
+
+// Forklift inspection/activity history is dropped after 2 years; pallet
+// jacks are kept longer (5 years) for now — separate retention windows per
+// equipment category, not a single blanket cutoff.
+const RETENTION_YEARS: Record<EquipmentType, number> = {
+  "Sit Down": 2,
+  Propane: 2,
+  Standup: 2,
+  "Pallet Jack": 5,
+}
+
+function retentionCutoff(type: EquipmentType, today: string): string {
+  const cutoff = new Date(today)
+  cutoff.setFullYear(cutoff.getFullYear() - RETENTION_YEARS[type])
+  return cutoff.toISOString().slice(0, 10)
+}
+
 const URGENCY_RANK: Record<Stage | "none", number> = {
   unresolved: 0,
   "pending-confirm": 1,
@@ -67,10 +85,40 @@ function urgencyRank(stage: Stage | "none", escalated: boolean) {
   return escalated ? base - 1 : base
 }
 
+// The type filter has two tiers: a top-level category (Forklift / Pallet
+// Jacks) and, once Forklift is picked, a multi-select of sub-types via the
+// `sub` param. "forklift" (no capital, not a real EquipmentType) means "all
+// forklifts." `sub` is a comma list of selected sub-types; zero selected
+// makes no sense (there'd be nothing to show), so it's never producible —
+// deselecting the last one just falls back to "all" instead.
+function typeHref(filter: string | undefined, type: string | undefined) {
+  const query: Record<string, string> = {}
+  if (filter) query.filter = filter
+  if (type) query.type = type
+  return { pathname: "/dashboard", query }
+}
+
+function subtypeHref(filter: string | undefined, next: EquipmentType[]) {
+  const query: Record<string, string> = { type: "forklift" }
+  if (filter) query.filter = filter
+  if (next.length > 0 && next.length < FORKLIFT_TYPES.length) query.sub = next.join(",")
+  return { pathname: "/dashboard", query }
+}
+
+function toggleSubtype(active: EquipmentType[], type: EquipmentType): EquipmentType[] {
+  const next = active.includes(type) ? active.filter((t) => t !== type) : [...active, type]
+  return next.length === 0 ? FORKLIFT_TYPES : next
+}
+
 export default async function DashboardPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; filter?: string }>
+  searchParams: Promise<{
+    error?: string
+    filter?: string
+    type?: string
+    sub?: string
+  }>
 }) {
   const params = await searchParams
   const cookieStore = await cookies()
@@ -81,6 +129,14 @@ export default async function DashboardPage({
   }
 
   const filter = params.filter
+  const typeParam = params.type
+  const isForkliftActive =
+    typeParam === "forklift" || FORKLIFT_TYPES.includes(typeParam as EquipmentType)
+  const parsedSubtypes = params.sub
+    ? FORKLIFT_TYPES.filter((t) => params.sub!.split(",").includes(t))
+    : FORKLIFT_TYPES
+  const activeSubtypes: EquipmentType[] =
+    parsedSubtypes.length > 0 ? parsedSubtypes : FORKLIFT_TYPES
   const savedManagerName = cookieStore.get(MANAGER_NAME_COOKIE)?.value ?? ""
   const today = new Date().toISOString().slice(0, 10)
 
@@ -99,7 +155,10 @@ export default async function DashboardPage({
   }
 
   const equipmentRows = EQUIPMENT_LIST.map((eq) => {
-    const history = historyByEquipment.get(eq.serial) ?? []
+    const cutoff = retentionCutoff(eq.type, today)
+    const history = (historyByEquipment.get(eq.serial) ?? []).filter(
+      (row) => row.inspection.date >= cutoff
+    )
     const latest = history[0]
     const stage = (latest?.stage ?? "none") as Stage | "none"
     const since = badSince(history, today)
@@ -123,45 +182,31 @@ export default async function DashboardPage({
           : equipmentRows
 
   const workingCount = equipmentRows.filter((row) => isWorking(row.stage)).length
-  const notWorkingCount = equipmentRows.filter((row) => isNotWorking(row.stage)).length
   const noInspectionCount = equipmentRows.filter((row) => isNotInspected(row.stage)).length
 
-  // Rows are already urgency-sorted; partitioning preserves that order within
-  // each group. Grouped by equipment category for now — swapping to a
-  // location-based grouping later is just a different partition key here.
-  const forkliftRows = rows.filter((row) => equipmentCategory(row.equipment.type) === "Forklift")
-  const palletJackRows = rows.filter(
-    (row) => equipmentCategory(row.equipment.type) === "Pallet Jack"
-  )
+  // One simple group per forklift type, plus one for pallet jacks — kept as
+  // a flat list rather than a nested category/type tree. Swapping to a
+  // location-based grouping later is just a different group list here.
+  const byType = (source: typeof equipmentRows, type: EquipmentType) =>
+    source.filter((row) => row.equipment.type === type)
 
-  // The at-a-glance overview always reflects the full fleet, regardless of
-  // the working/not-working filter above — the point is to see everything
-  // in one sight before scrolling into the filtered, detailed list.
-  const allForkliftRows = equipmentRows.filter(
-    (row) => equipmentCategory(row.equipment.type) === "Forklift"
-  )
-  const allPalletJackRows = equipmentRows.filter(
-    (row) => equipmentCategory(row.equipment.type) === "Pallet Jack"
-  )
+  const typedRows =
+    !typeParam || typeParam === "all"
+      ? rows
+      : typeParam === "forklift"
+        ? rows.filter((row) => activeSubtypes.includes(row.equipment.type))
+        : rows.filter((row) => row.equipment.type === typeParam)
 
   return (
-    <main className="mx-auto max-w-3xl px-4 py-8">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-3">
-          <HomeLink />
-          <h1 className="text-xl font-bold text-gray-900 sm:text-2xl">
-            Inspection Dashboard
-          </h1>
-        </div>
-        <a
-          href="/dashboard/export"
-          className="ml-auto shrink-0 rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 transition-transform duration-100 active:scale-95 active:bg-gray-100"
-        >
-          Export CSV
-        </a>
+    <main className="mx-auto max-w-lg px-4 py-8">
+      <div className="flex items-center gap-3">
+        <HomeLink />
+        <h1 className="text-xl font-bold text-gray-900 sm:text-2xl">
+          Inspection Dashboard
+        </h1>
       </div>
 
-      <div className="mt-6 flex flex-wrap items-center gap-4 text-sm font-medium">
+      <div className="mt-6 ml-auto flex w-fit flex-col items-stretch gap-0 text-sm font-medium">
         <Link
           href={filter === "working" ? "/dashboard" : "/dashboard?filter=working"}
           className={`flex items-center gap-1.5 rounded-full px-2 py-1 transition-colors duration-100 active:scale-95 ${
@@ -170,15 +215,6 @@ export default async function DashboardPage({
         >
           <span className="h-2.5 w-2.5 rounded-full bg-green-500 shadow-[0_0_3px_0.5px_rgba(34,197,94,0.9),0_0_6px_1px_rgba(34,197,94,0.5)]" />
           {workingCount}/{EQUIPMENT_LIST.length} working
-        </Link>
-        <Link
-          href={filter === "not-working" ? "/dashboard" : "/dashboard?filter=not-working"}
-          className={`flex items-center gap-1.5 rounded-full px-2 py-1 transition-colors duration-100 active:scale-95 ${
-            filter === "not-working" ? "bg-red-100 text-red-800" : "text-gray-700"
-          }`}
-        >
-          <span className="h-2.5 w-2.5 rounded-full bg-red-500 shadow-[0_0_3px_0.5px_rgba(239,68,68,0.9),0_0_6px_1px_rgba(239,68,68,0.5)]" />
-          {notWorkingCount}/{EQUIPMENT_LIST.length} not working
         </Link>
         {noInspectionCount > 0 && (
           <Link
@@ -193,29 +229,119 @@ export default async function DashboardPage({
         )}
       </div>
 
-      <div className="mt-4 space-y-3">
-        <FleetOverview title="Forklifts" rows={allForkliftRows} />
-        <FleetOverview title="Pallet Jacks" rows={allPalletJackRows} />
+      <div className="mt-4">
+        <InspectionRequestBanner rows={equipmentRows} />
+        <NeedsAttentionBanner rows={equipmentRows} />
       </div>
 
-      {rows.length === 0 && (
-        <p className="mt-3 text-gray-500">
-          {filter ? "No equipment matches this filter." : "No equipment on file."}
-        </p>
+      <div className="mt-6 space-y-3">
+        <FleetOverview
+          title="Forklift"
+          subgroups={FORKLIFT_TYPES.map((type) => ({
+            label: type,
+            rows: byType(equipmentRows, type),
+          }))}
+        />
+        <FleetOverview
+          title="Pallet Jacks"
+          subgroups={[{ label: "Pallet Jack", rows: byType(equipmentRows, "Pallet Jack") }]}
+        />
+      </div>
+
+      <div className="my-4 border-t border-gray-100" />
+
+      <div className="flex flex-wrap items-center gap-2 text-sm font-medium">
+        <Link
+          href={typeHref(filter, undefined)}
+          className={`rounded-full px-3 py-1 transition-colors duration-100 active:scale-95 ${
+            !typeParam ? "bg-blue-100 text-blue-800" : "bg-gray-100 text-gray-600"
+          }`}
+        >
+          View All
+        </Link>
+        <Link
+          href={typeHref(filter, "forklift")}
+          className={`rounded-full px-3 py-1 transition-colors duration-100 active:scale-95 ${
+            isForkliftActive ? "bg-blue-100 text-blue-800" : "bg-gray-100 text-gray-600"
+          }`}
+        >
+          Forklift
+        </Link>
+        <Link
+          href={typeHref(filter, "Pallet Jack")}
+          className={`rounded-full px-3 py-1 transition-colors duration-100 active:scale-95 ${
+            typeParam === "Pallet Jack" ? "bg-blue-100 text-blue-800" : "bg-gray-100 text-gray-600"
+          }`}
+        >
+          Pallet Jacks
+        </Link>
+      </div>
+
+      {isForkliftActive && (
+        <div className="mt-2 flex flex-wrap items-center gap-2 pl-2 text-xs font-medium">
+          <Link
+            href={subtypeHref(filter, FORKLIFT_TYPES)}
+            className={`rounded-full px-2.5 py-1 transition-colors duration-100 active:scale-95 ${
+              activeSubtypes.length === FORKLIFT_TYPES.length
+                ? "bg-blue-50 text-blue-700"
+                : "text-gray-500"
+            }`}
+          >
+            All
+          </Link>
+          {FORKLIFT_TYPES.map((type) => {
+            const selected = activeSubtypes.includes(type)
+            return (
+              <Link
+                key={type}
+                href={subtypeHref(filter, toggleSubtype(activeSubtypes, type))}
+                className={`rounded-full px-2.5 py-1 transition-colors duration-100 active:scale-95 ${
+                  selected ? "bg-blue-50 text-blue-700" : "text-gray-500"
+                }`}
+              >
+                {selected ? "✓ " : ""}
+                {type}
+              </Link>
+            )
+          })}
+        </div>
       )}
 
-      <EquipmentSection
-        title="Forklifts"
-        rows={forkliftRows}
-        today={today}
-        savedManagerName={savedManagerName}
-      />
+      {typedRows.length === 0 && !filter && !typeParam && (
+        <p className="mt-3 text-gray-500">No equipment on file.</p>
+      )}
+
+      {FORKLIFT_TYPES.some((type) => byType(typedRows, type).length > 0) && (
+        <h2 className="mt-6 text-sm font-bold tracking-wide text-gray-700 uppercase">
+          Forklift
+        </h2>
+      )}
+      {FORKLIFT_TYPES.map((type) => (
+        <EquipmentSection
+          key={type}
+          title={type}
+          rows={byType(typedRows, type)}
+          today={today}
+          savedManagerName={savedManagerName}
+        />
+      ))}
+
       <EquipmentSection
         title="Pallet Jacks"
-        rows={palletJackRows}
+        rows={byType(typedRows, "Pallet Jack")}
         today={today}
         savedManagerName={savedManagerName}
+        emphasize
       />
+
+      <div className="mt-8 flex justify-end border-t border-gray-100 pt-4">
+        <a
+          href="/dashboard/export"
+          className="shrink-0 rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 transition-transform duration-100 active:scale-95 active:bg-gray-100"
+        >
+          Export CSV
+        </a>
+      </div>
     </main>
   )
 }
@@ -229,25 +355,94 @@ type EquipmentRow = {
   escalated: boolean
 }
 
-function FleetOverview({ title, rows }: { title: string; rows: EquipmentRow[] }) {
-  if (rows.length === 0) return null
+function FleetOverview({
+  title,
+  subgroups,
+}: {
+  title: string
+  subgroups: { label: string; rows: EquipmentRow[] }[]
+}) {
+  const visible = subgroups.filter((g) => g.rows.length > 0)
+  const total = visible.reduce((sum, g) => sum + g.rows.length, 0)
+  if (total === 0) return null
+  const showSubLabels = visible.length > 1
   return (
     <div>
       <h3 className="mb-1.5 text-xs font-semibold tracking-wide text-gray-500 uppercase">
-        {title} ({rows.length})
+        {title} ({total})
       </h3>
-      <div className="flex flex-wrap gap-1 rounded-lg border border-gray-200 bg-gray-50 p-2.5">
-        {rows.map((row) => (
-          <a
-            key={row.equipment.serial}
-            href={`#eq-${row.equipment.serial}`}
-            title={`${row.equipment.flNumber} — ${row.equipment.makeColor}`}
-            className="p-1"
-          >
-            <StatusDot stage={row.stage} />
-          </a>
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-3 rounded-lg border border-gray-200 bg-gray-50 p-3">
+        {visible.map((g) => (
+          <div key={g.label} className="flex items-center gap-2.5">
+            {showSubLabels && (
+              <span className="text-xs font-medium text-gray-500">{g.label}</span>
+            )}
+            <div className="flex flex-wrap gap-1.5">
+              {g.rows.map((row) => (
+                <a
+                  key={row.equipment.serial}
+                  href={`#eq-${row.equipment.serial}`}
+                  title={`${row.equipment.flNumber} — ${row.equipment.makeColor}`}
+                  className="p-1"
+                >
+                  <StatusDot stage={row.stage} />
+                </a>
+              ))}
+            </div>
+          </div>
         ))}
       </div>
+    </div>
+  )
+}
+
+function InspectionRequestBanner({ rows }: { rows: EquipmentRow[] }) {
+  const requested = rows.filter((row) => row.stage === "unresolved")
+
+  if (requested.length === 0) {
+    return (
+      <p className="flex items-center gap-1.5 text-sm font-medium text-green-700">
+        🟢 No Inspection Requests — all equipment clear
+      </p>
+    )
+  }
+
+  return (
+    <div className="rounded-md border-l-4 border-red-400 bg-red-50 py-2.5 pl-3 pr-3">
+      <p className="text-sm text-red-700">
+        <span className="font-semibold">🔴 Inspection Requested ({requested.length}):</span>{" "}
+        {requested.map((row, i) => (
+          <span key={row.equipment.serial}>
+            {i > 0 && ", "}
+            <a href={`#eq-${row.equipment.serial}`} className="underline">
+              {row.equipment.flNumber} — {row.equipment.makeColor}
+            </a>
+          </span>
+        ))}
+      </p>
+    </div>
+  )
+}
+
+function NeedsAttentionBanner({ rows }: { rows: EquipmentRow[] }) {
+  const needsAttentionRows = rows.filter((row) => row.stage === "pending-confirm")
+  if (needsAttentionRows.length === 0) return null
+
+  return (
+    <div className="mt-2 rounded-md border-l-4 border-amber-400 bg-amber-50 py-2.5 pl-3 pr-3">
+      <p className="text-sm text-amber-700">
+        <span className="font-semibold">
+          🟡 Needs Attention ({needsAttentionRows.length}):
+        </span>{" "}
+        {needsAttentionRows.map((row, i) => (
+          <span key={row.equipment.serial}>
+            {i > 0 && ", "}
+            <a href={`#eq-${row.equipment.serial}`} className="underline">
+              {row.equipment.flNumber} — {row.equipment.makeColor}
+            </a>
+          </span>
+        ))}
+      </p>
     </div>
   )
 }
@@ -257,16 +452,22 @@ function EquipmentSection({
   rows,
   today,
   savedManagerName,
+  emphasize,
 }: {
   title: string
   rows: EquipmentRow[]
   today: string
   savedManagerName: string
+  emphasize?: boolean
 }) {
   if (rows.length === 0) return null
   return (
     <div className="mt-6">
-      <h2 className="mb-2 text-sm font-semibold tracking-wide text-gray-500 uppercase">
+      <h2
+        className={`mb-2 text-sm tracking-wide uppercase ${
+          emphasize ? "font-bold text-gray-700" : "font-semibold text-gray-500"
+        }`}
+      >
         {title} ({rows.length})
       </h2>
       <div className="space-y-3">
@@ -292,42 +493,46 @@ function EquipmentCard({
   today: string
   savedManagerName: string
 }) {
+  const hasPhotos = latest
+    ? Object.values(latest.answers).some((a) => (a.photos?.length ?? 0) > 0)
+    : false
+
   return (
     <details
       id={`eq-${equipment.serial}`}
-      className={`rounded-lg border bg-white p-4 ${
+      className={`relative rounded-lg border bg-white p-4 ${
         escalated ? "border-red-300" : "border-gray-300"
       }`}
     >
       <summary className="-m-4 flex cursor-pointer items-start justify-between gap-3 rounded-lg p-4 transition-colors duration-100 active:bg-gray-50">
         <div>
           <div className="flex items-center gap-2">
-            <StatusDot stage={stage} />
+            <StatusDot stage={stage} size="lg" />
             <p className="text-lg font-semibold text-gray-900">
-              {equipment.makeColor} — {equipment.type}
+              {equipment.makeColor} — {equipment.type} — {equipment.flNumber}
             </p>
           </div>
-          <p className="text-sm text-gray-600">
-            {equipment.flNumber} · Serial#: {equipment.serial}
-          </p>
-          {latest ? (
-            <p className="mt-1 text-sm text-gray-600">
-              Last inspected {latest.inspection.date} ·{" "}
-              {latest.inspection.shift} · {latest.inspection.firstName}{" "}
-              {latest.inspection.lastName}
-            </p>
-          ) : (
-            <p className="mt-1 text-sm text-gray-500">No inspection yet</p>
-          )}
-          {latest &&
-            (stage === "unresolved" || stage === "pending-confirm") &&
-            latest.flagged.length > 0 && (
-              <IssueLine
-                flagged={latest.flagged}
-                review={latest.review}
-                critical={isCriticalInspection(latest.inspection)}
-              />
+          <div className="pl-7">
+            <p className="text-sm text-gray-600">Serial#: {equipment.serial}</p>
+            {latest ? (
+              <p className="mt-1 text-sm text-gray-600">
+                Last inspected {latest.inspection.date} ·{" "}
+                {latest.inspection.shift} · {latest.inspection.firstName}{" "}
+                {latest.inspection.lastName}
+              </p>
+            ) : (
+              <p className="mt-1 text-sm text-gray-500">No inspection yet</p>
             )}
+            {latest &&
+              (stage === "unresolved" || stage === "pending-confirm") &&
+              latest.flagged.length > 0 && (
+                <IssueLine
+                  flagged={latest.flagged}
+                  review={latest.review}
+                  critical={isCriticalInspection(latest.inspection)}
+                />
+              )}
+          </div>
         </div>
         {since && (
           <p className="shrink-0 pt-0.5 text-right text-xs font-semibold text-red-600">
@@ -504,6 +709,26 @@ function EquipmentCard({
           </div>
         </div>
       )}
+
+      {hasPhotos && (
+        <span
+          className="absolute bottom-2 right-2 text-gray-400"
+          title="Photos attached"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 20 20"
+            fill="currentColor"
+            className="h-4 w-4"
+          >
+            <path
+              fillRule="evenodd"
+              d="M1 8a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 018.07 3h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0016.07 6H17a2 2 0 012 2v9a2 2 0 01-2 2H3a2 2 0 01-2-2V8zm13.5 3a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0z"
+              clipRule="evenodd"
+            />
+          </svg>
+        </span>
+      )}
     </details>
   )
 }
@@ -568,30 +793,43 @@ function daysPassedLabel(since: string, today: string): string {
 
 const ISSUE_PREVIEW_COUNT = 3
 
-const STATUS_DOT: Record<Stage | "none", { dot: string; glow: string }> = {
+const STATUS_DOT: Record<Stage | "none", { dot: string; glow: string; glowLg: string }> = {
   unresolved: {
     dot: "bg-red-500",
-    glow: "shadow-[0_0_3px_0.5px_rgba(239,68,68,0.9),0_0_6px_1px_rgba(239,68,68,0.5)]",
+    glow: "shadow-[0_0_6px_2px_rgba(239,68,68,1),0_0_12px_3px_rgba(239,68,68,0.7)]",
+    glowLg: "shadow-[0_0_5px_1px_rgba(239,68,68,0.9),0_0_10px_2px_rgba(239,68,68,0.5)]",
   },
   "pending-confirm": {
     dot: "bg-amber-500",
-    glow: "shadow-[0_0_3px_0.5px_rgba(245,158,11,0.9),0_0_6px_1px_rgba(245,158,11,0.5)]",
+    glow: "shadow-[0_0_6px_2px_rgba(245,158,11,1),0_0_12px_3px_rgba(245,158,11,0.7)]",
+    glowLg: "shadow-[0_0_5px_1px_rgba(245,158,11,0.9),0_0_10px_2px_rgba(245,158,11,0.5)]",
   },
   confirmed: {
     dot: "bg-green-500",
-    glow: "shadow-[0_0_3px_0.5px_rgba(34,197,94,0.9),0_0_6px_1px_rgba(34,197,94,0.5)]",
+    glow: "shadow-[0_0_6px_2px_rgba(34,197,94,1),0_0_12px_3px_rgba(34,197,94,0.7)]",
+    glowLg: "shadow-[0_0_5px_1px_rgba(34,197,94,0.9),0_0_10px_2px_rgba(34,197,94,0.5)]",
   },
   clean: {
     dot: "bg-green-500",
-    glow: "shadow-[0_0_3px_0.5px_rgba(34,197,94,0.9),0_0_6px_1px_rgba(34,197,94,0.5)]",
+    glow: "shadow-[0_0_6px_2px_rgba(34,197,94,1),0_0_12px_3px_rgba(34,197,94,0.7)]",
+    glowLg: "shadow-[0_0_5px_1px_rgba(34,197,94,0.9),0_0_10px_2px_rgba(34,197,94,0.5)]",
   },
-  none: { dot: "bg-gray-300", glow: "" },
+  none: { dot: "bg-gray-400", glow: "", glowLg: "" },
 }
 
-function StatusDot({ stage }: { stage: Stage | "none" }) {
+function StatusDot({
+  stage,
+  size = "sm",
+}: {
+  stage: Stage | "none"
+  size?: "sm" | "lg"
+}) {
   const c = STATUS_DOT[stage]
   const blink = stage === "unresolved" ? "animate-[status-blink_1.3s_ease-in-out_infinite]" : ""
-  return <span className={`h-3 w-3 shrink-0 rounded-full ${c.dot} ${c.glow} ${blink}`} />
+  if (size === "lg") {
+    return <span className={`h-5 w-5 shrink-0 rounded-full ${c.dot} ${c.glowLg} ${blink}`} />
+  }
+  return <span className={`h-4 w-4 shrink-0 rounded-full ${c.dot} ${c.glow} ${blink}`} />
 }
 
 function IssueLine({

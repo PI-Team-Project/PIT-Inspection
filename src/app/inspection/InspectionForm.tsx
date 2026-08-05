@@ -1,7 +1,6 @@
 "use client"
 
 import { useState } from "react"
-import Image from "next/image"
 import { submitInspection } from "./actions"
 import { needsAttention, type Question } from "@/lib/questions"
 import type { Equipment, EquipmentCategory, EquipmentType } from "@/lib/equipment"
@@ -140,6 +139,9 @@ export default function InspectionForm({
         {/* Date */}
         <div hidden={current.kind !== "date"}>
           <StepHeading text="Inspection Date" />
+          <p className="mb-5 text-sm text-gray-500">
+            Let&apos;s get started — it only takes a couple of minutes.
+          </p>
           <input
             type="date"
             name="date"
@@ -405,7 +407,7 @@ export default function InspectionForm({
           {values.equipmentMakeColor && (
             <div className="mt-4">
               <label className="mb-2 block text-sm font-medium text-gray-700">
-                Unit
+                FL#
               </label>
               {(() => {
                 const matches = equipmentList.filter(
@@ -603,16 +605,6 @@ export default function InspectionForm({
             )
           )}
         </div>
-
-        <div className="flex justify-center pt-3">
-          <Image
-            src="/lx-pantos-logo.png"
-            alt="LX Pantos"
-            width={100}
-            height={28}
-            className="opacity-70"
-          />
-        </div>
       </div>
     </form>
   )
@@ -627,7 +619,7 @@ function timeOfDayIcon(date: Date): string {
 }
 
 function StepHeading({ text }: { text: string }) {
-  return <h2 className="mt-6 mb-6 text-xl font-bold text-gray-900">{text}</h2>
+  return <h2 className="mb-6 text-xl font-bold text-gray-900">{text}</h2>
 }
 
 function CameraIcon({ className }: { className?: string }) {

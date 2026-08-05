@@ -7,18 +7,18 @@ export type Question = {
   note?: string
 }
 
-// Single source of truth for the checklist portion of the inspection (items 6-14).
+// Single source of truth for the checklist portion of the inspection.
 // Edit this list to change the form — no database migration needed, answers are stored as JSON.
 export const QUESTIONS: Question[] = [
   {
     id: "tires",
-    number: 6,
+    number: 1,
     label: "Tires",
     options: ["Good", "Poor", "Other (Specify)"],
   },
   {
     id: "fluidBattery",
-    number: 7,
+    number: 2,
     label: "Fluid Levels/Battery",
     shortLabel: "Fluid Low",
     note: "If water is needed, only fill AFTER a fully charged battery.",
@@ -26,47 +26,47 @@ export const QUESTIONS: Question[] = [
   },
   {
     id: "batteryPlug",
-    number: 8,
+    number: 3,
     label: "Battery Plug",
     options: ["Good (No Exposed Wire)", "Poor", "Other (Specify)"],
   },
   {
     id: "batteryIndicator",
-    number: 9,
+    number: 4,
     label: "Battery Indicator",
     shortLabel: "Battery",
     options: ["Good", "Damaged", "Other (Specify)"],
   },
   {
     id: "fluidLeaks",
-    number: 10,
+    number: 5,
     label: "Any Fluid Leaks",
     shortLabel: "Leakage",
     options: ["No", "Yes", "Other (Specify)"],
   },
   {
     id: "bodyCondition",
-    number: 11,
+    number: 6,
     label: "Body Condition",
     shortLabel: "Body Damage",
     options: ["Good", "Poor", "Other (Specify)"],
   },
   {
     id: "horn",
-    number: 12,
+    number: 7,
     label: "Horn",
     options: ["Good", "Poor", "Other (Specify)"],
   },
   {
     id: "forwardBackward",
-    number: 13,
+    number: 8,
     label: "Forward & Backward Movement",
     shortLabel: "Movement",
     options: ["Working condition", "Not working condition", "Other (Specify)"],
   },
   {
     id: "liftLowering",
-    number: 14,
+    number: 9,
     label: "Lift/Lowering Movement",
     shortLabel: "Lift/Lower",
     options: ["Working condition", "Not working condition", "Other (Specify)"],
