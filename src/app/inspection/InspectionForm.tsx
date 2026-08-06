@@ -570,18 +570,23 @@ export default function InspectionForm({
 
         {/* Location check */}
         <div hidden={current.kind !== "locationCheck"}>
-          <StepHeading text="Is the equipment where it's supposed to be?" />
           {(() => {
             const expectedLocation = equipmentList.find(
               (eq) => eq.serial === values.equipmentSerial
             )?.location
             return (
-              expectedLocation && (
-                <p className="mb-5 text-sm text-gray-500">
-                  Expected location:{" "}
-                  <span className="font-medium text-gray-700">{expectedLocation}</span>
-                </p>
-              )
+              <StepHeading
+                text={
+                  expectedLocation ? (
+                    <>
+                      Is the equipment at{" "}
+                      <span className="underline">{expectedLocation}</span>?
+                    </>
+                  ) : (
+                    "Is the equipment where it's supposed to be?"
+                  )
+                }
+              />
             )
           })()}
           <div className="flex flex-col gap-5">
@@ -635,11 +640,11 @@ export default function InspectionForm({
           </div>
 
           {values.locationMatches === "No" && (
-            <div className="mt-5">
-              <p className="mb-2 text-sm font-medium text-gray-700">
+            <div className="mt-8">
+              <p className="mb-3 text-base font-semibold text-gray-900">
                 Where is it actually?
               </p>
-              <div className="flex flex-wrap gap-2">
+              <div className="grid grid-cols-2 gap-2">
                 {LOCATIONS.map((loc) => {
                   const isChecked = values.actualLocation === loc
                   return (
@@ -647,7 +652,7 @@ export default function InspectionForm({
                       key={loc}
                       type="button"
                       onClick={() => set("actualLocation", loc)}
-                      className={`rounded-lg border px-3 py-2 text-sm transition-transform duration-100 active:scale-95 ${
+                      className={`rounded-lg border px-3 py-3 text-sm transition-transform duration-100 active:scale-95 ${
                         isChecked
                           ? "border-blue-600 bg-blue-50 font-semibold text-blue-700"
                           : "border-gray-300 text-gray-800"
@@ -814,7 +819,7 @@ function timeOfDayIcon(date: Date): string {
   return "🌙"
 }
 
-function StepHeading({ text }: { text: string }) {
+function StepHeading({ text }: { text: React.ReactNode }) {
   return <h2 className="mb-6 text-xl font-bold text-gray-900">{text}</h2>
 }
 

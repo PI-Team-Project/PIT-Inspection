@@ -4,11 +4,10 @@ export type Shift = {
   endHour: number // 0-23, local time, exclusive (wraps past midnight if <= startHour)
 }
 
-// Placeholder boundaries — adjust to match the real shift schedule.
+// Only two shifts actually exist — Day and Night.
 export const SHIFTS: Shift[] = [
-  { name: "Day", startHour: 6, endHour: 14 },
-  { name: "Evening", startHour: 14, endHour: 22 },
-  { name: "Night", startHour: 22, endHour: 6 },
+  { name: "Day", startHour: 6, endHour: 18 },
+  { name: "Night", startHour: 18, endHour: 6 },
 ]
 
 export function getShiftForDate(date: Date): string {

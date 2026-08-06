@@ -1,5 +1,9 @@
 import { prisma } from "./prisma"
-import { EQUIPMENT_LIST, type Equipment } from "./equipment"
+import { EQUIPMENT_LIST, LOCATIONS, type Equipment, type Location } from "./equipment"
+
+function isValidLocation(value: string): value is Location {
+  return (LOCATIONS as readonly string[]).includes(value)
+}
 
 // Server-only: merges the EquipmentLocation overrides table on top of the
 // static fleet list's default locations. Equipment.ts stays importable from
@@ -11,6 +15,6 @@ export async function getEquipmentListWithCurrentLocations(): Promise<Equipment[
   const overrideBySerial = new Map(overrides.map((o) => [o.serial, o.location]))
   return EQUIPMENT_LIST.map((eq) => {
     const override = overrideBySerial.get(eq.serial)
-    return override ? { ...eq, location: override } : eq
+    return override && isValidLocation(override) ? { ...eq, location: override } : eq
   })
 }
