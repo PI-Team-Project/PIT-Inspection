@@ -35,3 +35,12 @@ model EquipmentLocation {
   updatedAt DateTime @updatedAt
   updatedBy String?
 }
+
+// A serial in this table is hidden from the dashboard and the inspection
+// wizard's equipment picker. Its past Inspection rows are left untouched —
+// this is a soft delete for retention purposes, never a real deletion.
+model EquipmentArchived {
+  serial     String   @id
+  archivedAt DateTime @default(now())
+  archivedBy String?
+}

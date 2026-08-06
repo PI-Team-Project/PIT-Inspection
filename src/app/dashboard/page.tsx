@@ -9,7 +9,7 @@ import {
   REPAIR_REQUEST_QUESTION,
   type Question,
 } from "@/lib/questions"
-import { equipmentTypeLabel, type Equipment, type EquipmentType } from "@/lib/equipment"
+import { equipmentTypeLabel, LOCATIONS, type Equipment, type EquipmentType } from "@/lib/equipment"
 import { getEquipmentListWithCurrentLocations } from "@/lib/equipmentLocations"
 import {
   parseReview,
@@ -27,7 +27,8 @@ import {
 import PinForm from "./PinForm"
 import HomeLink from "./HomeLink"
 import PhotoGallery from "./PhotoGallery"
-import { saveActivity, confirmResolved } from "./actions"
+import DeleteVehicleControl from "./DeleteVehicleControl"
+import { saveActivity, confirmResolved, updateEquipmentLocation } from "./actions"
 
 type Answers = Record<
   string,
@@ -812,6 +813,37 @@ function EquipmentCard({
           </div>
         </div>
       )}
+
+      <div className="mt-5 flex items-center justify-between gap-3 border-t border-gray-200 pt-4">
+        <form
+          action={updateEquipmentLocation}
+          className="flex flex-1 items-center gap-2"
+        >
+          <input type="hidden" name="serial" value={equipment.serial} />
+          <label className="text-xs font-semibold text-gray-500">Location</label>
+          <select
+            name="location"
+            defaultValue={equipment.location}
+            className="flex-1 rounded-lg border border-gray-300 px-2 py-1.5 text-sm"
+          >
+            {LOCATIONS.map((loc) => (
+              <option key={loc} value={loc}>
+                {loc}
+              </option>
+            ))}
+          </select>
+          <button
+            type="submit"
+            className="shrink-0 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white transition-transform duration-100 active:scale-95 active:bg-blue-700"
+          >
+            Save
+          </button>
+        </form>
+      </div>
+
+      <div className="mt-3">
+        <DeleteVehicleControl serial={equipment.serial} flNumber={equipment.flNumber} />
+      </div>
     </details>
   )
 }

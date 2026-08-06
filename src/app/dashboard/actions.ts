@@ -10,6 +10,7 @@ import {
   isValidPin,
 } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { LOCATIONS } from "@/lib/equipment"
 import {
   parseReview,
   flaggedIssueIds,
@@ -138,4 +139,47 @@ export async function confirmResolved(formData: FormData) {
   })
 
   revalidatePath("/dashboard")
+}
+
+export async function updateEquipmentLocation(formData: FormData) {
+  const serial = String(formData.get("serial") ?? "")
+  const location = String(formData.get("location") ?? "")
+  if (!serial || !(LOCATIONS as readonly string[]).includes(location)) return
+
+  const cookieStore = await cookies()
+  const managerName = cookieStore.get(MANAGER_NAME_COOKIE)?.value || "Unknown"
+
+  await prisma.equipmentLocation.upsert({
+    where: { serial },
+    update: { location, updatedBy: managerName },
+    create: { serial, location, updatedBy: managerName },
+  })
+
+  revalidatePath("/dashboard")
+  revalidatePath("/inspection")
+}
+
+export async function archiveEquipment(
+  _prevState: { error: string | null },
+  formData: FormData
+): Promise<{ error: string | null }> {
+  const pin = String(formData.get("pin") ?? "")
+  const serial = String(formData.get("serial") ?? "")
+
+  if (!isValidPin(pin)) {
+    return { error: "Incorrect PIN." }
+  }
+
+  const cookieStore = await cookies()
+  const managerName = cookieStore.get(MANAGER_NAME_COOKIE)?.value || "Unknown"
+
+  await prisma.equipmentArchived.upsert({
+    where: { serial },
+    update: {},
+    create: { serial, archivedBy: managerName },
+  })
+
+  revalidatePath("/dashboard")
+  revalidatePath("/inspection")
+  return { error: null }
 }
