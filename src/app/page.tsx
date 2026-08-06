@@ -2,7 +2,7 @@ import Link from "next/link"
 
 export default function Home() {
   return (
-    <main className="relative mx-auto flex h-full w-full max-w-lg flex-col items-center justify-center overflow-hidden px-4 py-8 text-center">
+    <main className="relative mx-auto flex h-full w-full max-w-lg flex-col items-center justify-center overflow-hidden px-4 pt-8 pb-20 text-center">
       <div
         aria-hidden="true"
         className="pointer-events-none absolute inset-0 -z-10 flex select-none items-center justify-center"
@@ -12,7 +12,10 @@ export default function Home() {
         </span>
       </div>
 
-      <h1 className="text-3xl font-bold text-gray-900">PIT Inspection</h1>
+      <p className="text-xs font-medium tracking-wide text-gray-400">
+        📍 Holland, Michigan
+      </p>
+      <h1 className="mt-1 text-3xl font-bold text-gray-900">PIT Inspection</h1>
       <p className="mt-2 text-gray-600">
         Warehouse vehicle pre-shift inspection.
       </p>

@@ -44,6 +44,27 @@ export async function submitInspection(formData: FormData) {
     }
   > = {}
 
+  // Shared by both flows — location drifts occasionally, so this is asked
+  // right after equipment selection regardless of Daily vs. Repair Request.
+  const locationMatches = String(formData.get("locationMatches") ?? "")
+  const actualLocation = String(formData.get("actualLocation") ?? "").trim()
+  if (locationMatches) {
+    answers.locationCheck = {
+      value: locationMatches,
+      ...(locationMatches === "No" && actualLocation ? { specify: actualLocation } : {}),
+    }
+  }
+  if (locationMatches === "No" && actualLocation && equipmentSerial) {
+    // Persists so every future inspection (and the dashboard) shows this as
+    // the equipment's current location instead of repeating the same
+    // "wrong" default from EQUIPMENT_LIST every time.
+    await prisma.equipmentLocation.upsert({
+      where: { serial: equipmentSerial },
+      update: { location: actualLocation, updatedBy: `${firstName} ${lastName}`.trim() },
+      create: { serial: equipmentSerial, location: actualLocation, updatedBy: `${firstName} ${lastName}`.trim() },
+    })
+  }
+
   if (type === "Repair Request") {
     // No checklist here — just the description and photos the reporter
     // gave, stored as a single always-flagged issue. Each photo slot has

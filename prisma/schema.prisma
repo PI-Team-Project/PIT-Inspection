@@ -25,3 +25,13 @@ model Inspection {
   answers         Json
   review          Json?
 }
+
+// Overrides EQUIPMENT_LIST's hardcoded default location once someone
+// reports the equipment is actually somewhere else — one row per serial,
+// always the current known location for that piece of equipment.
+model EquipmentLocation {
+  serial    String   @id
+  location  String
+  updatedAt DateTime @updatedAt
+  updatedBy String?
+}

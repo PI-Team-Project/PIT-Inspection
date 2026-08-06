@@ -11,6 +11,7 @@ import {
 } from "@/lib/questions"
 import {
   equipmentTypeLabel,
+  LOCATIONS,
   type Equipment,
   type EquipmentCategory,
   type EquipmentType,
@@ -59,6 +60,7 @@ type StepDef =
   | { kind: "repairDetails" }
   | { kind: "shift" }
   | { kind: "equipment" }
+  | { kind: "locationCheck" }
   | { kind: "question"; question: Question }
 
 export default function InspectionForm({
@@ -83,6 +85,7 @@ export default function InspectionForm({
           { kind: "inspectionType" },
           { kind: "shift" },
           { kind: "equipment" },
+          { kind: "locationCheck" },
           { kind: "repairDetails" },
         ]
       : [
@@ -91,6 +94,7 @@ export default function InspectionForm({
           { kind: "inspectionType" },
           { kind: "shift" },
           { kind: "equipment" },
+          { kind: "locationCheck" },
           ...questions.map((q) => ({ kind: "question" as const, question: q })),
         ]
   const [photoPreviews, setPhotoPreviews] = useState<
@@ -146,6 +150,11 @@ export default function InspectionForm({
     }
     if (s.kind === "shift") return Boolean(values.shift)
     if (s.kind === "equipment") return Boolean(values.equipmentSerial)
+    if (s.kind === "locationCheck") {
+      if (values.locationMatches === "Yes") return true
+      if (values.locationMatches === "No") return Boolean(values.actualLocation)
+      return false
+    }
     const v = values[s.question.id]
     if (!v) return false
     if (v.startsWith("Other") && !values[`${s.question.id}_specify`]?.trim()) return false
@@ -157,6 +166,7 @@ export default function InspectionForm({
     !isLast &&
     (current.kind === "date" ||
       current.kind === "name" ||
+      (current.kind === "locationCheck" && values.locationMatches === "No") ||
       (current.kind === "question" &&
         Boolean(values[current.question.id]) &&
         needsAttention(values[current.question.id])))
@@ -556,6 +566,102 @@ export default function InspectionForm({
           )}
 
           <input type="hidden" name="equipmentSerial" value={values.equipmentSerial ?? ""} />
+        </div>
+
+        {/* Location check */}
+        <div hidden={current.kind !== "locationCheck"}>
+          <StepHeading text="Is the equipment where it's supposed to be?" />
+          {(() => {
+            const expectedLocation = equipmentList.find(
+              (eq) => eq.serial === values.equipmentSerial
+            )?.location
+            return (
+              expectedLocation && (
+                <p className="mb-5 text-sm text-gray-500">
+                  Expected location:{" "}
+                  <span className="font-medium text-gray-700">{expectedLocation}</span>
+                </p>
+              )
+            )
+          })()}
+          <div className="flex flex-col gap-5">
+            {(["Yes", "No"] as const).map((opt) => {
+              const isChecked = values.locationMatches === opt
+              return (
+                <label
+                  key={opt}
+                  className={`flex items-center gap-3 rounded-lg border px-4 py-3 transition-transform duration-100 active:scale-95 ${
+                    isChecked ? "border-blue-600 bg-blue-50" : "border-gray-300"
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="locationMatches"
+                    value={opt}
+                    checked={isChecked}
+                    onChange={() => {
+                      set("locationMatches", opt)
+                      set("actualLocation", "")
+                      if (opt === "Yes") advance()
+                    }}
+                    onClick={() => {
+                      if (isChecked && opt === "Yes") advance()
+                    }}
+                    className="sr-only"
+                  />
+                  <span
+                    className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${
+                      isChecked ? "border-blue-600 bg-blue-600" : "border-gray-300"
+                    }`}
+                  >
+                    {isChecked && (
+                      <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="white"
+                        strokeWidth="3"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        className="h-3 w-3"
+                      >
+                        <path d="M20 6 9 17l-5-5" />
+                      </svg>
+                    )}
+                  </span>
+                  <span className="text-base text-gray-800">{opt}</span>
+                </label>
+              )
+            })}
+          </div>
+
+          {values.locationMatches === "No" && (
+            <div className="mt-5">
+              <p className="mb-2 text-sm font-medium text-gray-700">
+                Where is it actually?
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {LOCATIONS.map((loc) => {
+                  const isChecked = values.actualLocation === loc
+                  return (
+                    <button
+                      key={loc}
+                      type="button"
+                      onClick={() => set("actualLocation", loc)}
+                      className={`rounded-lg border px-3 py-2 text-sm transition-transform duration-100 active:scale-95 ${
+                        isChecked
+                          ? "border-blue-600 bg-blue-50 font-semibold text-blue-700"
+                          : "border-gray-300 text-gray-800"
+                      }`}
+                    >
+                      {loc}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
+          <input type="hidden" name="actualLocation" value={values.actualLocation ?? ""} />
         </div>
 
         {/* Questions */}

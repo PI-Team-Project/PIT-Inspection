@@ -9,12 +9,8 @@ import {
   REPAIR_REQUEST_QUESTION,
   type Question,
 } from "@/lib/questions"
-import {
-  EQUIPMENT_LIST,
-  equipmentTypeLabel,
-  type Equipment,
-  type EquipmentType,
-} from "@/lib/equipment"
+import { equipmentTypeLabel, type Equipment, type EquipmentType } from "@/lib/equipment"
+import { getEquipmentListWithCurrentLocations } from "@/lib/equipmentLocations"
 import {
   parseReview,
   getStage,
@@ -174,9 +170,10 @@ export default async function DashboardPage({
   const savedManagerName = cookieStore.get(MANAGER_NAME_COOKIE)?.value ?? ""
   const today = new Date().toISOString().slice(0, 10)
 
-  const allInspections = await prisma.inspection.findMany({
-    orderBy: { createdAt: "desc" },
-  })
+  const [allInspections, equipmentList] = await Promise.all([
+    prisma.inspection.findMany({ orderBy: { createdAt: "desc" } }),
+    getEquipmentListWithCurrentLocations(),
+  ])
 
   const withFlags = allInspections.map(buildRow)
 
@@ -188,7 +185,7 @@ export default async function DashboardPage({
     else historyByEquipment.set(serial, [row])
   }
 
-  const equipmentRows = EQUIPMENT_LIST.map((eq) => {
+  const equipmentRows = equipmentList.map((eq) => {
     const cutoff = retentionCutoff(eq.type, today)
     const history = (historyByEquipment.get(eq.serial) ?? []).filter(
       (row) => row.inspection.date >= cutoff
@@ -248,7 +245,7 @@ export default async function DashboardPage({
           }`}
         >
           <span className="h-2.5 w-2.5 rounded-full bg-green-500 shadow-[0_0_3px_0.5px_rgba(34,197,94,0.9),0_0_6px_1px_rgba(34,197,94,0.5)]" />
-          {workingCount}/{EQUIPMENT_LIST.length} working
+          {workingCount}/{equipmentList.length} working
         </Link>
         {noInspectionCount > 0 && (
           <Link
@@ -258,7 +255,7 @@ export default async function DashboardPage({
             }`}
           >
             <span className="h-2.5 w-2.5 rounded-full bg-gray-300" />
-            {noInspectionCount}/{EQUIPMENT_LIST.length} not yet inspected
+            {noInspectionCount}/{equipmentList.length} not yet inspected
           </Link>
         )}
       </div>
@@ -588,7 +585,14 @@ function EquipmentCard({
             {equipment.makeColor} · {equipmentTypeLabel(equipment.type)} · {equipment.flNumber}
           </p>
 
-          <p className="text-sm text-gray-600">Serial#: {equipment.serial}</p>
+          <p className="text-sm text-gray-600">
+            Serial#: {equipment.serial} · {equipment.location}
+          </p>
+          {latest?.answers.locationCheck?.value === "No" && (
+            <p className="mt-0.5 text-sm font-medium text-amber-700">
+              📍 Reported at {latest.answers.locationCheck.specify || "an unspecified location"}
+            </p>
+          )}
           {latest ? (
             <p className="mt-1 text-sm text-gray-600">
               Last inspected {latest.inspection.date} ·{" "}
