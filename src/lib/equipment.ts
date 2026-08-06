@@ -14,6 +14,12 @@ export function equipmentCategory(type: EquipmentType): EquipmentCategory {
   return type === "Pallet Jack" ? "Pallet Jack" : "Forklift"
 }
 
+// "Standup" is the stored/compared type value everywhere (URLs, filters,
+// EQUIPMENT_LIST) — this is only for what a person actually reads.
+export function equipmentTypeLabel(type: EquipmentType): string {
+  return type === "Standup" ? "Stand Up" : type
+}
+
 // Sourced from the forklift fleet list (NO 1-27; excludes rows with no NO#,
 // which were marked "Picked up" and are no longer in service) and the pallet
 // jack fleet list (NO 1-7; excludes NO 8-10, marked "Returned" with no FL#

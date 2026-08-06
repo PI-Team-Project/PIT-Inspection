@@ -9,7 +9,12 @@ import {
   REPAIR_REQUEST_QUESTION,
   type Question,
 } from "@/lib/questions"
-import { EQUIPMENT_LIST, type Equipment, type EquipmentType } from "@/lib/equipment"
+import {
+  EQUIPMENT_LIST,
+  equipmentTypeLabel,
+  type Equipment,
+  type EquipmentType,
+} from "@/lib/equipment"
 import {
   parseReview,
   getStage,
@@ -271,29 +276,29 @@ export default async function DashboardPage({
         />
       </div>
 
-      <div className="my-4 border-t border-gray-100" />
+      <div className="my-4 border-t border-gray-200" />
 
-      <div className="flex flex-wrap items-center gap-2 text-sm font-medium">
+      <div className="flex rounded-lg border border-gray-200 bg-gray-50 p-1 text-sm font-medium">
         <Link
           href={typeHref(filter, undefined)}
-          className={`rounded-full px-3 py-1 transition-colors duration-100 active:scale-95 ${
-            !typeParam ? "bg-blue-100 text-blue-800" : "bg-gray-100 text-gray-600"
+          className={`flex-1 rounded-md py-1.5 text-center transition-colors duration-100 active:scale-95 ${
+            !typeParam ? "bg-white text-gray-900 shadow-sm" : "text-gray-500"
           }`}
         >
           View All
         </Link>
         <Link
           href={typeHref(filter, "forklift")}
-          className={`rounded-full px-3 py-1 transition-colors duration-100 active:scale-95 ${
-            isForkliftActive ? "bg-blue-100 text-blue-800" : "bg-gray-100 text-gray-600"
+          className={`flex-1 rounded-md py-1.5 text-center transition-colors duration-100 active:scale-95 ${
+            isForkliftActive ? "bg-white text-gray-900 shadow-sm" : "text-gray-500"
           }`}
         >
           Forklift
         </Link>
         <Link
           href={typeHref(filter, "Pallet Jack")}
-          className={`rounded-full px-3 py-1 transition-colors duration-100 active:scale-95 ${
-            typeParam === "Pallet Jack" ? "bg-blue-100 text-blue-800" : "bg-gray-100 text-gray-600"
+          className={`flex-1 rounded-md py-1.5 text-center transition-colors duration-100 active:scale-95 ${
+            typeParam === "Pallet Jack" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500"
           }`}
         >
           Pallet Jacks
@@ -301,12 +306,12 @@ export default async function DashboardPage({
       </div>
 
       {isForkliftActive && (
-        <div className="mt-2 flex flex-wrap items-center gap-2 pl-2 text-xs font-medium">
+        <div className="slide-down mt-2 flex rounded-lg border border-gray-200 bg-gray-50 p-1 text-xs font-medium">
           <Link
             href={subtypeHref(filter, FORKLIFT_TYPES)}
-            className={`rounded-full px-2.5 py-1 transition-colors duration-100 active:scale-95 ${
+            className={`flex-1 rounded-md py-1 text-center transition-colors duration-100 active:scale-95 ${
               activeSubtypes.length === FORKLIFT_TYPES.length
-                ? "bg-blue-50 text-blue-700"
+                ? "bg-white text-gray-900 shadow-sm"
                 : "text-gray-500"
             }`}
           >
@@ -318,12 +323,12 @@ export default async function DashboardPage({
               <Link
                 key={type}
                 href={subtypeHref(filter, toggleSubtype(activeSubtypes, type))}
-                className={`rounded-full px-2.5 py-1 transition-colors duration-100 active:scale-95 ${
-                  selected ? "bg-blue-50 text-blue-700" : "text-gray-500"
+                className={`flex-1 rounded-md py-1 text-center transition-colors duration-100 active:scale-95 ${
+                  selected ? "bg-white text-gray-900 shadow-sm" : "text-gray-500"
                 }`}
               >
                 {selected ? "✓ " : ""}
-                {type}
+                {equipmentTypeLabel(type)}
               </Link>
             )
           })}
@@ -359,7 +364,7 @@ export default async function DashboardPage({
             {orderedForkliftTypes.map((type) => (
               <EquipmentSection
                 key={type}
-                title={type}
+                title={equipmentTypeLabel(type)}
                 rows={byType(typedRows, type)}
                 today={today}
                 savedManagerName={savedManagerName}
@@ -423,7 +428,7 @@ function FleetOverview({
   subgroups,
 }: {
   title: string
-  subgroups: { label: string; rows: EquipmentRow[] }[]
+  subgroups: { label: EquipmentType; rows: EquipmentRow[] }[]
 }) {
   const visible = subgroups.filter((g) => g.rows.length > 0)
   const total = visible.reduce((sum, g) => sum + g.rows.length, 0)
@@ -438,8 +443,8 @@ function FleetOverview({
         {visible.map((g) => (
           <div key={g.label} className="flex items-center gap-2.5">
             {showSubLabels && (
-              <span className="text-xs font-medium text-gray-500">
-                {g.label} ({g.rows.length})
+              <span className="w-24 shrink-0 text-xs font-medium text-gray-500">
+                {equipmentTypeLabel(g.label)} ({g.rows.length})
               </span>
             )}
             <div className="flex flex-wrap gap-1.5">
@@ -550,7 +555,7 @@ function EquipmentSection({
 }
 
 function EquipmentCard({
-  row: { equipment, history, latest, stage, since, escalated },
+  row: { equipment, history, latest, stage, since },
   today,
   savedManagerName,
 }: {
@@ -561,47 +566,68 @@ function EquipmentCard({
   const hasPhotos = latest
     ? Object.values(latest.answers).some((a) => (a.photos?.length ?? 0) > 0)
     : false
+  const daysPassed = since ? daysPassedCount(since, today) : 0
 
   return (
     <details
       id={`eq-${equipment.serial}`}
-      className={`relative rounded-lg border bg-white p-4 ${
-        escalated ? "border-red-300" : "border-gray-300"
+      className={`rounded-lg border bg-white p-4 ${
+        stage === "unresolved" ? "border-red-300" : "border-gray-300"
       }`}
     >
-      <summary className="-m-4 flex cursor-pointer items-start justify-between gap-3 rounded-lg p-4 transition-colors duration-100 active:bg-gray-50">
-        <div>
-          <div className="flex items-center gap-2">
-            <StatusDot stage={stage} size="lg" />
-            <p className="text-lg font-semibold text-gray-900">
-              {equipment.makeColor} · {equipment.type} · {equipment.flNumber}
+      <summary className="-m-4 relative flex cursor-pointer items-center gap-3 rounded-lg p-4 transition-colors duration-100 active:bg-gray-50">
+        <StatusDot stage={stage} size="lg" />
+        <div className="w-full">
+          <p className="pr-6 text-lg font-semibold text-gray-900">
+            {equipment.makeColor} · {equipmentTypeLabel(equipment.type)} · {equipment.flNumber}
+          </p>
+
+          <p className="text-sm text-gray-600">Serial#: {equipment.serial}</p>
+          {latest ? (
+            <p className="mt-1 text-sm text-gray-600">
+              Last inspected {latest.inspection.date} ·{" "}
+              {latest.inspection.shift} · {latest.inspection.firstName}{" "}
+              {latest.inspection.lastName}
             </p>
-          </div>
-          <div className="pl-7">
-            <p className="text-sm text-gray-600">Serial#: {equipment.serial}</p>
-            {latest ? (
-              <p className="mt-1 text-sm text-gray-600">
-                Last inspected {latest.inspection.date} ·{" "}
-                {latest.inspection.shift} · {latest.inspection.firstName}{" "}
-                {latest.inspection.lastName}
-              </p>
-            ) : (
-              <p className="mt-1 text-sm text-gray-500">No inspection yet</p>
+          ) : (
+            <p className="mt-1 text-sm text-gray-500">No inspection yet</p>
+          )}
+          {latest &&
+            (stage === "unresolved" || stage === "pending-confirm") &&
+            latest.flagged.length > 0 && (
+              <IssueLine
+                flagged={latest.flagged}
+                review={latest.review}
+                critical={isCriticalInspection(latest.inspection)}
+              />
             )}
-            {latest &&
-              (stage === "unresolved" || stage === "pending-confirm") &&
-              latest.flagged.length > 0 && (
-                <IssueLine
-                  flagged={latest.flagged}
-                  review={latest.review}
-                  critical={isCriticalInspection(latest.inspection)}
-                />
-              )}
-          </div>
         </div>
+
+        {hasPhotos && (
+          <span
+            title="Photo attached (latest inspection)"
+            className="absolute right-4 top-4 text-gray-400"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+              className="h-4 w-4"
+            >
+              <path
+                fillRule="evenodd"
+                d="M1 8a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 018.07 3h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0016.07 6H17a2 2 0 012 2v9a2 2 0 01-2 2H3a2 2 0 01-2-2V8zm13.5 3a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0z"
+                clipRule="evenodd"
+              />
+            </svg>
+          </span>
+        )}
+
         {since && (
-          <p className="shrink-0 pt-0.5 text-right text-xs font-semibold text-red-600">
-            {daysPassedLabel(since, today)}
+          <p className="absolute bottom-4 right-4 animate-[status-blink_3s_ease-in-out_infinite] text-right text-xs font-semibold leading-tight text-red-600">
+            {daysPassed} day{daysPassed === 1 ? "" : "s"}
+            <br />
+            passed
           </p>
         )}
       </summary>
@@ -770,26 +796,6 @@ function EquipmentCard({
           </div>
         </div>
       )}
-
-      {hasPhotos && (
-        <span
-          className="absolute bottom-2 right-2 text-gray-400"
-          title="Photos attached"
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 20 20"
-            fill="currentColor"
-            className="h-4 w-4"
-          >
-            <path
-              fillRule="evenodd"
-              d="M1 8a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 018.07 3h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0016.07 6H17a2 2 0 012 2v9a2 2 0 01-2 2H3a2 2 0 01-2-2V8zm13.5 3a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0z"
-              clipRule="evenodd"
-            />
-          </svg>
-        </span>
-      )}
     </details>
   )
 }
@@ -843,11 +849,10 @@ function HistoryLine({ row }: { row: InspectionRow }) {
   )
 }
 
-function daysPassedLabel(since: string, today: string): string {
-  const days = Math.round(
+function daysPassedCount(since: string, today: string): number {
+  return Math.round(
     (new Date(today).getTime() - new Date(since).getTime()) / (1000 * 60 * 60 * 24)
   )
-  return `${days} days passed`
 }
 
 const ISSUE_PREVIEW_COUNT = 3
@@ -886,7 +891,7 @@ function StatusDot({
   const c = STATUS_DOT[stage]
   const blink = stage === "unresolved" ? "animate-[status-blink_1.3s_ease-in-out_infinite]" : ""
   if (size === "lg") {
-    return <span className={`h-5 w-5 shrink-0 rounded-full ${c.dot} ${c.glowLg} ${blink}`} />
+    return <span className={`h-4 w-4 shrink-0 rounded-full ${c.dot} ${c.glowLg} ${blink}`} />
   }
   return <span className={`h-4 w-4 shrink-0 rounded-full ${c.dot} ${c.glow} ${blink}`} />
 }

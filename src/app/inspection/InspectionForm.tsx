@@ -9,7 +9,12 @@ import {
   CHECKLIST_PHOTO_SLOTS,
   type Question,
 } from "@/lib/questions"
-import type { Equipment, EquipmentCategory, EquipmentType } from "@/lib/equipment"
+import {
+  equipmentTypeLabel,
+  type Equipment,
+  type EquipmentCategory,
+  type EquipmentType,
+} from "@/lib/equipment"
 import { SHIFTS } from "@/lib/shifts"
 
 function isHeicFile(file: File): boolean {
@@ -448,7 +453,7 @@ export default function InspectionForm({
                           : "border-gray-300 text-gray-800"
                       }`}
                     >
-                      {type}
+                      {equipmentTypeLabel(type)}
                     </button>
                   )
                 })}
