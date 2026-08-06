@@ -14,6 +14,13 @@ export type ActivityEntry =
     }
   | { id: string; type: "viewed"; authorName: string; timestamp: string }
   | { id: string; type: "confirmed"; authorName: string; timestamp: string }
+  | {
+      id: string
+      type: "location"
+      location: string
+      authorName: string
+      timestamp: string
+    }
 
 export type Review = {
   issueStatus: Record<string, IssueStatusValue>

@@ -9,7 +9,13 @@ import {
   REPAIR_REQUEST_QUESTION,
   type Question,
 } from "@/lib/questions"
-import { equipmentTypeLabel, LOCATIONS, type Equipment, type EquipmentType } from "@/lib/equipment"
+import {
+  equipmentCategory,
+  equipmentTypeLabel,
+  LOCATIONS,
+  type Equipment,
+  type EquipmentType,
+} from "@/lib/equipment"
 import { getEquipmentListWithCurrentLocations } from "@/lib/equipmentLocations"
 import {
   parseReview,
@@ -282,6 +288,10 @@ export default async function DashboardPage({
 
       <div className="my-4 border-t border-gray-200" />
 
+      <LocationOverview rows={equipmentRows} />
+
+      <div className="my-4 border-t border-gray-200" />
+
       <div className="flex rounded-lg border border-gray-200 bg-gray-50 p-1 text-sm font-medium">
         <Link
           href={typeHref(filter, undefined)}
@@ -467,6 +477,82 @@ function FleetOverview({
         ))}
       </div>
     </div>
+  )
+}
+
+function LocationOverview({ rows }: { rows: EquipmentRow[] }) {
+  const byLocation = LOCATIONS.map((location) => ({
+    location,
+    rows: rows.filter((row) => row.equipment.location === location),
+  })).filter((g) => g.rows.length > 0)
+
+  if (byLocation.length === 0) return null
+
+  return (
+    <details className="group rounded-lg border border-gray-200 bg-gray-50">
+      <summary className="flex cursor-pointer items-center justify-between rounded-lg px-3 py-2.5 text-sm font-medium text-gray-700 transition-colors duration-100 active:scale-[0.99] active:bg-gray-100">
+        <span>📍 See all vehicle locations here</span>
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 20 20"
+          fill="currentColor"
+          className="h-4 w-4 shrink-0 text-gray-400 transition-transform duration-200 group-open:rotate-180"
+        >
+          <path
+            fillRule="evenodd"
+            d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z"
+            clipRule="evenodd"
+          />
+        </svg>
+      </summary>
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-2.5 border-t border-gray-200 p-3">
+        {byLocation.map((g) => {
+          const forkliftRows = g.rows.filter(
+            (row) => equipmentCategory(row.equipment.type) === "Forklift"
+          )
+          const palletRows = g.rows.filter(
+            (row) => equipmentCategory(row.equipment.type) === "Pallet Jack"
+          )
+          const showTypeTags = forkliftRows.length > 0 && palletRows.length > 0
+
+          return (
+            <div key={g.location} className="flex items-center gap-1.5">
+              <span className="text-xs font-semibold tracking-wide text-brand uppercase">
+                {g.location} ({g.rows.length})
+              </span>
+              <div className="flex flex-wrap items-center gap-2">
+                {[
+                  { label: "FL", rows: forkliftRows },
+                  { label: "PJ", rows: palletRows },
+                ]
+                  .filter((sg) => sg.rows.length > 0)
+                  .map((sg) => (
+                    <span key={sg.label} className="flex items-center gap-1">
+                      {showTypeTags && (
+                        <span className="text-[10px] font-medium text-gray-400">
+                          {sg.label}
+                        </span>
+                      )}
+                      <span className="flex flex-wrap gap-1">
+                        {sg.rows.map((row) => (
+                          <a
+                            key={row.equipment.serial}
+                            href={`#eq-${row.equipment.serial}`}
+                            title={`${row.equipment.flNumber} — ${row.equipment.makeColor}`}
+                            className="p-0.5"
+                          >
+                            <StatusDot stage={row.stage} />
+                          </a>
+                        ))}
+                      </span>
+                    </span>
+                  ))}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </details>
   )
 }
 
@@ -1034,6 +1120,16 @@ function ActivityLine({ entry }: { entry: ActivityEntry }) {
     return (
       <>
         ✓ Reviewed by{" "}
+        <span className="font-medium text-gray-800">{entry.authorName}</span> — {when}
+      </>
+    )
+  }
+
+  if (entry.type === "location") {
+    return (
+      <>
+        📍 Location set to{" "}
+        <span className="font-medium text-gray-800">{entry.location}</span> by{" "}
         <span className="font-medium text-gray-800">{entry.authorName}</span> — {when}
       </>
     )

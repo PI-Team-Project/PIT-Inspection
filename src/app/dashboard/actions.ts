@@ -155,6 +155,31 @@ export async function updateEquipmentLocation(formData: FormData) {
     create: { serial, location, updatedBy: managerName },
   })
 
+  // Log the change on the equipment's most recent inspection so it shows up
+  // in the same Activity trail as notes/issue updates — there's no
+  // per-equipment activity log to attach it to otherwise.
+  const latest = await prisma.inspection.findFirst({
+    where: { equipmentSerial: serial },
+    orderBy: { createdAt: "desc" },
+  })
+  if (latest) {
+    const review = parseReview(latest.review)
+    const activity: ActivityEntry[] = [
+      ...review.activity,
+      {
+        id: crypto.randomUUID(),
+        type: "location",
+        location,
+        authorName: managerName,
+        timestamp: new Date().toISOString(),
+      },
+    ]
+    await prisma.inspection.update({
+      where: { id: latest.id },
+      data: { review: { ...review, activity } },
+    })
+  }
+
   revalidatePath("/dashboard")
   revalidatePath("/inspection")
 }

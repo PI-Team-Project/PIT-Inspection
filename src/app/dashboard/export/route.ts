@@ -78,6 +78,8 @@ export async function GET() {
         if (entry.type === "note") return `[${when}] ${entry.authorName}: ${entry.text}`
         if (entry.type === "viewed") return `[${when}] Reviewed by ${entry.authorName}`
         if (entry.type === "confirmed") return `[${when}] Confirmed all clear by ${entry.authorName}`
+        if (entry.type === "location")
+          return `[${when}] Location set to ${entry.location} by ${entry.authorName}`
         const q = QUESTIONS.find((x) => x.id === entry.questionId)
         const label = entry.status === "complete" ? "Complete" : "In Review"
         return `[${when}] ${q?.label ?? entry.questionId} marked ${label} by ${entry.authorName}`
