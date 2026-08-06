@@ -234,7 +234,7 @@ export default async function DashboardPage({
         </h1>
       </div>
 
-      <div className="mt-6 ml-auto flex w-fit flex-col items-stretch gap-0 text-sm font-medium">
+      <div className="mt-4 ml-auto flex w-fit flex-col items-stretch gap-0 text-sm font-medium">
         <Link
           href={filter === "working" ? "/dashboard" : "/dashboard?filter=working"}
           className={`flex items-center gap-1.5 rounded-full px-2 py-1 transition-colors duration-100 active:scale-95 ${
@@ -441,7 +441,7 @@ function FleetOverview({
       </h3>
       <div className="flex flex-wrap items-center gap-x-5 gap-y-3 rounded-lg border border-gray-200 bg-gray-50 p-3">
         {visible.map((g) => (
-          <div key={g.label} className="flex items-center gap-2.5">
+          <div key={g.label} className="flex items-center gap-[5px]">
             {showSubLabels && (
               <span className="w-24 shrink-0 text-xs font-medium text-gray-500">
                 {equipmentTypeLabel(g.label)} ({g.rows.length})
