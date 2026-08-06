@@ -57,7 +57,13 @@ function buildRow(
   )
   const critical = isCriticalInspection(inspection) ? flagged : []
   const unresolved = critical.filter((q) => review.issueStatus[q.id] !== "complete")
-  const stage = getStage(flagged.length, unresolved.length, review.confirmedResolved)
+  const allFlaggedComplete = flagged.every((q) => review.issueStatus[q.id] === "complete")
+  const stage = getStage(
+    flagged.length,
+    unresolved.length,
+    review.confirmedResolved,
+    allFlaggedComplete
+  )
   return { inspection, answers, review, flagged, critical, unresolved, stage }
 }
 

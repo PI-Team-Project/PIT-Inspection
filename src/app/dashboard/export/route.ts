@@ -2,8 +2,8 @@ import { NextResponse } from "next/server"
 import { cookies } from "next/headers"
 import { prisma } from "@/lib/prisma"
 import { DASHBOARD_COOKIE, dashboardSessionValue } from "@/lib/auth"
-import { QUESTIONS, needsAttention } from "@/lib/questions"
-import { parseReview, getStage } from "@/lib/review"
+import { QUESTIONS } from "@/lib/questions"
+import { parseReview, getStage, isCriticalInspection, flaggedIssueIds } from "@/lib/review"
 
 type Answers = Record<string, { value: string; specify?: string }>
 
@@ -53,18 +53,18 @@ export async function GET() {
   const rows = inspections.map((inspection) => {
     const answers = inspection.answers as Answers
     const review = parseReview(inspection.review)
-    const flaggedCount = QUESTIONS.filter((q) =>
-      needsAttention(answers[q.id]?.value ?? "")
+    const flaggedIds = flaggedIssueIds(inspection, answers)
+    const criticalIds = isCriticalInspection(inspection) ? flaggedIds : []
+    const unresolvedCriticalCount = criticalIds.filter(
+      (id) => review.issueStatus[id] !== "complete"
     ).length
-    const isCritical = inspection.type === "Repair Request"
-    const unresolvedCriticalCount = isCritical
-      ? QUESTIONS.filter(
-          (q) =>
-            needsAttention(answers[q.id]?.value ?? "") &&
-            review.issueStatus[q.id] !== "complete"
-        ).length
-      : 0
-    const stage = getStage(flaggedCount, unresolvedCriticalCount, review.confirmedResolved)
+    const allFlaggedComplete = flaggedIds.every((id) => review.issueStatus[id] === "complete")
+    const stage = getStage(
+      flaggedIds.length,
+      unresolvedCriticalCount,
+      review.confirmedResolved,
+      allFlaggedComplete
+    )
 
     const answerCells = QUESTIONS.map((q) => {
       const a = answers[q.id]

@@ -81,9 +81,15 @@ export type Stage = "unresolved" | "pending-confirm" | "confirmed" | "clean"
 export function getStage(
   flaggedCount: number,
   unresolvedCount: number,
-  confirmedResolved: boolean
+  confirmedResolved: boolean,
+  allFlaggedComplete: boolean
 ): Stage {
   if (flaggedCount === 0) return "clean"
   if (unresolvedCount > 0) return "unresolved"
+  // confirmedResolved alone isn't trusted here — if any flagged item (not
+  // just the critical ones) is still sitting incomplete, this can't show as
+  // confirmed/green no matter what was previously recorded. A supervisor
+  // confirming without finishing every item is exactly the bug this guards.
+  if (!allFlaggedComplete) return "pending-confirm"
   return confirmedResolved ? "confirmed" : "pending-confirm"
 }
