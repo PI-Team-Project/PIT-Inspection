@@ -574,97 +574,100 @@ export default function InspectionForm({
             const expectedLocation = equipmentList.find(
               (eq) => eq.serial === values.equipmentSerial
             )?.location
+
             return (
-              <StepHeading
-                text={
-                  expectedLocation ? (
-                    <>
-                      Is the equipment at{" "}
-                      <span className="underline">{expectedLocation}</span>?
-                    </>
-                  ) : (
-                    "Is the equipment where it's supposed to be?"
-                  )
-                }
-              />
+              <>
+                <StepHeading
+                  text={
+                    expectedLocation ? (
+                      <>
+                        Is the equipment at{" "}
+                        <span className="underline">{expectedLocation}</span>?
+                      </>
+                    ) : (
+                      "Is the equipment where it's supposed to be?"
+                    )
+                  }
+                />
+                <div className="flex flex-col gap-5">
+                  {(["Yes", "No"] as const).map((opt) => {
+                    const isChecked = values.locationMatches === opt
+                    return (
+                      <label
+                        key={opt}
+                        className={`flex items-center gap-3 rounded-lg border px-4 py-3 transition-transform duration-100 active:scale-95 ${
+                          isChecked ? "border-blue-600 bg-blue-50" : "border-gray-300"
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          name="locationMatches"
+                          value={opt}
+                          checked={isChecked}
+                          onChange={() => {
+                            set("locationMatches", opt)
+                            set("actualLocation", "")
+                            if (opt === "Yes") advance()
+                          }}
+                          onClick={() => {
+                            if (isChecked && opt === "Yes") advance()
+                          }}
+                          className="sr-only"
+                        />
+                        <span
+                          className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${
+                            isChecked ? "border-blue-600 bg-blue-600" : "border-gray-300"
+                          }`}
+                        >
+                          {isChecked && (
+                            <svg
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="white"
+                              strokeWidth="3"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              className="h-3 w-3"
+                            >
+                              <path d="M20 6 9 17l-5-5" />
+                            </svg>
+                          )}
+                        </span>
+                        <span className="text-base text-gray-800">{opt}</span>
+                      </label>
+                    )
+                  })}
+                </div>
+
+                {values.locationMatches === "No" && (
+                  <div className="mt-8">
+                    <p className="mb-3 text-base font-semibold text-gray-900">
+                      Where is it actually?
+                    </p>
+                    <div className="grid grid-cols-2 gap-2">
+                      {LOCATIONS.filter((loc) => loc !== expectedLocation).map((loc) => {
+                        const isChecked = values.actualLocation === loc
+                        return (
+                          <button
+                            key={loc}
+                            type="button"
+                            onClick={() => set("actualLocation", loc)}
+                            className={`rounded-lg border px-3 py-3 text-sm transition-transform duration-100 active:scale-95 ${
+                              isChecked
+                                ? "border-blue-600 bg-blue-50 font-semibold text-blue-700"
+                                : "border-gray-300 text-gray-800"
+                            }`}
+                          >
+                            {loc}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+              </>
             )
           })()}
-          <div className="flex flex-col gap-5">
-            {(["Yes", "No"] as const).map((opt) => {
-              const isChecked = values.locationMatches === opt
-              return (
-                <label
-                  key={opt}
-                  className={`flex items-center gap-3 rounded-lg border px-4 py-3 transition-transform duration-100 active:scale-95 ${
-                    isChecked ? "border-blue-600 bg-blue-50" : "border-gray-300"
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    name="locationMatches"
-                    value={opt}
-                    checked={isChecked}
-                    onChange={() => {
-                      set("locationMatches", opt)
-                      set("actualLocation", "")
-                      if (opt === "Yes") advance()
-                    }}
-                    onClick={() => {
-                      if (isChecked && opt === "Yes") advance()
-                    }}
-                    className="sr-only"
-                  />
-                  <span
-                    className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${
-                      isChecked ? "border-blue-600 bg-blue-600" : "border-gray-300"
-                    }`}
-                  >
-                    {isChecked && (
-                      <svg
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="white"
-                        strokeWidth="3"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        className="h-3 w-3"
-                      >
-                        <path d="M20 6 9 17l-5-5" />
-                      </svg>
-                    )}
-                  </span>
-                  <span className="text-base text-gray-800">{opt}</span>
-                </label>
-              )
-            })}
-          </div>
-
-          {values.locationMatches === "No" && (
-            <div className="mt-8">
-              <p className="mb-3 text-base font-semibold text-gray-900">
-                Where is it actually?
-              </p>
-              <div className="grid grid-cols-2 gap-2">
-                {LOCATIONS.map((loc) => {
-                  const isChecked = values.actualLocation === loc
-                  return (
-                    <button
-                      key={loc}
-                      type="button"
-                      onClick={() => set("actualLocation", loc)}
-                      className={`rounded-lg border px-3 py-3 text-sm transition-transform duration-100 active:scale-95 ${
-                        isChecked
-                          ? "border-blue-600 bg-blue-50 font-semibold text-blue-700"
-                          : "border-gray-300 text-gray-800"
-                      }`}
-                    >
-                      {loc}
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
-          )}
 
           <input type="hidden" name="actualLocation" value={values.actualLocation ?? ""} />
         </div>
