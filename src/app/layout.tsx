@@ -28,9 +28,9 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="flex min-h-full flex-col">
-        <div className="flex-1">{children}</div>
-        <footer className="sticky bottom-0 z-10 flex justify-center border-t border-gray-100 bg-white py-3">
+      <body className="flex h-dvh flex-col overflow-hidden">
+        <div className="flex-1 overflow-y-auto">{children}</div>
+        <footer className="flex shrink-0 justify-center border-t border-gray-100 bg-white py-3">
           <Image
             src="/lx-pantos-logo.png"
             alt="LX Pantos"

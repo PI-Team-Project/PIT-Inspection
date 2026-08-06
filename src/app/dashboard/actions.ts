@@ -10,8 +10,12 @@ import {
   isValidPin,
 } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
-import { parseReview, type ActivityEntry, type IssueStatusValue } from "@/lib/review"
-import { QUESTIONS, needsAttention } from "@/lib/questions"
+import {
+  parseReview,
+  flaggedIssueIds,
+  type ActivityEntry,
+  type IssueStatusValue,
+} from "@/lib/review"
 
 export async function unlockDashboard(formData: FormData) {
   const pin = String(formData.get("pin") ?? "")
@@ -54,21 +58,21 @@ export async function saveActivity(formData: FormData) {
     string,
     { value: string; specify?: string }
   >
-  for (const q of QUESTIONS) {
-    if (!needsAttention(answers[q.id]?.value ?? "")) continue
-    const raw = formData.get(`issue_${q.id}`)
+  const flaggedIds = flaggedIssueIds(inspection, answers)
+  for (const id of flaggedIds) {
+    const raw = formData.get(`issue_${id}`)
     const newVal: IssueStatusValue | null =
       raw === "in_review" || raw === "complete" ? raw : null
-    if (newVal && issueStatus[q.id] !== newVal) {
+    if (newVal && issueStatus[id] !== newVal) {
       activity.push({
         id: crypto.randomUUID(),
         type: "issue",
-        questionId: q.id,
+        questionId: id,
         status: newVal,
         authorName,
         timestamp,
       })
-      issueStatus[q.id] = newVal
+      issueStatus[id] = newVal
       changedSomething = true
     }
   }
@@ -94,11 +98,7 @@ export async function saveActivity(formData: FormData) {
     })
   }
 
-  const stillUnresolved = QUESTIONS.some(
-    (q) =>
-      needsAttention(answers[q.id]?.value ?? "") &&
-      issueStatus[q.id] !== "complete"
-  )
+  const stillUnresolved = flaggedIds.some((id) => issueStatus[id] !== "complete")
   const confirmedResolved = stillUnresolved ? false : review.confirmedResolved
 
   await prisma.inspection.update({

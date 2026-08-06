@@ -77,6 +77,23 @@ export const QUESTIONS_BY_ID: Record<string, Question> = Object.fromEntries(
   QUESTIONS.map((q) => [q.id, q])
 )
 
+// A Repair Request has no checklist — it's a single free-form issue that's
+// always critical. This pseudo-question lets it flow through the same
+// flagged/review machinery as a checklist answer, keyed by a reserved id
+// that can never collide with a real checklist question's id.
+export const REPAIR_REQUEST_ISSUE_ID = "repairRequest"
+
+export const REPAIR_REQUEST_QUESTION: Question = {
+  id: REPAIR_REQUEST_ISSUE_ID,
+  number: 0,
+  label: "Repair Request",
+  options: [],
+}
+
+export const REPAIR_REQUEST_PHOTO_SLOTS = 6
+
+export const CHECKLIST_PHOTO_SLOTS = 4
+
 export function needsSpecify(value: string) {
   return value.startsWith("Other")
 }

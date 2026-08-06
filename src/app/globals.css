@@ -3,11 +3,18 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  /* Sampled from the LX Pantos logo mark's warm taupe-gray wordmark —
+     used for secondary buttons and structural labels. The logo's rust-red
+     is intentionally NOT reused here since red is already claimed as the
+     critical/unresolved status color; reusing it as a brand accent would
+     make every "brand touch" read as an alert. */
+  --brand: #726762;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-brand: var(--brand);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }

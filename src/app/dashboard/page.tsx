@@ -1,9 +1,23 @@
 import Link from "next/link"
 import { cookies } from "next/headers"
 import { prisma } from "@/lib/prisma"
-import { QUESTIONS, QUESTIONS_BY_ID, needsAttention, type Question } from "@/lib/questions"
+import {
+  QUESTIONS,
+  QUESTIONS_BY_ID,
+  needsAttention,
+  REPAIR_REQUEST_ISSUE_ID,
+  REPAIR_REQUEST_QUESTION,
+  type Question,
+} from "@/lib/questions"
 import { EQUIPMENT_LIST, type Equipment, type EquipmentType } from "@/lib/equipment"
-import { parseReview, getStage, type ActivityEntry, type Stage } from "@/lib/review"
+import {
+  parseReview,
+  getStage,
+  isCriticalInspection,
+  flaggedIssueIds,
+  type ActivityEntry,
+  type Stage,
+} from "@/lib/review"
 import {
   DASHBOARD_COOKIE,
   MANAGER_NAME_COOKIE,
@@ -11,29 +25,31 @@ import {
 } from "@/lib/auth"
 import PinForm from "./PinForm"
 import HomeLink from "./HomeLink"
+import PhotoGallery from "./PhotoGallery"
 import { saveActivity, confirmResolved } from "./actions"
 
 type Answers = Record<
   string,
-  { value: string; specify?: string; note?: string; photos?: string[] }
+  {
+    value: string
+    specify?: string
+    note?: string
+    photos?: string[]
+    photoNotes?: string[]
+  }
 >
 type InspectionRow = ReturnType<typeof buildRow>
 
 const HISTORY_PREVIEW_COUNT = 5
-
-// RED is driven by the inspection's type, not by individual answers: a
-// "Repair Request" submission is inherently critical; a "Daily" submission
-// tops out at YELLOW (usable, needs attention) no matter what's flagged.
-function isCriticalInspection(inspection: { type: string }): boolean {
-  return inspection.type === "Repair Request"
-}
 
 function buildRow(
   inspection: Awaited<ReturnType<typeof prisma.inspection.findMany>>[number]
 ) {
   const answers = inspection.answers as Answers
   const review = parseReview(inspection.review)
-  const flagged = QUESTIONS.filter((q) => needsAttention(answers[q.id]?.value ?? ""))
+  const flagged = flaggedIssueIds(inspection, answers).map(
+    (id) => (id === REPAIR_REQUEST_ISSUE_ID ? REPAIR_REQUEST_QUESTION : QUESTIONS_BY_ID[id])
+  )
   const critical = isCriticalInspection(inspection) ? flagged : []
   const unresolved = critical.filter((q) => review.issueStatus[q.id] !== "complete")
   const stage = getStage(flagged.length, unresolved.length, review.confirmedResolved)
@@ -83,6 +99,13 @@ const URGENCY_RANK: Record<Stage | "none", number> = {
 function urgencyRank(stage: Stage | "none", escalated: boolean) {
   const base = URGENCY_RANK[stage] * 2
   return escalated ? base - 1 : base
+}
+
+// The worst (lowest-ranked, most urgent) row in a group — used to sort
+// whole category sections by urgency. An empty group sorts last.
+function worstUrgency(rows: { stage: Stage | "none"; escalated: boolean }[]) {
+  if (rows.length === 0) return Infinity
+  return Math.min(...rows.map((row) => urgencyRank(row.stage, row.escalated)))
 }
 
 // The type filter has two tiers: a top-level category (Forklift / Pallet
@@ -311,33 +334,73 @@ export default async function DashboardPage({
         <p className="mt-3 text-gray-500">No equipment on file.</p>
       )}
 
-      {FORKLIFT_TYPES.some((type) => byType(typedRows, type).length > 0) && (
-        <h2 className="mt-6 text-sm font-bold tracking-wide text-gray-700 uppercase">
-          Forklift
-        </h2>
-      )}
-      {FORKLIFT_TYPES.map((type) => (
-        <EquipmentSection
-          key={type}
-          title={type}
-          rows={byType(typedRows, type)}
-          today={today}
-          savedManagerName={savedManagerName}
-        />
-      ))}
+      {(() => {
+        // Urgency-ordered by default (View All): the subtype with the worst
+        // issue leads, and Forklift vs. Pallet Jacks swap order the same
+        // way. Once the manager filters to a specific category, ordering
+        // reverts to the plain canonical list — they already know what
+        // they're looking at, so it should stay put rather than reshuffle.
+        const unfiltered = !typeParam
+        const orderedForkliftTypes = unfiltered
+          ? [...FORKLIFT_TYPES].sort(
+              (a, b) =>
+                worstUrgency(byType(typedRows, a)) - worstUrgency(byType(typedRows, b))
+            )
+          : FORKLIFT_TYPES
+        const palletRows = byType(typedRows, "Pallet Jack")
 
-      <EquipmentSection
-        title="Pallet Jacks"
-        rows={byType(typedRows, "Pallet Jack")}
-        today={today}
-        savedManagerName={savedManagerName}
-        emphasize
-      />
+        const forkliftBlock = FORKLIFT_TYPES.some(
+          (type) => byType(typedRows, type).length > 0
+        ) && (
+          <div key="forklift">
+            <h2 className="mt-6 text-sm font-bold tracking-wide text-brand uppercase">
+              Forklift
+            </h2>
+            {orderedForkliftTypes.map((type) => (
+              <EquipmentSection
+                key={type}
+                title={type}
+                rows={byType(typedRows, type)}
+                today={today}
+                savedManagerName={savedManagerName}
+              />
+            ))}
+          </div>
+        )
+
+        const palletBlock = (
+          <EquipmentSection
+            key="pallet"
+            title="Pallet Jacks"
+            rows={palletRows}
+            today={today}
+            savedManagerName={savedManagerName}
+            emphasize
+          />
+        )
+
+        const forkliftFirst =
+          !unfiltered ||
+          worstUrgency(FORKLIFT_TYPES.flatMap((type) => byType(typedRows, type))) <=
+            worstUrgency(palletRows)
+
+        return forkliftFirst ? (
+          <>
+            {forkliftBlock}
+            {palletBlock}
+          </>
+        ) : (
+          <>
+            {palletBlock}
+            {forkliftBlock}
+          </>
+        )
+      })()}
 
       <div className="mt-8 flex justify-end border-t border-gray-100 pt-4">
         <a
           href="/dashboard/export"
-          className="shrink-0 rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 transition-transform duration-100 active:scale-95 active:bg-gray-100"
+          className="shrink-0 rounded-lg border border-brand/30 px-3 py-2 text-sm font-medium text-brand transition-transform duration-100 active:scale-95 active:bg-brand/10"
         >
           Export CSV
         </a>
@@ -368,14 +431,16 @@ function FleetOverview({
   const showSubLabels = visible.length > 1
   return (
     <div>
-      <h3 className="mb-1.5 text-xs font-semibold tracking-wide text-gray-500 uppercase">
+      <h3 className="mb-1.5 text-xs font-semibold tracking-wide text-brand uppercase">
         {title} ({total})
       </h3>
       <div className="flex flex-wrap items-center gap-x-5 gap-y-3 rounded-lg border border-gray-200 bg-gray-50 p-3">
         {visible.map((g) => (
           <div key={g.label} className="flex items-center gap-2.5">
             {showSubLabels && (
-              <span className="text-xs font-medium text-gray-500">{g.label}</span>
+              <span className="text-xs font-medium text-gray-500">
+                {g.label} ({g.rows.length})
+              </span>
             )}
             <div className="flex flex-wrap gap-1.5">
               {g.rows.map((row) => (
@@ -464,8 +529,8 @@ function EquipmentSection({
   return (
     <div className="mt-6">
       <h2
-        className={`mb-2 text-sm tracking-wide uppercase ${
-          emphasize ? "font-bold text-gray-700" : "font-semibold text-gray-500"
+        className={`mb-2 text-sm tracking-wide text-brand uppercase ${
+          emphasize ? "font-bold" : "font-semibold opacity-80"
         }`}
       >
         {title} ({rows.length})
@@ -509,7 +574,7 @@ function EquipmentCard({
           <div className="flex items-center gap-2">
             <StatusDot stage={stage} size="lg" />
             <p className="text-lg font-semibold text-gray-900">
-              {equipment.makeColor} — {equipment.type} — {equipment.flNumber}
+              {equipment.makeColor} · {equipment.type} · {equipment.flNumber}
             </p>
           </div>
           <div className="pl-7">
@@ -569,9 +634,13 @@ function EquipmentCard({
           <form action={saveActivity} className="space-y-2.5">
             <input type="hidden" name="inspectionId" value={latest.inspection.id} />
 
-            {QUESTIONS.map((q) => {
+            {(isCriticalInspection(latest.inspection)
+              ? [REPAIR_REQUEST_QUESTION]
+              : QUESTIONS
+            ).map((q) => {
               const answer = latest.answers[q.id]
               if (!answer) return null
+              const isRepairRequest = q.id === REPAIR_REQUEST_ISSUE_ID
               const bad = needsAttention(answer.value)
               const critical = isCriticalInspection(latest.inspection) && bad
               const status = latest.review.issueStatus[q.id]
@@ -587,27 +656,19 @@ function EquipmentCard({
                 <div key={q.id} className={bad ? "space-y-1.5" : ""}>
                   <div className={`text-sm ${textColor}`}>
                     <span className="font-semibold">
-                      {q.number}. {q.label}:
+                      {isRepairRequest ? "Repair Request" : `${q.number}. ${q.label}`}:
                     </span>{" "}
-                    {answer.value}
-                    {answer.specify ? ` — ${answer.specify}` : ""}
+                    {isRepairRequest ? "" : answer.value}
+                    {!isRepairRequest && answer.specify ? ` — ${answer.specify}` : ""}
                   </div>
                   {answer.note && (
-                    <p className="text-xs text-gray-600">Note: {answer.note}</p>
+                    <p className="text-xs text-gray-600">
+                      {isRepairRequest ? "" : "Note: "}
+                      {answer.note}
+                    </p>
                   )}
                   {answer.photos && answer.photos.length > 0 && (
-                    <div className="flex gap-1.5">
-                      {answer.photos.map((src, i) => (
-                        <a key={i} href={src} target="_blank" rel="noreferrer">
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
-                            src={src}
-                            alt=""
-                            className="h-14 w-14 rounded-md border border-gray-200 object-cover"
-                          />
-                        </a>
-                      ))}
-                    </div>
+                    <PhotoGallery photos={answer.photos} notes={answer.photoNotes} />
                   )}
                   {bad && (
                     <div className="flex gap-2">
@@ -745,34 +806,32 @@ function HistoryLine({ row }: { row: InspectionRow }) {
           <StageBadge stage={row.stage} unresolvedCount={row.unresolved.length} compact />
         </summary>
         <div className="mt-2 space-y-2 border-l-2 border-gray-100 py-1 pl-3">
-          {QUESTIONS.map((q) => {
+          {(isCriticalInspection(row.inspection)
+            ? [REPAIR_REQUEST_QUESTION]
+            : QUESTIONS
+          ).map((q) => {
             const answer = row.answers[q.id]
             if (!answer) return null
+            const isRepairRequest = q.id === REPAIR_REQUEST_ISSUE_ID
             const bad = needsAttention(answer.value)
             return (
               <div key={q.id}>
                 <div className={`text-xs ${bad ? "text-red-700" : "text-gray-600"}`}>
                   <span className="font-semibold">
-                    {q.number}. {q.label}:
+                    {isRepairRequest ? "Repair Request" : `${q.number}. ${q.label}`}:
                   </span>{" "}
-                  {answer.value}
-                  {answer.specify ? ` — ${answer.specify}` : ""}
+                  {isRepairRequest ? "" : answer.value}
+                  {!isRepairRequest && answer.specify ? ` — ${answer.specify}` : ""}
                 </div>
                 {answer.note && (
-                  <p className="text-xs text-gray-500">Note: {answer.note}</p>
+                  <p className="text-xs text-gray-500">
+                    {isRepairRequest ? "" : "Note: "}
+                    {answer.note}
+                  </p>
                 )}
                 {answer.photos && answer.photos.length > 0 && (
-                  <div className="mt-1 flex gap-1.5">
-                    {answer.photos.map((src, i) => (
-                      <a key={i} href={src} target="_blank" rel="noreferrer">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={src}
-                          alt=""
-                          className="h-12 w-12 rounded-md border border-gray-200 object-cover"
-                        />
-                      </a>
-                    ))}
+                  <div className="mt-1">
+                    <PhotoGallery photos={answer.photos} notes={answer.photoNotes} />
                   </div>
                 )}
               </div>

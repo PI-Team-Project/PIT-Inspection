@@ -1,3 +1,5 @@
+import { QUESTIONS, REPAIR_REQUEST_ISSUE_ID, needsAttention } from "./questions"
+
 export type IssueStatusValue = "in_review" | "complete"
 
 export type ActivityEntry =
@@ -50,6 +52,26 @@ export function parseReview(value: unknown): Review {
     activity: Array.isArray(v.activity) ? (v.activity as ActivityEntry[]) : [],
     confirmedResolved: Boolean(v.confirmedResolved),
   }
+}
+
+// RED is driven by the inspection's type, not by individual answers: a
+// "Repair Request" submission is inherently critical; a "Daily" submission
+// tops out at YELLOW (usable, needs attention) no matter what's flagged.
+export function isCriticalInspection(inspection: { type: string }): boolean {
+  return inspection.type === "Repair Request"
+}
+
+// The set of issue ids "flagged" on this inspection — the checklist
+// questions with a bad answer for a Daily inspection, or the single
+// synthetic issue for a Repair Request (which has no checklist).
+export function flaggedIssueIds(
+  inspection: { type: string },
+  answers: Record<string, { value: string }>
+): string[] {
+  if (isCriticalInspection(inspection)) return [REPAIR_REQUEST_ISSUE_ID]
+  return QUESTIONS.filter((q) => needsAttention(answers[q.id]?.value ?? "")).map(
+    (q) => q.id
+  )
 }
 
 // A submission's lifecycle stage, driven by its flagged/unresolved issues and

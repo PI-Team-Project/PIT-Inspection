@@ -2,7 +2,14 @@
 
 import { redirect } from "next/navigation"
 import { prisma } from "@/lib/prisma"
-import { QUESTIONS, needsSpecify, needsAttention } from "@/lib/questions"
+import {
+  QUESTIONS,
+  needsSpecify,
+  needsAttention,
+  REPAIR_REQUEST_ISSUE_ID,
+  REPAIR_REQUEST_PHOTO_SLOTS,
+  CHECKLIST_PHOTO_SLOTS,
+} from "@/lib/questions"
 import { EQUIPMENT_LIST } from "@/lib/equipment"
 
 async function filesToDataUris(files: FormDataEntryValue[]): Promise<string[]> {
@@ -28,24 +35,69 @@ export async function submitInspection(formData: FormData) {
 
   const answers: Record<
     string,
-    { value: string; specify?: string; note?: string; photos?: string[] }
+    {
+      value: string
+      specify?: string
+      note?: string
+      photos?: string[]
+      photoNotes?: string[]
+    }
   > = {}
-  for (const q of QUESTIONS) {
-    const value = String(formData.get(q.id) ?? "")
-    const entry: { value: string; specify?: string; note?: string; photos?: string[] } = {
-      value,
-    }
-    if (needsSpecify(value)) {
-      entry.specify = String(formData.get(`${q.id}_specify`) ?? "")
-    }
-    if (needsAttention(value)) {
-      const note = String(formData.get(`${q.id}_note`) ?? "").trim()
-      if (note) entry.note = note
 
-      const photos = await filesToDataUris(formData.getAll(`${q.id}_photo`))
-      if (photos.length > 0) entry.photos = photos
+  if (type === "Repair Request") {
+    // No checklist here — just the description and photos the reporter
+    // gave, stored as a single always-flagged issue. Each photo slot has
+    // its own input (not a shared name) so its note lines up by index even
+    // when earlier slots were left empty.
+    const description = String(formData.get("repairDescription") ?? "").trim()
+    const photos: string[] = []
+    const photoNotes: string[] = []
+    for (let i = 0; i < REPAIR_REQUEST_PHOTO_SLOTS; i++) {
+      const file = formData.get(`repairRequest_photo_${i}`)
+      if (file instanceof File && file.size > 0) {
+        const [uri] = await filesToDataUris([file])
+        photos.push(uri)
+        photoNotes.push(String(formData.get(`repairRequest_photo_note_${i}`) ?? "").trim())
+      }
     }
-    answers[q.id] = entry
+    answers[REPAIR_REQUEST_ISSUE_ID] = {
+      value: "Reported",
+      note: description,
+      photos,
+      ...(photoNotes.some(Boolean) ? { photoNotes } : {}),
+    }
+  } else {
+    for (const q of QUESTIONS) {
+      const value = String(formData.get(q.id) ?? "")
+      const entry: {
+        value: string
+        specify?: string
+        note?: string
+        photos?: string[]
+        photoNotes?: string[]
+      } = { value }
+      if (needsSpecify(value)) {
+        entry.specify = String(formData.get(`${q.id}_specify`) ?? "")
+      }
+      if (needsAttention(value)) {
+        const note = String(formData.get(`${q.id}_note`) ?? "").trim()
+        if (note) entry.note = note
+
+        const photos: string[] = []
+        const photoNotes: string[] = []
+        for (let i = 0; i < CHECKLIST_PHOTO_SLOTS; i++) {
+          const file = formData.get(`${q.id}_photo_${i}`)
+          if (file instanceof File && file.size > 0) {
+            const [uri] = await filesToDataUris([file])
+            photos.push(uri)
+            photoNotes.push(String(formData.get(`${q.id}_photo_note_${i}`) ?? "").trim())
+          }
+        }
+        if (photos.length > 0) entry.photos = photos
+        if (photoNotes.some(Boolean)) entry.photoNotes = photoNotes
+      }
+      answers[q.id] = entry
+    }
   }
 
   await prisma.inspection.create({

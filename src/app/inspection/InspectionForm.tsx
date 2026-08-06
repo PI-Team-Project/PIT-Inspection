@@ -1,20 +1,57 @@
 "use client"
 
-import { useState } from "react"
+import { useRef, useState } from "react"
 import { submitInspection } from "./actions"
-import { needsAttention, type Question } from "@/lib/questions"
+import {
+  needsAttention,
+  REPAIR_REQUEST_ISSUE_ID,
+  REPAIR_REQUEST_PHOTO_SLOTS,
+  CHECKLIST_PHOTO_SLOTS,
+  type Question,
+} from "@/lib/questions"
 import type { Equipment, EquipmentCategory, EquipmentType } from "@/lib/equipment"
 import { SHIFTS } from "@/lib/shifts"
 
+function isHeicFile(file: File): boolean {
+  const type = file.type.toLowerCase()
+  if (type === "image/heic" || type === "image/heif") return true
+  return /\.hei[cf]$/i.test(file.name)
+}
+
+// heic2any pulls in a WASM decoder, so it's loaded on demand rather than
+// bundled for every visitor who never uploads a HEIC photo.
+async function convertHeicToJpeg(file: File): Promise<File> {
+  const heic2any = (await import("heic2any")).default
+  const result = await heic2any({ blob: file, toType: "image/jpeg", quality: 0.9 })
+  const blob = Array.isArray(result) ? result[0] : result
+  const name = file.name.replace(/\.hei[cf]$/i, "") + ".jpg"
+  return new File([blob], name, { type: "image/jpeg" })
+}
+
+// The actual submission reads native <input type="file"> elements, so a
+// converted/cropped replacement has to be written back onto the input
+// itself (not just kept in React state) for it to be what gets uploaded.
+function setInputFiles(input: HTMLInputElement | null, file: File | null) {
+  if (!input) return
+  const dt = new DataTransfer()
+  if (file) dt.items.add(file)
+  input.files = dt.files
+}
+
 const EQUIPMENT_CATEGORIES: EquipmentCategory[] = ["Forklift", "Pallet Jack"]
 const FORKLIFT_TYPES: EquipmentType[] = ["Sit Down", "Propane", "Standup"]
-const INSPECTION_TYPES = ["Daily Inspection", "Repair Request"] as const
+// `value` is the stable stored/compared identifier; `label` is just the
+// button text, so wording can change without touching the data model.
+const INSPECTION_TYPES = [
+  { value: "Daily Inspection", label: "Daily Inspection" },
+  { value: "Repair Request", label: "Repair / Manager Inspection Request 🚩" },
+] as const
 
 type StepDef =
   | { kind: "date" }
   | { kind: "name" }
   | { kind: "inspectionType" }
-  | { kind: "repairPlaceholder" }
+  | { kind: "repairDetails" }
   | { kind: "shift" }
   | { kind: "equipment" }
   | { kind: "question"; question: Question }
@@ -39,7 +76,9 @@ export default function InspectionForm({
           { kind: "date" },
           { kind: "name" },
           { kind: "inspectionType" },
-          { kind: "repairPlaceholder" },
+          { kind: "shift" },
+          { kind: "equipment" },
+          { kind: "repairDetails" },
         ]
       : [
           { kind: "date" },
@@ -52,6 +91,7 @@ export default function InspectionForm({
   const [photoPreviews, setPhotoPreviews] = useState<
     Record<string, (string | null)[]>
   >({})
+  const [photoNotes, setPhotoNotes] = useState<Record<string, string[]>>({})
 
   const total = steps.length
   const isLast = step === total - 1
@@ -79,12 +119,26 @@ export default function InspectionForm({
     })
   }
 
+  function setPhotoNote(questionId: string, index: number, note: string) {
+    setPhotoNotes((prev) => {
+      const slots = [...(prev[questionId] ?? [])]
+      slots[index] = note
+      return { ...prev, [questionId]: slots }
+    })
+  }
+
   function stepIsAnswered(s: StepDef): boolean {
     if (s.kind === "date") return Boolean(values.date)
     if (s.kind === "name")
       return Boolean(values.lastName?.trim()) && Boolean(values.firstName?.trim())
     if (s.kind === "inspectionType") return Boolean(values.inspectionType)
-    if (s.kind === "repairPlaceholder") return false
+    if (s.kind === "repairDetails") {
+      const hasDescription = Boolean(values.repairDescription?.trim())
+      const hasPhoto = (photoPreviews[REPAIR_REQUEST_ISSUE_ID] ?? []).some(
+        (p) => p !== null
+      )
+      return hasDescription && hasPhoto
+    }
     if (s.kind === "shift") return Boolean(values.shift)
     if (s.kind === "equipment") return Boolean(values.equipmentSerial)
     const v = values[s.question.id]
@@ -190,11 +244,11 @@ export default function InspectionForm({
         <div hidden={current.kind !== "inspectionType"}>
           <StepHeading text="What type of inspection is this?" />
           <div className="flex flex-col gap-5">
-            {INSPECTION_TYPES.map((type) => {
-              const isChecked = values.inspectionType === type
+            {INSPECTION_TYPES.map(({ value, label }) => {
+              const isChecked = values.inspectionType === value
               return (
                 <label
-                  key={type}
+                  key={value}
                   className={`flex items-center gap-3 rounded-lg border px-4 py-3 transition-transform duration-100 active:scale-95 ${
                     isChecked ? "border-blue-600 bg-blue-50" : "border-gray-300"
                   }`}
@@ -202,9 +256,12 @@ export default function InspectionForm({
                   <input
                     type="radio"
                     name="inspectionType"
-                    value={type}
+                    value={value}
                     checked={isChecked}
-                    onChange={() => selectAndAdvance("inspectionType", type)}
+                    onChange={() => selectAndAdvance("inspectionType", value)}
+                    onClick={() => {
+                      if (isChecked) selectAndAdvance("inspectionType", value)
+                    }}
                     className="sr-only"
                   />
                   <span
@@ -226,20 +283,60 @@ export default function InspectionForm({
                       </svg>
                     )}
                   </span>
-                  <span className="text-base text-gray-800">{type}</span>
+                  <span className="text-base text-gray-800">{label}</span>
                 </label>
               )
             })}
           </div>
         </div>
 
-        {/* Repair Request (not built yet) */}
-        <div hidden={current.kind !== "repairPlaceholder"}>
-          <StepHeading text="Repair Request" />
-          <p className="text-sm text-gray-600">
-            This flow isn&apos;t ready yet. For now, please go back and choose
-            &quot;Daily Inspection&quot; to continue.
+        {/* Repair Request details */}
+        <div hidden={current.kind !== "repairDetails"}>
+          <StepHeading text="Describe the Problem" />
+          <p className="mb-5 text-sm text-gray-500">
+            A manager will be notified to review this equipment right away.
           </p>
+          <div className="space-y-4">
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-gray-700">
+                What&apos;s wrong?
+              </label>
+              <textarea
+                name="repairDescription"
+                value={values.repairDescription ?? ""}
+                onChange={(e) => set("repairDescription", e.target.value)}
+                required
+                rows={3}
+                placeholder="Describe the problem in as much detail as possible"
+                className="w-full rounded-lg border border-gray-300 px-4 py-3 text-base"
+              />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-gray-700">
+                Photos{" "}
+                <span className="font-normal text-gray-400">
+                  (at least 1 required)
+                </span>
+              </label>
+              <div className="grid grid-cols-6 gap-1.5">
+                {Array.from({ length: REPAIR_REQUEST_PHOTO_SLOTS }, (_, i) => (
+                  <PhotoSlot
+                    key={i}
+                    name={`repairRequest_photo_${i}`}
+                    preview={photoPreviews[REPAIR_REQUEST_ISSUE_ID]?.[i] ?? null}
+                    onChange={(file) =>
+                      setPhotoPreview(REPAIR_REQUEST_ISSUE_ID, i, file)
+                    }
+                    note={photoNotes[REPAIR_REQUEST_ISSUE_ID]?.[i] ?? ""}
+                    onNoteChange={(note) =>
+                      setPhotoNote(REPAIR_REQUEST_ISSUE_ID, i, note)
+                    }
+                    noteFieldName={`repairRequest_photo_note_${i}`}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Shift */}
@@ -263,6 +360,9 @@ export default function InspectionForm({
                     value={s.name}
                     checked={isChecked}
                     onChange={() => selectAndAdvance("shift", s.name)}
+                    onClick={() => {
+                      if (isChecked) selectAndAdvance("shift", s.name)
+                    }}
                     className="sr-only"
                   />
                   <span
@@ -479,6 +579,9 @@ export default function InspectionForm({
                         set(q.id, opt)
                         if (!needsAttention(opt)) advance()
                       }}
+                      onClick={() => {
+                        if (isChecked && !needsAttention(opt)) advance()
+                      }}
                       className="sr-only"
                     />
                     <span
@@ -524,35 +627,17 @@ export default function InspectionForm({
                     Photos
                   </label>
                   <div className="grid grid-cols-4 gap-2">
-                    {[0, 1, 2, 3].map((i) => {
-                      const preview = photoPreviews[q.id]?.[i]
-                      return (
-                        <label
-                          key={i}
-                          className="relative flex aspect-square items-center justify-center overflow-hidden rounded-lg border-2 border-dashed border-gray-300 bg-gray-50"
-                        >
-                          <input
-                            type="file"
-                            accept="image/*"
-                            name={`${q.id}_photo`}
-                            className="sr-only"
-                            onChange={(e) =>
-                              setPhotoPreview(q.id, i, e.target.files?.[0] ?? null)
-                            }
-                          />
-                          {preview ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
-                              src={preview}
-                              alt=""
-                              className="h-full w-full object-cover"
-                            />
-                          ) : (
-                            <CameraIcon className="h-6 w-6 text-gray-400" />
-                          )}
-                        </label>
-                      )
-                    })}
+                    {Array.from({ length: CHECKLIST_PHOTO_SLOTS }, (_, i) => (
+                      <PhotoSlot
+                        key={i}
+                        name={`${q.id}_photo_${i}`}
+                        preview={photoPreviews[q.id]?.[i] ?? null}
+                        onChange={(file) => setPhotoPreview(q.id, i, file)}
+                        note={photoNotes[q.id]?.[i] ?? ""}
+                        onNoteChange={(note) => setPhotoNote(q.id, i, note)}
+                        noteFieldName={`${q.id}_photo_note_${i}`}
+                      />
+                    ))}
                   </div>
                 </div>
 
@@ -579,12 +664,12 @@ export default function InspectionForm({
             <button
               type="button"
               onClick={handleBack}
-              className="shrink-0 px-1 py-3 text-sm font-medium text-gray-500 transition-transform duration-100 active:scale-95 active:text-gray-700"
+              className="shrink-0 px-1 py-3 text-sm font-medium text-brand opacity-70 transition-transform duration-100 active:scale-95 active:opacity-100"
             >
               ← Back
             </button>
           )}
-          {isLast && current.kind !== "repairPlaceholder" ? (
+          {isLast ? (
             <button
               type="submit"
               disabled={!canAdvance}
@@ -635,6 +720,647 @@ function CameraIcon({ className }: { className?: string }) {
     >
       <path d="M4 8h3l1.5-2h7L17 8h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z" />
       <circle cx="12" cy="13" r="3.5" />
+    </svg>
+  )
+}
+
+function CropIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      <path d="M6 2v14a2 2 0 0 0 2 2h14" />
+      <path d="M18 22V8a2 2 0 0 0-2-2H2" />
+    </svg>
+  )
+}
+
+// One upload slot: handles picking a file, converting HEIC to JPEG so it's
+// actually viewable, offering a remove (X) button, and an optional crop.
+// Whatever the final file ends up being gets written onto the underlying
+// <input> itself (via setInputFiles) so the native form submission picks
+// up the processed version rather than the raw picked file.
+// Every photo upload in the app (checklist answers and Repair Request
+// alike) goes through this one slot, so crop/highlight/notes/undo-redo
+// behave identically everywhere rather than varying by section.
+function PhotoSlot({
+  name,
+  preview,
+  onChange,
+  note,
+  onNoteChange,
+  noteFieldName,
+}: {
+  name: string
+  preview: string | null
+  onChange: (file: File | null) => void
+  note: string
+  onNoteChange: (note: string) => void
+  noteFieldName: string
+}) {
+  const inputRef = useRef<HTMLInputElement>(null)
+  const [busy, setBusy] = useState(false)
+  const [editing, setEditing] = useState(false)
+  // A freshly-picked photo is staged here and the editor opens on it right
+  // away — nothing is committed (onChange/setInputFiles) until Save, so
+  // there's no separate "upload, then remember to go edit it" step.
+  const [pendingSrc, setPendingSrc] = useState<string | null>(null)
+
+  async function handleFile(raw: File | null) {
+    if (!raw) return
+    let working = raw
+    if (isHeicFile(raw)) {
+      setBusy(true)
+      try {
+        working = await convertHeicToJpeg(raw)
+      } catch {
+        working = raw
+      } finally {
+        setBusy(false)
+      }
+    }
+    setPendingSrc(URL.createObjectURL(working))
+    setEditing(true)
+  }
+
+  function handleRemove(e: React.MouseEvent) {
+    e.preventDefault()
+    setInputFiles(inputRef.current, null)
+    onChange(null)
+    onNoteChange("")
+  }
+
+  function handleEditApply(file: File, newNote: string) {
+    setInputFiles(inputRef.current, file)
+    onChange(file)
+    onNoteChange(newNote)
+    setEditing(false)
+    setPendingSrc(null)
+  }
+
+  function handleEditCancel() {
+    // Only a fresh, not-yet-committed pick needs the native input cleared —
+    // canceling a re-edit of an already-saved photo must leave it alone.
+    if (pendingSrc && inputRef.current) inputRef.current.value = ""
+    setEditing(false)
+    setPendingSrc(null)
+  }
+
+  const editorSrc = pendingSrc ?? preview
+
+  return (
+    <div className="relative aspect-square">
+      <label className="flex h-full w-full items-center justify-center overflow-hidden rounded-lg border-2 border-dashed border-gray-300 bg-gray-50">
+        <input
+          ref={inputRef}
+          type="file"
+          accept="image/jpeg,image/png,image/heic,image/heif,.heic,.heif"
+          name={name}
+          className="sr-only"
+          onChange={(e) => handleFile(e.target.files?.[0] ?? null)}
+        />
+        {busy ? (
+          <span className="px-1 text-center text-[10px] text-gray-400">
+            Converting…
+          </span>
+        ) : preview ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={preview} alt="" className="h-full w-full object-cover" />
+        ) : (
+          <CameraIcon className="h-6 w-6 text-gray-400" />
+        )}
+      </label>
+
+      {preview && !busy && (
+        <>
+          <button
+            type="button"
+            onClick={handleRemove}
+            aria-label="Remove photo"
+            className="absolute -right-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full bg-gray-800 text-white shadow transition-transform duration-100 active:scale-90"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              className="h-3 w-3"
+            >
+              <path d="M6 6l12 12M18 6L6 18" />
+            </svg>
+          </button>
+          <button
+            type="button"
+            onClick={() => setEditing(true)}
+            aria-label="Edit photo"
+            className="absolute bottom-1 right-1 flex h-5 w-5 items-center justify-center rounded-full bg-black/60 text-white transition-transform duration-100 active:scale-90"
+          >
+            <CropIcon className="h-3 w-3" />
+          </button>
+          {note && (
+            <span
+              title={note}
+              className="absolute bottom-1 left-1 flex h-4 w-4 items-center justify-center rounded-full bg-blue-600 text-[9px] font-bold text-white"
+            >
+              i
+            </span>
+          )}
+        </>
+      )}
+
+      {editing && editorSrc && (
+        <PhotoEditorModal
+          src={editorSrc}
+          note={note}
+          onCancel={handleEditCancel}
+          onApply={handleEditApply}
+        />
+      )}
+
+      <input type="hidden" name={noteFieldName} value={note} />
+    </div>
+  )
+}
+// Keeps the photo fully covering the crop viewport — panning/zooming can
+// never reveal empty space around it (which would export as solid black,
+// since JPEG has no transparency to fall back on).
+function clampPanOffset(
+  offset: { x: number; y: number },
+  scale: number,
+  natural: { w: number; h: number },
+  viewport: number
+): { x: number; y: number } {
+  const maxX = Math.max(0, (natural.w * scale - viewport) / 2)
+  const maxY = Math.max(0, (natural.h * scale - viewport) / 2)
+  return {
+    x: Math.min(maxX, Math.max(-maxX, offset.x)),
+    y: Math.min(maxY, Math.max(-maxY, offset.y)),
+  }
+}
+
+const HIGHLIGHT_COLORS = {
+  red: "#ef4444",
+  yellow: "#eab308",
+  green: "#22c55e",
+} as const
+
+type EditSnapshot = {
+  scale: number
+  offset: { x: number; y: number }
+  drawingDataUrl: string | null
+}
+
+const EDIT_HISTORY_LIMIT = 10
+
+function loadDataUrlIntoCanvas(canvas: HTMLCanvasElement, dataUrl: string) {
+  const img = new Image()
+  img.onload = () => {
+    const ctx = canvas.getContext("2d")
+    if (!ctx) return
+    ctx.clearRect(0, 0, canvas.width, canvas.height)
+    ctx.drawImage(img, 0, 0)
+  }
+  img.src = dataUrl
+}
+
+// Crop (pan/zoom) and the highlight pen live on the same screen, toggled by
+// two small icons over the image, rather than separate tabs — and every
+// completed gesture (a pan, a zoom, a stroke, a clear) is one undo step,
+// capped at 10 like a normal editor's history.
+function PhotoEditorModal({
+  src,
+  note,
+  onCancel,
+  onApply,
+}: {
+  src: string
+  note: string
+  onCancel: () => void
+  onApply: (file: File, note: string) => void
+}) {
+  const VIEWPORT = 280
+  const imgRef = useRef<HTMLImageElement>(null)
+  const drawCanvasRef = useRef<HTMLCanvasElement>(null)
+  const [tool, setTool] = useState<"crop" | "pen">("crop")
+  const [natural, setNatural] = useState<{ w: number; h: number } | null>(null)
+  const [scale, setScale] = useState(1)
+  const [offset, setOffset] = useState({ x: 0, y: 0 })
+  const [penColor, setPenColor] = useState<keyof typeof HIGHLIGHT_COLORS | "eraser">(
+    "red"
+  )
+  const [noteText, setNoteText] = useState(note)
+  const [history, setHistory] = useState<{ stack: EditSnapshot[]; index: number }>({
+    stack: [],
+    index: -1,
+  })
+  const scaleRef = useRef(scale)
+  const offsetRef = useRef(offset)
+  const dragRef = useRef<{
+    x: number
+    y: number
+    offset: { x: number; y: number }
+  } | null>(null)
+  const drawingRef = useRef(false)
+  const lastPointRef = useRef<{ x: number; y: number } | null>(null)
+
+  function pushHistory(entry: EditSnapshot) {
+    setHistory(({ stack, index }) => {
+      let next = [...stack.slice(0, index + 1), entry]
+      let nextIndex = next.length - 1
+      if (next.length > EDIT_HISTORY_LIMIT) {
+        const overflow = next.length - EDIT_HISTORY_LIMIT
+        next = next.slice(overflow)
+        nextIndex -= overflow
+      }
+      return { stack: next, index: nextIndex }
+    })
+  }
+
+  function currentSnapshot(): EditSnapshot {
+    return {
+      scale: scaleRef.current,
+      offset: offsetRef.current,
+      drawingDataUrl: drawCanvasRef.current?.toDataURL() ?? null,
+    }
+  }
+
+  function restoreSnapshot(entry: EditSnapshot) {
+    scaleRef.current = entry.scale
+    offsetRef.current = entry.offset
+    setScale(entry.scale)
+    setOffset(entry.offset)
+    const canvas = drawCanvasRef.current
+    if (canvas) {
+      canvas.getContext("2d")?.clearRect(0, 0, canvas.width, canvas.height)
+      if (entry.drawingDataUrl) loadDataUrlIntoCanvas(canvas, entry.drawingDataUrl)
+    }
+  }
+
+  function undo() {
+    setHistory(({ stack, index }) => {
+      if (index <= 0) return { stack, index }
+      restoreSnapshot(stack[index - 1])
+      return { stack, index: index - 1 }
+    })
+  }
+  function redo() {
+    setHistory(({ stack, index }) => {
+      if (index >= stack.length - 1) return { stack, index }
+      restoreSnapshot(stack[index + 1])
+      return { stack, index: index + 1 }
+    })
+  }
+
+  function handleImgLoad() {
+    const img = imgRef.current
+    if (!img) return
+    const w = img.naturalWidth
+    const h = img.naturalHeight
+    const fit = Math.max(VIEWPORT / w, VIEWPORT / h)
+    setNatural({ w, h })
+    setScale(fit)
+    setOffset({ x: 0, y: 0 })
+    scaleRef.current = fit
+    offsetRef.current = { x: 0, y: 0 }
+    setHistory({ stack: [{ scale: fit, offset: { x: 0, y: 0 }, drawingDataUrl: null }], index: 0 })
+  }
+
+  function handleCropPointerDown(e: React.PointerEvent<HTMLDivElement>) {
+    dragRef.current = { x: e.clientX, y: e.clientY, offset }
+    e.currentTarget.setPointerCapture(e.pointerId)
+  }
+  function handleCropPointerMove(e: React.PointerEvent<HTMLDivElement>) {
+    if (!dragRef.current || !natural) return
+    const raw = {
+      x: dragRef.current.offset.x + (e.clientX - dragRef.current.x),
+      y: dragRef.current.offset.y + (e.clientY - dragRef.current.y),
+    }
+    const next = clampPanOffset(raw, scale, natural, VIEWPORT)
+    offsetRef.current = next
+    setOffset(next)
+  }
+  function handleCropPointerUp() {
+    if (dragRef.current) pushHistory(currentSnapshot())
+    dragRef.current = null
+  }
+
+  function handleScaleChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const next = Number(e.target.value)
+    scaleRef.current = next
+    setScale(next)
+    if (natural) {
+      const clamped = clampPanOffset(offsetRef.current, next, natural, VIEWPORT)
+      offsetRef.current = clamped
+      setOffset(clamped)
+    }
+  }
+
+  function canvasPoint(e: React.PointerEvent<HTMLDivElement>) {
+    const rect = drawCanvasRef.current?.getBoundingClientRect()
+    if (!rect) return { x: 0, y: 0 }
+    return { x: e.clientX - rect.left, y: e.clientY - rect.top }
+  }
+  function handleDrawPointerDown(e: React.PointerEvent<HTMLDivElement>) {
+    e.currentTarget.setPointerCapture(e.pointerId)
+    drawingRef.current = true
+    lastPointRef.current = canvasPoint(e)
+  }
+  function handleDrawPointerMove(e: React.PointerEvent<HTMLDivElement>) {
+    if (!drawingRef.current) return
+    const ctx = drawCanvasRef.current?.getContext("2d")
+    const from = lastPointRef.current
+    if (!ctx || !from) return
+    const to = canvasPoint(e)
+    ctx.lineCap = "round"
+    ctx.lineJoin = "round"
+    if (penColor === "eraser") {
+      ctx.globalCompositeOperation = "destination-out"
+      ctx.lineWidth = 18
+    } else {
+      ctx.globalCompositeOperation = "source-over"
+      ctx.strokeStyle = HIGHLIGHT_COLORS[penColor]
+      ctx.lineWidth = 6
+    }
+    ctx.beginPath()
+    ctx.moveTo(from.x, from.y)
+    ctx.lineTo(to.x, to.y)
+    ctx.stroke()
+    lastPointRef.current = to
+  }
+  function handleDrawPointerUp() {
+    if (drawingRef.current) pushHistory(currentSnapshot())
+    drawingRef.current = false
+    lastPointRef.current = null
+  }
+
+  function handleClearDrawing() {
+    const canvas = drawCanvasRef.current
+    const ctx = canvas?.getContext("2d")
+    if (ctx && canvas) ctx.clearRect(0, 0, canvas.width, canvas.height)
+    pushHistory({ ...currentSnapshot(), drawingDataUrl: null })
+  }
+
+  function handleApply() {
+    const img = imgRef.current
+    if (!img || !natural) return
+    const OUTPUT = 640
+    const outputScale = OUTPUT / VIEWPORT
+    const canvas = document.createElement("canvas")
+    canvas.width = OUTPUT
+    canvas.height = OUTPUT
+    const ctx = canvas.getContext("2d")
+    if (!ctx) return
+    const drawW = natural.w * scale * outputScale
+    const drawH = natural.h * scale * outputScale
+    const drawX = OUTPUT / 2 - drawW / 2 + offset.x * outputScale
+    const drawY = OUTPUT / 2 - drawH / 2 + offset.y * outputScale
+    ctx.drawImage(img, drawX, drawY, drawW, drawH)
+    if (drawCanvasRef.current) {
+      ctx.drawImage(drawCanvasRef.current, 0, 0, VIEWPORT, VIEWPORT, 0, 0, OUTPUT, OUTPUT)
+    }
+    canvas.toBlob(
+      (blob) => {
+        if (blob) onApply(new File([blob], "photo.jpg", { type: "image/jpeg" }), noteText)
+      },
+      "image/jpeg",
+      0.9
+    )
+  }
+
+  const minScale = natural ? Math.max(VIEWPORT / natural.w, VIEWPORT / natural.h) : 1
+  const canUndo = history.index > 0
+  const canRedo = history.index < history.stack.length - 1
+  const overlayButton =
+    "flex h-7 w-7 items-center justify-center rounded-full bg-black/55 text-white transition-transform duration-100 active:scale-90 disabled:opacity-30"
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+      <div className="w-full max-w-xs rounded-lg bg-white p-4">
+        <div
+          className="relative mx-auto touch-none overflow-hidden rounded-lg bg-gray-100"
+          style={{ width: VIEWPORT, height: VIEWPORT }}
+          onPointerDown={tool === "crop" ? handleCropPointerDown : handleDrawPointerDown}
+          onPointerMove={tool === "crop" ? handleCropPointerMove : handleDrawPointerMove}
+          onPointerUp={tool === "crop" ? handleCropPointerUp : handleDrawPointerUp}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            ref={imgRef}
+            src={src}
+            alt=""
+            onLoad={handleImgLoad}
+            draggable={false}
+            className={`absolute left-1/2 top-1/2 max-w-none select-none transition-opacity duration-150 ${
+              natural ? "opacity-100" : "opacity-0"
+            }`}
+            style={{
+              transform: `translate(-50%, -50%) translate(${offset.x}px, ${offset.y}px) scale(${scale})`,
+            }}
+          />
+          <canvas
+            ref={drawCanvasRef}
+            width={VIEWPORT}
+            height={VIEWPORT}
+            className="absolute inset-0"
+          />
+
+          <div className="absolute left-1.5 top-1.5 flex gap-1">
+            <button
+              type="button"
+              onClick={undo}
+              onPointerDown={(e) => e.stopPropagation()}
+              disabled={!canUndo}
+              aria-label="Undo"
+              className={overlayButton}
+            >
+              <UndoIcon className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              onClick={redo}
+              onPointerDown={(e) => e.stopPropagation()}
+              disabled={!canRedo}
+              aria-label="Redo"
+              className={overlayButton}
+            >
+              <RedoIcon className="h-4 w-4" />
+            </button>
+          </div>
+
+          <div className="absolute right-1.5 top-1.5 flex gap-1">
+            <button
+              type="button"
+              onClick={() => setTool("crop")}
+              onPointerDown={(e) => e.stopPropagation()}
+              aria-label="Crop"
+              className={`${overlayButton} ${tool === "crop" ? "bg-blue-600" : ""}`}
+            >
+              <CropIcon className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setTool("pen")}
+              onPointerDown={(e) => e.stopPropagation()}
+              aria-label="Pen"
+              className={`${overlayButton} ${tool === "pen" ? "bg-blue-600" : ""}`}
+            >
+              <PenIcon className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+
+        {tool === "crop" ? (
+          <input
+            type="range"
+            min={minScale}
+            max={minScale * 3}
+            step={(minScale * 2) / 100}
+            value={scale}
+            onChange={handleScaleChange}
+            onPointerUp={() => pushHistory(currentSnapshot())}
+            className="mt-3 w-full"
+          />
+        ) : (
+          <div className="mt-3 flex items-center gap-2">
+            {(Object.keys(HIGHLIGHT_COLORS) as (keyof typeof HIGHLIGHT_COLORS)[]).map(
+              (c) => (
+                <button
+                  key={c}
+                  type="button"
+                  onClick={() => setPenColor(c)}
+                  aria-label={`${c} pen`}
+                  className={`h-7 w-7 rounded-full border-2 transition-transform duration-100 active:scale-90 ${
+                    penColor === c ? "border-gray-800" : "border-transparent"
+                  }`}
+                  style={{ backgroundColor: HIGHLIGHT_COLORS[c] }}
+                />
+              )
+            )}
+            <button
+              type="button"
+              onClick={() => setPenColor("eraser")}
+              aria-label="Eraser"
+              className={`flex h-7 w-7 items-center justify-center rounded-full border-2 text-gray-600 transition-transform duration-100 active:scale-90 ${
+                penColor === "eraser" ? "border-gray-800 bg-gray-100" : "border-gray-300"
+              }`}
+            >
+              <EraserIcon className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              onClick={handleClearDrawing}
+              className="ml-auto text-xs font-medium text-gray-500 underline"
+            >
+              Clear all
+            </button>
+          </div>
+        )}
+
+        <div className="mt-4">
+          <label className="mb-1 block text-xs font-medium text-gray-700">
+            Note (optional)
+          </label>
+          <textarea
+            value={noteText}
+            onChange={(e) => setNoteText(e.target.value)}
+            rows={2}
+            placeholder="Add detail about this photo"
+            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+          />
+        </div>
+
+        <div className="mt-4 flex gap-2">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="flex-1 rounded-lg border border-gray-300 py-2 text-sm font-medium text-gray-700 transition-transform duration-100 active:scale-95"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={handleApply}
+            className="flex-1 rounded-lg bg-blue-600 py-2 text-sm font-semibold text-white transition-transform duration-100 active:scale-95"
+          >
+            Save
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function EraserIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      <path d="M20 20H8.5L3 14.5a1 1 0 0 1 0-1.4l8.6-8.6a1 1 0 0 1 1.4 0l7 7a1 1 0 0 1 0 1.4L13.5 20" />
+      <path d="M8 12.5 15.5 20" />
+    </svg>
+  )
+}
+
+function PenIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      <path d="M17 3a2.83 2.83 0 0 1 4 4L7 21l-4 1 1-4Z" />
+      <path d="m14.5 5.5 4 4" />
+    </svg>
+  )
+}
+
+function UndoIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      <path d="M9 14 4 9l5-5" />
+      <path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11" />
+    </svg>
+  )
+}
+
+function RedoIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      <path d="M15 14l5-5-5-5" />
+      <path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13" />
     </svg>
   )
 }
