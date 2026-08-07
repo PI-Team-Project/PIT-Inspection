@@ -37,6 +37,8 @@ import PhotoGallery from "./PhotoGallery"
 import DeleteVehicleControl from "./DeleteVehicleControl"
 import StatusDot from "./StatusDot"
 import LocationVehiclesButton from "./LocationVehiclesButton"
+import EquipmentSearch from "./EquipmentSearch"
+import EquipmentBrowser from "./EquipmentBrowser"
 import { saveActivity, confirmResolved, updateEquipmentLocation } from "./actions"
 
 type Answers = Record<
@@ -118,46 +120,12 @@ function urgencyRank(stage: Stage | "none", escalated: boolean) {
   return escalated ? base - 1 : base
 }
 
-// The worst (lowest-ranked, most urgent) row in a group — used to sort
-// whole category sections by urgency. An empty group sorts last.
-function worstUrgency(rows: { stage: Stage | "none"; escalated: boolean }[]) {
-  if (rows.length === 0) return Infinity
-  return Math.min(...rows.map((row) => urgencyRank(row.stage, row.escalated)))
-}
-
-// The type filter has two tiers: a top-level category (Forklift / Pallet
-// Jacks) and, once Forklift is picked, a multi-select of sub-types via the
-// `sub` param. "forklift" (no capital, not a real EquipmentType) means "all
-// forklifts." `sub` is a comma list of selected sub-types; zero selected
-// makes no sense (there'd be nothing to show), so it's never producible —
-// deselecting the last one just falls back to "all" instead.
-function typeHref(filter: string | undefined, type: string | undefined) {
-  const query: Record<string, string> = {}
-  if (filter) query.filter = filter
-  if (type) query.type = type
-  return { pathname: "/dashboard", query }
-}
-
-function subtypeHref(filter: string | undefined, next: EquipmentType[]) {
-  const query: Record<string, string> = { type: "forklift" }
-  if (filter) query.filter = filter
-  if (next.length > 0 && next.length < FORKLIFT_TYPES.length) query.sub = next.join(",")
-  return { pathname: "/dashboard", query }
-}
-
-function toggleSubtype(active: EquipmentType[], type: EquipmentType): EquipmentType[] {
-  const next = active.includes(type) ? active.filter((t) => t !== type) : [...active, type]
-  return next.length === 0 ? FORKLIFT_TYPES : next
-}
-
 export default async function DashboardPage({
   searchParams,
 }: {
   searchParams: Promise<{
     error?: string
     filter?: string
-    type?: string
-    sub?: string
   }>
 }) {
   const params = await searchParams
@@ -169,14 +137,6 @@ export default async function DashboardPage({
   }
 
   const filter = params.filter
-  const typeParam = params.type
-  const isForkliftActive =
-    typeParam === "forklift" || FORKLIFT_TYPES.includes(typeParam as EquipmentType)
-  const parsedSubtypes = params.sub
-    ? FORKLIFT_TYPES.filter((t) => params.sub!.split(",").includes(t))
-    : FORKLIFT_TYPES
-  const activeSubtypes: EquipmentType[] =
-    parsedSubtypes.length > 0 ? parsedSubtypes : FORKLIFT_TYPES
   const savedManagerName = cookieStore.get(MANAGER_NAME_COOKIE)?.value ?? ""
   const today = new Date().toISOString().slice(0, 10)
 
@@ -231,25 +191,35 @@ export default async function DashboardPage({
   const byType = (source: typeof equipmentRows, type: EquipmentType) =>
     source.filter((row) => row.equipment.type === type)
 
-  const typedRows =
-    !typeParam || typeParam === "all"
-      ? rows
-      : typeParam === "forklift"
-        ? rows.filter((row) => activeSubtypes.includes(row.equipment.type))
-        : rows.filter((row) => row.equipment.type === typeParam)
+  // Lean, client-safe slice for the search popup — never pass `latest`/
+  // `history` down since those carry full inspection answers (photos
+  // included, as base64 data URIs), which would bloat the client bundle.
+  const searchableEquipment = equipmentRows.map((row) => ({
+    serial: row.equipment.serial,
+    flNumber: row.equipment.flNumber,
+    makeColor: row.equipment.makeColor,
+    type: row.equipment.type,
+    location: row.equipment.location,
+    stage: row.stage,
+    lastInspectedDate: row.latest?.inspection.date ?? null,
+  }))
 
   return (
-    <main className="mx-auto max-w-lg px-4 py-8">
+    <main className="mx-auto max-w-lg px-4 py-8 sm:max-w-2xl lg:max-w-4xl">
       <div className="flex items-center gap-3">
         <HomeLink />
         <h1 className="text-xl font-bold text-gray-900 sm:text-2xl">
           Inspection Dashboard
         </h1>
+        <div className="ml-auto">
+          <EquipmentSearch equipment={searchableEquipment} />
+        </div>
       </div>
 
       <div className="mt-4 ml-auto flex w-fit flex-col items-stretch gap-0 text-sm font-medium">
         <Link
           href={filter === "working" ? "/dashboard" : "/dashboard?filter=working"}
+          scroll={false}
           className={`flex items-center gap-1.5 rounded-full px-2 py-1 transition-colors duration-100 active:scale-95 ${
             filter === "working" ? "bg-green-100 text-green-800" : "text-gray-700"
           }`}
@@ -260,6 +230,7 @@ export default async function DashboardPage({
         {noInspectionCount > 0 && (
           <Link
             href={filter === "not-inspected" ? "/dashboard" : "/dashboard?filter=not-inspected"}
+            scroll={false}
             className={`flex items-center gap-1.5 rounded-full px-2 py-1 transition-colors duration-100 active:scale-95 ${
               filter === "not-inspected" ? "bg-gray-200 text-gray-800" : "text-gray-500"
             }`}
@@ -296,129 +267,22 @@ export default async function DashboardPage({
 
       <div className="my-4 border-t border-gray-200" />
 
-      <div className="flex rounded-lg border border-gray-200 bg-gray-50 p-1 text-sm font-medium">
-        <Link
-          href={typeHref(filter, undefined)}
-          className={`flex-1 rounded-md py-1.5 text-center transition-colors duration-100 active:scale-95 ${
-            !typeParam ? "bg-white text-gray-900 shadow-sm" : "text-gray-500"
-          }`}
-        >
-          View All
-        </Link>
-        <Link
-          href={typeHref(filter, "forklift")}
-          className={`flex-1 rounded-md py-1.5 text-center transition-colors duration-100 active:scale-95 ${
-            isForkliftActive ? "bg-white text-gray-900 shadow-sm" : "text-gray-500"
-          }`}
-        >
-          Forklift
-        </Link>
-        <Link
-          href={typeHref(filter, "Pallet Jack")}
-          className={`flex-1 rounded-md py-1.5 text-center transition-colors duration-100 active:scale-95 ${
-            typeParam === "Pallet Jack" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500"
-          }`}
-        >
-          Pallet Jacks
-        </Link>
-      </div>
-
-      {isForkliftActive && (
-        <div className="slide-down mt-2 flex rounded-lg border border-gray-200 bg-gray-50 p-1 text-xs font-medium">
-          <Link
-            href={subtypeHref(filter, FORKLIFT_TYPES)}
-            className={`flex-1 rounded-md py-1 text-center transition-colors duration-100 active:scale-95 ${
-              activeSubtypes.length === FORKLIFT_TYPES.length
-                ? "bg-white text-gray-900 shadow-sm"
-                : "text-gray-500"
-            }`}
-          >
-            All
-          </Link>
-          {FORKLIFT_TYPES.map((type) => {
-            const selected = activeSubtypes.includes(type)
-            return (
-              <Link
-                key={type}
-                href={subtypeHref(filter, toggleSubtype(activeSubtypes, type))}
-                className={`flex-1 rounded-md py-1 text-center transition-colors duration-100 active:scale-95 ${
-                  selected ? "bg-white text-gray-900 shadow-sm" : "text-gray-500"
-                }`}
-              >
-                {selected ? "✓ " : ""}
-                {equipmentTypeLabel(type)}
-              </Link>
-            )
-          })}
-        </div>
-      )}
-
-      {typedRows.length === 0 && !filter && !typeParam && (
-        <p className="mt-3 text-gray-500">No equipment on file.</p>
-      )}
-
-      {(() => {
-        // Urgency-ordered by default (View All): the subtype with the worst
-        // issue leads, and Forklift vs. Pallet Jacks swap order the same
-        // way. Once the manager filters to a specific category, ordering
-        // reverts to the plain canonical list — they already know what
-        // they're looking at, so it should stay put rather than reshuffle.
-        const unfiltered = !typeParam
-        const orderedForkliftTypes = unfiltered
-          ? [...FORKLIFT_TYPES].sort(
-              (a, b) =>
-                worstUrgency(byType(typedRows, a)) - worstUrgency(byType(typedRows, b))
-            )
-          : FORKLIFT_TYPES
-        const palletRows = byType(typedRows, "Pallet Jack")
-
-        const forkliftBlock = FORKLIFT_TYPES.some(
-          (type) => byType(typedRows, type).length > 0
-        ) && (
-          <div key="forklift">
-            <h2 className="mt-6 text-sm font-bold tracking-wide text-brand uppercase">
-              Forklift
-            </h2>
-            {orderedForkliftTypes.map((type) => (
-              <EquipmentSection
-                key={type}
-                title={equipmentTypeLabel(type)}
-                rows={byType(typedRows, type)}
-                today={today}
-                savedManagerName={savedManagerName}
-              />
-            ))}
-          </div>
-        )
-
-        const palletBlock = (
-          <EquipmentSection
-            key="pallet"
-            title="Pallet Jacks"
-            rows={palletRows}
-            today={today}
-            savedManagerName={savedManagerName}
-            emphasize
-          />
-        )
-
-        const forkliftFirst =
-          !unfiltered ||
-          worstUrgency(FORKLIFT_TYPES.flatMap((type) => byType(typedRows, type))) <=
-            worstUrgency(palletRows)
-
-        return forkliftFirst ? (
-          <>
-            {forkliftBlock}
-            {palletBlock}
-          </>
-        ) : (
-          <>
-            {palletBlock}
-            {forkliftBlock}
-          </>
-        )
-      })()}
+      <EquipmentBrowser
+        cards={rows.map((row) => ({
+          serial: row.equipment.serial,
+          type: row.equipment.type,
+          stage: row.stage,
+          escalated: row.escalated,
+          node: (
+            <EquipmentCard
+              key={row.equipment.serial}
+              row={row}
+              today={today}
+              savedManagerName={savedManagerName}
+            />
+          ),
+        }))}
+      />
 
       <div className="mt-8 flex justify-end border-t border-gray-100 pt-4">
         <a
@@ -588,9 +452,11 @@ function InspectionRequestBanner({ rows }: { rows: EquipmentRow[] }) {
   }
 
   return (
-    <div className="rounded-md border-l-4 border-red-400 bg-red-50 py-2.5 pl-3 pr-3">
+    <div className="rounded-md bg-red-50 py-2.5 pl-3 pr-3">
       <p className="text-sm text-red-700">
-        <span className="font-semibold">🔴 Inspection Requested ({requested.length}):</span>{" "}
+        <span className="font-semibold">
+          <span className="text-red-500">▶</span> Inspection Requested ({requested.length}):
+        </span>{" "}
         {requested.map((row, i) => (
           <span key={row.equipment.serial}>
             {i > 0 && ", "}
@@ -609,10 +475,11 @@ function NeedsAttentionBanner({ rows }: { rows: EquipmentRow[] }) {
   if (needsAttentionRows.length === 0) return null
 
   return (
-    <div className="mt-2 rounded-md border-l-4 border-amber-400 bg-amber-50 py-2.5 pl-3 pr-3">
+    <div className="mt-2 rounded-md bg-amber-50 py-2.5 pl-3 pr-3">
       <p className="text-sm text-amber-700">
         <span className="font-semibold">
-          🟡 Needs Attention ({needsAttentionRows.length}):
+          <span className="text-yellow-500">▶</span> Needs Attention (
+          {needsAttentionRows.length}):
         </span>{" "}
         {needsAttentionRows.map((row, i) => (
           <span key={row.equipment.serial}>
@@ -627,42 +494,6 @@ function NeedsAttentionBanner({ rows }: { rows: EquipmentRow[] }) {
   )
 }
 
-function EquipmentSection({
-  title,
-  rows,
-  today,
-  savedManagerName,
-  emphasize,
-}: {
-  title: string
-  rows: EquipmentRow[]
-  today: string
-  savedManagerName: string
-  emphasize?: boolean
-}) {
-  if (rows.length === 0) return null
-  return (
-    <div className="mt-6">
-      <h2
-        className={`mb-2 text-sm tracking-wide text-brand uppercase ${
-          emphasize ? "font-bold" : "font-semibold opacity-80"
-        }`}
-      >
-        {title} ({rows.length})
-      </h2>
-      <div className="space-y-3">
-        {rows.map((row) => (
-          <EquipmentCard
-            key={row.equipment.serial}
-            row={row}
-            today={today}
-            savedManagerName={savedManagerName}
-          />
-        ))}
-      </div>
-    </div>
-  )
-}
 
 function EquipmentCard({
   row: { equipment, history, latest, stage, since },
