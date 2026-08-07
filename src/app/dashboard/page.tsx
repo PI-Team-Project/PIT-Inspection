@@ -1,3 +1,4 @@
+import { Fragment } from "react"
 import Link from "next/link"
 import { cookies } from "next/headers"
 import { prisma } from "@/lib/prisma"
@@ -34,6 +35,8 @@ import PinForm from "./PinForm"
 import HomeLink from "./HomeLink"
 import PhotoGallery from "./PhotoGallery"
 import DeleteVehicleControl from "./DeleteVehicleControl"
+import StatusDot from "./StatusDot"
+import LocationVehiclesButton from "./LocationVehiclesButton"
 import { saveActivity, confirmResolved, updateEquipmentLocation } from "./actions"
 
 type Answers = Record<
@@ -283,6 +286,7 @@ export default async function DashboardPage({
         <FleetOverview
           title="Pallet Jacks"
           subgroups={[{ label: "Pallet Jack", rows: byType(equipmentRows, "Pallet Jack") }]}
+          compact
         />
       </div>
 
@@ -440,9 +444,11 @@ type EquipmentRow = {
 function FleetOverview({
   title,
   subgroups,
+  compact = false,
 }: {
   title: string
   subgroups: { label: EquipmentType; rows: EquipmentRow[] }[]
+  compact?: boolean
 }) {
   const visible = subgroups.filter((g) => g.rows.length > 0)
   const total = visible.reduce((sum, g) => sum + g.rows.length, 0)
@@ -453,7 +459,11 @@ function FleetOverview({
       <h3 className="mb-1.5 text-xs font-semibold tracking-wide text-brand uppercase">
         {title} ({total})
       </h3>
-      <div className="flex flex-wrap items-center gap-x-5 gap-y-3 rounded-lg border border-gray-200 bg-gray-50 p-3">
+      <div
+        className={`flex flex-wrap items-center gap-x-5 gap-y-[5px] rounded-lg border border-gray-200 bg-gray-50 px-3 ${
+          compact ? "py-1.5" : "py-3"
+        }`}
+      >
         {visible.map((g) => (
           <div key={g.label} className="flex items-center gap-[5px]">
             {showSubLabels && (
@@ -461,13 +471,13 @@ function FleetOverview({
                 {equipmentTypeLabel(g.label)} ({g.rows.length})
               </span>
             )}
-            <div className="flex flex-wrap gap-1.5">
+            <div className="flex flex-wrap gap-1">
               {g.rows.map((row) => (
                 <a
                   key={row.equipment.serial}
                   href={`#eq-${row.equipment.serial}`}
                   title={`${row.equipment.flNumber} — ${row.equipment.makeColor}`}
-                  className="p-1"
+                  className="flex p-1"
                 >
                   <StatusDot stage={row.stage} />
                 </a>
@@ -505,8 +515,8 @@ function LocationOverview({ rows }: { rows: EquipmentRow[] }) {
           />
         </svg>
       </summary>
-      <div className="flex flex-wrap items-center gap-x-5 gap-y-2.5 border-t border-gray-200 p-3">
-        {byLocation.map((g) => {
+      <div className="grid grid-cols-[auto_1fr] items-center gap-x-3 gap-y-1 border-t border-gray-200 p-3">
+        {byLocation.map((g, i) => {
           const forkliftRows = g.rows.filter(
             (row) => equipmentCategory(row.equipment.type) === "Forklift"
           )
@@ -514,13 +524,23 @@ function LocationOverview({ rows }: { rows: EquipmentRow[] }) {
             (row) => equipmentCategory(row.equipment.type) === "Pallet Jack"
           )
           const showTypeTags = forkliftRows.length > 0 && palletRows.length > 0
+          const rowBorder = i > 0 ? "border-t border-gray-200 pt-1" : ""
 
           return (
-            <div key={g.location} className="flex items-center gap-1.5">
-              <span className="text-xs font-semibold tracking-wide text-brand uppercase">
-                {g.location} ({g.rows.length})
+            <Fragment key={g.location}>
+              <span className={rowBorder}>
+                <LocationVehiclesButton
+                  location={g.location}
+                  count={g.rows.length}
+                  vehicles={g.rows.map((row) => ({
+                    serial: row.equipment.serial,
+                    flNumber: row.equipment.flNumber,
+                    makeColor: row.equipment.makeColor,
+                    stage: row.stage,
+                  }))}
+                />
               </span>
-              <div className="flex flex-wrap items-center gap-2">
+              <div className={`flex flex-wrap items-center gap-2 ${rowBorder}`}>
                 {[
                   { label: "FL", rows: forkliftRows },
                   { label: "PJ", rows: palletRows },
@@ -529,17 +549,17 @@ function LocationOverview({ rows }: { rows: EquipmentRow[] }) {
                   .map((sg) => (
                     <span key={sg.label} className="flex items-center gap-1">
                       {showTypeTags && (
-                        <span className="text-[10px] font-medium text-gray-400">
+                        <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-gray-200 text-[9px] font-bold text-gray-700">
                           {sg.label}
                         </span>
                       )}
-                      <span className="flex flex-wrap gap-3">
+                      <span className="flex flex-wrap gap-1">
                         {sg.rows.map((row) => (
                           <a
                             key={row.equipment.serial}
                             href={`#eq-${row.equipment.serial}`}
                             title={`${row.equipment.flNumber} — ${row.equipment.makeColor}`}
-                            className="p-1"
+                            className="flex p-1"
                           >
                             <StatusDot stage={row.stage} size="xl" />
                           </a>
@@ -548,7 +568,7 @@ function LocationOverview({ rows }: { rows: EquipmentRow[] }) {
                     </span>
                   ))}
               </div>
-            </div>
+            </Fragment>
           )
         })}
       </div>
@@ -665,8 +685,10 @@ function EquipmentCard({
         stage === "unresolved" ? "border-red-300" : "border-gray-300"
       }`}
     >
-      <summary className="-m-4 relative flex cursor-pointer items-center gap-3 rounded-lg p-4 transition-colors duration-100 active:bg-gray-50">
-        <StatusDot stage={stage} size="lg" />
+      <summary className="-m-4 relative flex cursor-pointer items-start gap-2 rounded-lg p-4 transition-colors duration-100 active:bg-gray-50">
+        <span className="mt-1">
+          <StatusDot stage={stage} size="lg" />
+        </span>
         <div className="w-full">
           <p className="pr-6 text-lg font-semibold text-gray-900">
             {equipment.makeColor} · {equipmentTypeLabel(equipment.type)} · {equipment.flNumber}
@@ -991,47 +1013,6 @@ function daysPassedCount(since: string, today: string): number {
 
 const ISSUE_PREVIEW_COUNT = 3
 
-const STATUS_DOT: Record<Stage | "none", { dot: string; glow: string; glowLg: string }> = {
-  unresolved: {
-    dot: "bg-red-500 ring-1 ring-red-600/40",
-    glow: "shadow-[0_0_2px_0.5px_rgba(239,68,68,0.8)]",
-    glowLg: "shadow-[0_0_2px_0.5px_rgba(239,68,68,0.8)]",
-  },
-  "pending-confirm": {
-    dot: "bg-amber-500 ring-1 ring-amber-600/40",
-    glow: "shadow-[0_0_2px_0.5px_rgba(245,158,11,0.8)]",
-    glowLg: "shadow-[0_0_2px_0.5px_rgba(245,158,11,0.8)]",
-  },
-  confirmed: {
-    dot: "bg-green-500 ring-1 ring-green-600/40",
-    glow: "shadow-[0_0_2px_0.5px_rgba(34,197,94,0.8)]",
-    glowLg: "shadow-[0_0_2px_0.5px_rgba(34,197,94,0.8)]",
-  },
-  clean: {
-    dot: "bg-green-500 ring-1 ring-green-600/40",
-    glow: "shadow-[0_0_2px_0.5px_rgba(34,197,94,0.8)]",
-    glowLg: "shadow-[0_0_2px_0.5px_rgba(34,197,94,0.8)]",
-  },
-  none: { dot: "bg-gray-400 ring-1 ring-gray-500/30", glow: "", glowLg: "" },
-}
-
-function StatusDot({
-  stage,
-  size = "sm",
-}: {
-  stage: Stage | "none"
-  size?: "sm" | "lg" | "xl"
-}) {
-  const c = STATUS_DOT[stage]
-  const blink = stage === "unresolved" ? "animate-[status-blink_1.3s_ease-in-out_infinite]" : ""
-  if (size === "xl") {
-    return <span className={`h-20 w-20 shrink-0 rounded-full ${c.dot} ${c.glowLg} ${blink}`} />
-  }
-  if (size === "lg") {
-    return <span className={`h-4 w-4 shrink-0 rounded-full ${c.dot} ${c.glowLg} ${blink}`} />
-  }
-  return <span className={`h-4 w-4 shrink-0 rounded-full ${c.dot} ${c.glow} ${blink}`} />
-}
 
 function IssueLine({
   flagged,
