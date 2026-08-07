@@ -533,15 +533,15 @@ function LocationOverview({ rows }: { rows: EquipmentRow[] }) {
                           {sg.label}
                         </span>
                       )}
-                      <span className="flex flex-wrap gap-1">
+                      <span className="flex flex-wrap gap-3">
                         {sg.rows.map((row) => (
                           <a
                             key={row.equipment.serial}
                             href={`#eq-${row.equipment.serial}`}
                             title={`${row.equipment.flNumber} — ${row.equipment.makeColor}`}
-                            className="p-0.5"
+                            className="p-1"
                           >
-                            <StatusDot stage={row.stage} />
+                            <StatusDot stage={row.stage} size="xl" />
                           </a>
                         ))}
                       </span>
@@ -993,26 +993,26 @@ const ISSUE_PREVIEW_COUNT = 3
 
 const STATUS_DOT: Record<Stage | "none", { dot: string; glow: string; glowLg: string }> = {
   unresolved: {
-    dot: "bg-red-500",
-    glow: "shadow-[0_0_6px_2px_rgba(239,68,68,1),0_0_12px_3px_rgba(239,68,68,0.7)]",
-    glowLg: "shadow-[0_0_5px_1px_rgba(239,68,68,0.9),0_0_10px_2px_rgba(239,68,68,0.5)]",
+    dot: "bg-red-500 ring-1 ring-red-600/40",
+    glow: "shadow-[0_0_2px_0.5px_rgba(239,68,68,0.8)]",
+    glowLg: "shadow-[0_0_2px_0.5px_rgba(239,68,68,0.8)]",
   },
   "pending-confirm": {
-    dot: "bg-amber-500",
-    glow: "shadow-[0_0_6px_2px_rgba(245,158,11,1),0_0_12px_3px_rgba(245,158,11,0.7)]",
-    glowLg: "shadow-[0_0_5px_1px_rgba(245,158,11,0.9),0_0_10px_2px_rgba(245,158,11,0.5)]",
+    dot: "bg-amber-500 ring-1 ring-amber-600/40",
+    glow: "shadow-[0_0_2px_0.5px_rgba(245,158,11,0.8)]",
+    glowLg: "shadow-[0_0_2px_0.5px_rgba(245,158,11,0.8)]",
   },
   confirmed: {
-    dot: "bg-green-500",
-    glow: "shadow-[0_0_6px_2px_rgba(34,197,94,1),0_0_12px_3px_rgba(34,197,94,0.7)]",
-    glowLg: "shadow-[0_0_5px_1px_rgba(34,197,94,0.9),0_0_10px_2px_rgba(34,197,94,0.5)]",
+    dot: "bg-green-500 ring-1 ring-green-600/40",
+    glow: "shadow-[0_0_2px_0.5px_rgba(34,197,94,0.8)]",
+    glowLg: "shadow-[0_0_2px_0.5px_rgba(34,197,94,0.8)]",
   },
   clean: {
-    dot: "bg-green-500",
-    glow: "shadow-[0_0_6px_2px_rgba(34,197,94,1),0_0_12px_3px_rgba(34,197,94,0.7)]",
-    glowLg: "shadow-[0_0_5px_1px_rgba(34,197,94,0.9),0_0_10px_2px_rgba(34,197,94,0.5)]",
+    dot: "bg-green-500 ring-1 ring-green-600/40",
+    glow: "shadow-[0_0_2px_0.5px_rgba(34,197,94,0.8)]",
+    glowLg: "shadow-[0_0_2px_0.5px_rgba(34,197,94,0.8)]",
   },
-  none: { dot: "bg-gray-400", glow: "", glowLg: "" },
+  none: { dot: "bg-gray-400 ring-1 ring-gray-500/30", glow: "", glowLg: "" },
 }
 
 function StatusDot({
@@ -1020,10 +1020,13 @@ function StatusDot({
   size = "sm",
 }: {
   stage: Stage | "none"
-  size?: "sm" | "lg"
+  size?: "sm" | "lg" | "xl"
 }) {
   const c = STATUS_DOT[stage]
   const blink = stage === "unresolved" ? "animate-[status-blink_1.3s_ease-in-out_infinite]" : ""
+  if (size === "xl") {
+    return <span className={`h-20 w-20 shrink-0 rounded-full ${c.dot} ${c.glowLg} ${blink}`} />
+  }
   if (size === "lg") {
     return <span className={`h-4 w-4 shrink-0 rounded-full ${c.dot} ${c.glowLg} ${blink}`} />
   }
