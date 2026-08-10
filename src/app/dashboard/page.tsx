@@ -197,6 +197,7 @@ export default async function DashboardPage({
           node: (
             <EquipmentCard key={row.equipment.serial} row={row} today={today} />
           ),
+          tableRow: <EquipmentTableRow key={row.equipment.serial} row={row} />,
         }))}
       />
 
@@ -512,6 +513,44 @@ function EquipmentCard({
           passed
         </p>
       )}
+    </Link>
+  )
+}
+
+// Shared between the header row and every data row so columns line up —
+// kept as one literal string, duplicated into EquipmentBrowser.tsx, since
+// the two live in different components with no cheap way to share a
+// Tailwind arbitrary-value class across a server/client boundary.
+const EQUIPMENT_TABLE_COLS = "grid-cols-[1.6fr_1fr_1.1fr_1.1fr_0.9fr_1fr]"
+
+const STAGE_LABEL: Record<Stage | "none", string> = {
+  unresolved: "Unresolved",
+  "pending-confirm": "Needs Attention",
+  confirmed: "Confirmed",
+  clean: "Clean",
+  none: "Not Inspected",
+}
+
+function EquipmentTableRow({ row }: { row: EquipmentRow }) {
+  const { equipment, latest, stage } = row
+  return (
+    <Link
+      href={`/dashboard/equipment/${equipment.serial}`}
+      className={`grid ${EQUIPMENT_TABLE_COLS} items-center gap-2 border-b border-gray-100 px-3 py-2 text-sm transition-colors duration-100 last:border-b-0 hover:bg-gray-50 ${
+        stage === "unresolved" ? "bg-red-50" : ""
+      }`}
+    >
+      <span className="truncate font-medium text-gray-900">{equipment.makeColor}</span>
+      <span className="flex min-w-0 items-center gap-1.5">
+        <StatusDot stage={stage} />
+        <span className="truncate text-xs text-gray-600">{STAGE_LABEL[stage]}</span>
+      </span>
+      <span className="truncate text-gray-600">{latest ? latest.inspection.date : "—"}</span>
+      <span className="truncate text-gray-600">
+        {latest ? `${latest.inspection.firstName} ${latest.inspection.lastName}` : "—"}
+      </span>
+      <span className="truncate text-gray-600">{equipmentTypeLabel(equipment.type)}</span>
+      <span className="truncate font-medium text-gray-700">{equipment.flNumber}</span>
     </Link>
   )
 }

@@ -10,6 +10,59 @@ type Card = {
   stage: Stage | "none"
   escalated: boolean
   node: ReactNode
+  tableRow: ReactNode
+}
+
+// Kept in sync by hand with the identical literal in page.tsx's
+// EquipmentTableRow — the two live on opposite sides of a server/client
+// boundary, so there's no cheap way to share one constant between them.
+const TABLE_COLS = "grid-cols-[1.6fr_1fr_1.1fr_1.1fr_0.9fr_1fr]"
+
+function TableHeaderRow() {
+  return (
+    <div
+      className={`grid ${TABLE_COLS} gap-2 border-b border-gray-300 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-gray-500`}
+    >
+      <span>Title</span>
+      <span>Status</span>
+      <span>Last Inspected</span>
+      <span>Inspector</span>
+      <span>Type</span>
+      <span>FL#</span>
+    </div>
+  )
+}
+
+function TypeGroup({ title, rows }: { title: string; rows: Card[] }) {
+  if (rows.length === 0) return null
+  return (
+    <details open className="group mt-4 rounded-lg border border-gray-200">
+      <summary className="flex cursor-pointer items-center justify-between rounded-lg px-3 py-2.5 text-sm font-semibold uppercase tracking-wide text-brand transition-colors duration-100 active:bg-gray-50">
+        <span>
+          {title} ({rows.length})
+        </span>
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 20 20"
+          fill="currentColor"
+          className="h-4 w-4 shrink-0 text-gray-400 transition-transform duration-200 group-open:rotate-180"
+        >
+          <path
+            fillRule="evenodd"
+            d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z"
+            clipRule="evenodd"
+          />
+        </svg>
+      </summary>
+      <div className="space-y-3 border-t border-gray-100 p-3 lg:hidden">
+        {rows.map((c) => c.node)}
+      </div>
+      <div className="hidden border-t border-gray-100 lg:block">
+        <TableHeaderRow />
+        {rows.map((c) => c.tableRow)}
+      </div>
+    </details>
+  )
 }
 
 const FORKLIFT_TYPES: EquipmentType[] = ["Sit Down", "Propane", "Standup"]
@@ -76,31 +129,15 @@ export default function EquipmentBrowser({ cards }: { cards: Card[] }) {
   const forkliftBlock = FORKLIFT_TYPES.some((type) => byType(typedCards, type).length > 0) && (
     <div key="forklift">
       <h2 className="mt-6 text-sm font-bold tracking-wide text-brand uppercase">Forklift</h2>
-      {orderedForkliftTypes.map((type) => {
-        const rows = byType(typedCards, type)
-        if (rows.length === 0) return null
-        return (
-          <div key={type} className="mt-6">
-            <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-brand opacity-80">
-              {equipmentTypeLabel(type)} ({rows.length})
-            </h2>
-            <div className="space-y-3 lg:grid lg:grid-cols-2 lg:items-start lg:gap-3 lg:space-y-0">
-              {rows.map((c) => c.node)}
-            </div>
-          </div>
-        )
-      })}
+      {orderedForkliftTypes.map((type) => (
+        <TypeGroup key={type} title={equipmentTypeLabel(type)} rows={byType(typedCards, type)} />
+      ))}
     </div>
   )
 
   const palletBlock = palletCards.length > 0 && (
     <div key="pallet" className="mt-6">
-      <h2 className="mb-2 text-sm font-bold uppercase tracking-wide text-brand">
-        Pallet Jacks ({palletCards.length})
-      </h2>
-      <div className="space-y-3 lg:grid lg:grid-cols-2 lg:items-start lg:gap-3 lg:space-y-0">
-        {palletCards.map((c) => c.node)}
-      </div>
+      <TypeGroup title="Pallet Jacks" rows={palletCards} />
     </div>
   )
 
