@@ -278,6 +278,10 @@ function LocationOverview({ rows }: { rows: EquipmentRow[] }) {
 
   if (byLocation.length === 0) return null
 
+  const half = Math.ceil(byLocation.length / 2)
+  const left = byLocation.slice(0, half)
+  const right = byLocation.slice(half)
+
   return (
     <details className="group rounded-lg border border-gray-200 bg-gray-50">
       <summary className="flex cursor-pointer items-center justify-between rounded-lg px-3 py-2.5 text-sm font-medium text-gray-700 transition-colors duration-100 active:scale-[0.99] active:bg-gray-100">
@@ -295,64 +299,84 @@ function LocationOverview({ rows }: { rows: EquipmentRow[] }) {
           />
         </svg>
       </summary>
-      <div className="grid grid-cols-[auto_1fr] items-center gap-x-3 gap-y-1 border-t border-gray-200 p-3">
-        {byLocation.map((g, i) => {
-          const forkliftRows = g.rows.filter(
-            (row) => equipmentCategory(row.equipment.type) === "Forklift"
-          )
-          const palletRows = g.rows.filter(
-            (row) => equipmentCategory(row.equipment.type) === "Pallet Jack"
-          )
-          const showTypeTags = forkliftRows.length > 0 && palletRows.length > 0
-          const rowBorder = i > 0 ? "border-t border-gray-200 pt-1" : ""
-
-          return (
-            <Fragment key={g.location}>
-              <span className={rowBorder}>
-                <LocationVehiclesButton
-                  location={g.location}
-                  count={g.rows.length}
-                  vehicles={g.rows.map((row) => ({
-                    serial: row.equipment.serial,
-                    flNumber: row.equipment.flNumber,
-                    makeColor: row.equipment.makeColor,
-                    stage: row.stage,
-                  }))}
-                />
-              </span>
-              <div className={`flex flex-wrap items-center gap-2 ${rowBorder}`}>
-                {[
-                  { label: "FL", rows: forkliftRows },
-                  { label: "PJ", rows: palletRows },
-                ]
-                  .filter((sg) => sg.rows.length > 0)
-                  .map((sg) => (
-                    <span key={sg.label} className="flex items-center gap-1">
-                      {showTypeTags && (
-                        <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-gray-200 text-[9px] font-bold text-gray-700">
-                          {sg.label}
-                        </span>
-                      )}
-                      <span className="flex flex-wrap gap-1">
-                        {sg.rows.map((row) => (
-                          <a
-                            key={row.equipment.serial}
-                            href={`/dashboard/equipment/${row.equipment.serial}`}
-                            title={`${row.equipment.flNumber} — ${row.equipment.makeColor}`}
-                            className="flex p-1"
-                          >
-                            <StatusDot stage={row.stage} size="xl" />
-                          </a>
-                        ))}
-                      </span>
-                    </span>
-                  ))}
-              </div>
-            </Fragment>
-          )
-        })}
+      <div className="grid grid-cols-[auto_1fr] items-center gap-x-3 gap-y-1 border-t border-gray-200 p-3 lg:hidden">
+        <LocationRows locations={byLocation} />
+      </div>
+      <div className="hidden gap-x-8 border-t border-gray-200 p-3 lg:grid lg:grid-cols-2">
+        <div className="grid grid-cols-[auto_1fr] items-center gap-x-3 gap-y-1">
+          <LocationRows locations={left} />
+        </div>
+        <div className="grid grid-cols-[auto_1fr] items-center gap-x-3 gap-y-1">
+          <LocationRows locations={right} />
+        </div>
       </div>
     </details>
+  )
+}
+
+function LocationRows({
+  locations,
+}: {
+  locations: { location: string; rows: EquipmentRow[] }[]
+}) {
+  return (
+    <>
+      {locations.map((g, i) => {
+        const forkliftRows = g.rows.filter(
+          (row) => equipmentCategory(row.equipment.type) === "Forklift"
+        )
+        const palletRows = g.rows.filter(
+          (row) => equipmentCategory(row.equipment.type) === "Pallet Jack"
+        )
+        const showTypeTags = forkliftRows.length > 0 && palletRows.length > 0
+        const rowBorder = i > 0 ? "border-t border-gray-200 pt-1" : ""
+
+        return (
+          <Fragment key={g.location}>
+            <span className={rowBorder}>
+              <LocationVehiclesButton
+                location={g.location}
+                count={g.rows.length}
+                vehicles={g.rows.map((row) => ({
+                  serial: row.equipment.serial,
+                  flNumber: row.equipment.flNumber,
+                  makeColor: row.equipment.makeColor,
+                  stage: row.stage,
+                }))}
+              />
+            </span>
+            <div className={`flex flex-wrap items-center gap-2 ${rowBorder}`}>
+              {[
+                { label: "FL", rows: forkliftRows },
+                { label: "PJ", rows: palletRows },
+              ]
+                .filter((sg) => sg.rows.length > 0)
+                .map((sg) => (
+                  <span key={sg.label} className="flex items-center gap-1">
+                    {showTypeTags && (
+                      <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-gray-200 text-[9px] font-bold text-gray-700">
+                        {sg.label}
+                      </span>
+                    )}
+                    <span className="flex flex-wrap gap-1">
+                      {sg.rows.map((row) => (
+                        <a
+                          key={row.equipment.serial}
+                          href={`/dashboard/equipment/${row.equipment.serial}`}
+                          title={`${row.equipment.flNumber} — ${row.equipment.makeColor}`}
+                          className="flex p-1"
+                        >
+                          <StatusDot stage={row.stage} size="xl" />
+                        </a>
+                      ))}
+                    </span>
+                  </span>
+                ))}
+            </div>
+          </Fragment>
+        )
+      })}
+    </>
   )
 }
 

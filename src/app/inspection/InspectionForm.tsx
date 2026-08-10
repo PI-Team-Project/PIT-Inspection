@@ -49,10 +49,10 @@ const EQUIPMENT_CATEGORIES: EquipmentCategory[] = ["Forklift", "Pallet Jack"]
 const FORKLIFT_TYPES: EquipmentType[] = ["Sit Down", "Propane", "Standup"]
 
 const EQUIPMENT_IMAGES: Record<string, string> = {
-  "Sit Down": "/equipment/sit-down.jpg",
-  Propane: "/equipment/propane.jpg",
+  "Sit Down": "/equipment/sit-down.png",
+  Propane: "/equipment/propane.png",
   Standup: "/equipment/standup.png",
-  "Pallet Jack": "/equipment/pallet-jack.jpg",
+  "Pallet Jack": "/equipment/pallet-jack.png",
 }
 // `value` is the stable stored/compared identifier; `label` is just the
 // button text, so wording can change without touching the data model.
@@ -447,7 +447,7 @@ export default function InspectionForm({
                     alt={cat}
                     width={160}
                     height={110}
-                    className="h-20 w-full rounded bg-gray-50 object-contain"
+                    className="h-20 w-full rounded object-contain"
                   />
                   <span
                     className={`text-base ${isChecked ? "font-semibold text-blue-700" : "text-gray-800"}`}
@@ -487,7 +487,7 @@ export default function InspectionForm({
                         alt={equipmentTypeLabel(type)}
                         width={140}
                         height={100}
-                        className="h-16 w-full rounded bg-gray-50 object-contain"
+                        className="h-16 w-full rounded object-contain"
                       />
                       <span
                         className={`text-xs ${isChecked ? "font-semibold text-blue-700" : "text-gray-800"}`}
