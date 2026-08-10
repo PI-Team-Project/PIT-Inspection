@@ -158,7 +158,7 @@ export default function EquipmentSearch({ equipment }: { equipment: SearchableEq
               {results.map((eq) => (
                 <li key={eq.serial}>
                   <a
-                    href={`#eq-${eq.serial}`}
+                    href={`/dashboard/equipment/${eq.serial}`}
                     onClick={close}
                     className="flex items-center gap-2.5 rounded-lg px-2 py-2.5 text-sm text-gray-800 active:bg-gray-100"
                   >

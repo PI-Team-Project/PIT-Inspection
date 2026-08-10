@@ -108,6 +108,7 @@ export async function saveActivity(formData: FormData) {
   })
 
   revalidatePath("/dashboard")
+  revalidatePath("/dashboard/equipment/[serial]", "page")
 }
 
 export async function confirmResolved(formData: FormData) {
@@ -139,6 +140,7 @@ export async function confirmResolved(formData: FormData) {
   })
 
   revalidatePath("/dashboard")
+  revalidatePath("/dashboard/equipment/[serial]", "page")
 }
 
 export async function updateEquipmentLocation(formData: FormData) {
@@ -181,6 +183,7 @@ export async function updateEquipmentLocation(formData: FormData) {
   }
 
   revalidatePath("/dashboard")
+  revalidatePath("/dashboard/equipment/[serial]", "page")
   revalidatePath("/inspection")
 }
 
@@ -206,5 +209,5 @@ export async function archiveEquipment(
 
   revalidatePath("/dashboard")
   revalidatePath("/inspection")
-  return { error: null }
+  redirect("/dashboard")
 }

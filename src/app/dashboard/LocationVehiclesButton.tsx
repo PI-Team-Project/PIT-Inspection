@@ -65,7 +65,7 @@ export default function LocationVehiclesButton({
               {vehicles.map((v) => (
                 <li key={v.serial}>
                   <a
-                    href={`#eq-${v.serial}`}
+                    href={`/dashboard/equipment/${v.serial}`}
                     onClick={() => setOpen(false)}
                     className="flex items-center gap-2.5 rounded-lg px-2 py-2.5 text-sm text-gray-800 active:bg-gray-100"
                   >

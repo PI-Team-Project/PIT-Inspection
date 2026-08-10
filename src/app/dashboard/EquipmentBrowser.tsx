@@ -84,7 +84,9 @@ export default function EquipmentBrowser({ cards }: { cards: Card[] }) {
             <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-brand opacity-80">
               {equipmentTypeLabel(type)} ({rows.length})
             </h2>
-            <div className="space-y-3">{rows.map((c) => c.node)}</div>
+            <div className="space-y-3 lg:grid lg:grid-cols-2 lg:items-start lg:gap-3 lg:space-y-0">
+              {rows.map((c) => c.node)}
+            </div>
           </div>
         )
       })}
@@ -96,7 +98,9 @@ export default function EquipmentBrowser({ cards }: { cards: Card[] }) {
       <h2 className="mb-2 text-sm font-bold uppercase tracking-wide text-brand">
         Pallet Jacks ({palletCards.length})
       </h2>
-      <div className="space-y-3">{palletCards.map((c) => c.node)}</div>
+      <div className="space-y-3 lg:grid lg:grid-cols-2 lg:items-start lg:gap-3 lg:space-y-0">
+        {palletCards.map((c) => c.node)}
+      </div>
     </div>
   )
 

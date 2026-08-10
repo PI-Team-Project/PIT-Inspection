@@ -2,14 +2,7 @@ import { Fragment } from "react"
 import Link from "next/link"
 import { cookies } from "next/headers"
 import { prisma } from "@/lib/prisma"
-import {
-  QUESTIONS,
-  QUESTIONS_BY_ID,
-  needsAttention,
-  REPAIR_REQUEST_ISSUE_ID,
-  REPAIR_REQUEST_QUESTION,
-  type Question,
-} from "@/lib/questions"
+import { type Question } from "@/lib/questions"
 import {
   equipmentCategory,
   equipmentTypeLabel,
@@ -18,94 +11,23 @@ import {
   type EquipmentType,
 } from "@/lib/equipment"
 import { getEquipmentListWithCurrentLocations } from "@/lib/equipmentLocations"
-import {
-  parseReview,
-  getStage,
-  isCriticalInspection,
-  flaggedIssueIds,
-  type ActivityEntry,
-  type Stage,
-} from "@/lib/review"
-import {
-  DASHBOARD_COOKIE,
-  MANAGER_NAME_COOKIE,
-  dashboardSessionValue,
-} from "@/lib/auth"
+import { isCriticalInspection, type Stage } from "@/lib/review"
+import { DASHBOARD_COOKIE, dashboardSessionValue } from "@/lib/auth"
 import PinForm from "./PinForm"
 import HomeLink from "./HomeLink"
-import PhotoGallery from "./PhotoGallery"
-import DeleteVehicleControl from "./DeleteVehicleControl"
 import StatusDot from "./StatusDot"
 import LocationVehiclesButton from "./LocationVehiclesButton"
 import EquipmentSearch from "./EquipmentSearch"
 import EquipmentBrowser from "./EquipmentBrowser"
-import { saveActivity, confirmResolved, updateEquipmentLocation } from "./actions"
-
-type Answers = Record<
-  string,
-  {
-    value: string
-    specify?: string
-    note?: string
-    photos?: string[]
-    photoNotes?: string[]
-  }
->
-type InspectionRow = ReturnType<typeof buildRow>
-
-const HISTORY_PREVIEW_COUNT = 5
-
-function buildRow(
-  inspection: Awaited<ReturnType<typeof prisma.inspection.findMany>>[number]
-) {
-  const answers = inspection.answers as Answers
-  const review = parseReview(inspection.review)
-  const flagged = flaggedIssueIds(inspection, answers).map(
-    (id) => (id === REPAIR_REQUEST_ISSUE_ID ? REPAIR_REQUEST_QUESTION : QUESTIONS_BY_ID[id])
-  )
-  const critical = isCriticalInspection(inspection) ? flagged : []
-  const unresolved = critical.filter((q) => review.issueStatus[q.id] !== "complete")
-  const allFlaggedComplete = flagged.every((q) => review.issueStatus[q.id] === "complete")
-  const stage = getStage(
-    flagged.length,
-    unresolved.length,
-    review.confirmedResolved,
-    allFlaggedComplete
-  )
-  return { inspection, answers, review, flagged, critical, unresolved, stage }
-}
-
-// Bad status is only "seen" if it's been sitting since a prior calendar day —
-// walks back through history while the equipment stays unresolved/pending-confirm.
-function badSince(history: InspectionRow[], today: string): string | null {
-  let since: string | null = null
-  for (const row of history) {
-    if (row.stage === "unresolved" || row.stage === "pending-confirm") {
-      since = row.inspection.date
-    } else {
-      break
-    }
-  }
-  return since && since < today ? since : null
-}
+import {
+  buildRow,
+  badSince,
+  retentionCutoff,
+  daysPassedCount,
+  type InspectionRow,
+} from "./inspectionRow"
 
 const FORKLIFT_TYPES: EquipmentType[] = ["Sit Down", "Propane", "Standup"]
-
-// Forklift inspection/activity history is dropped after 2 years; pallet
-// jacks are kept longer (5 years) for now — separate retention windows per
-// equipment category, not a single blanket cutoff.
-const RETENTION_YEARS: Record<EquipmentType, number> = {
-  "Sit Down": 2,
-  Propane: 2,
-  Standup: 2,
-  "Pallet Jack": 5,
-}
-
-function retentionCutoff(type: EquipmentType, today: string): string {
-  const cutoff = new Date(today)
-  cutoff.setFullYear(cutoff.getFullYear() - RETENTION_YEARS[type])
-  return cutoff.toISOString().slice(0, 10)
-}
 
 const URGENCY_RANK: Record<Stage | "none", number> = {
   unresolved: 0,
@@ -137,7 +59,6 @@ export default async function DashboardPage({
   }
 
   const filter = params.filter
-  const savedManagerName = cookieStore.get(MANAGER_NAME_COOKIE)?.value ?? ""
   const today = new Date().toISOString().slice(0, 10)
 
   const [allInspections, equipmentList] = await Promise.all([
@@ -274,12 +195,7 @@ export default async function DashboardPage({
           stage: row.stage,
           escalated: row.escalated,
           node: (
-            <EquipmentCard
-              key={row.equipment.serial}
-              row={row}
-              today={today}
-              savedManagerName={savedManagerName}
-            />
+            <EquipmentCard key={row.equipment.serial} row={row} today={today} />
           ),
         }))}
       />
@@ -339,7 +255,7 @@ function FleetOverview({
               {g.rows.map((row) => (
                 <a
                   key={row.equipment.serial}
-                  href={`#eq-${row.equipment.serial}`}
+                  href={`/dashboard/equipment/${row.equipment.serial}`}
                   title={`${row.equipment.flNumber} — ${row.equipment.makeColor}`}
                   className="flex p-1"
                 >
@@ -421,7 +337,7 @@ function LocationOverview({ rows }: { rows: EquipmentRow[] }) {
                         {sg.rows.map((row) => (
                           <a
                             key={row.equipment.serial}
-                            href={`#eq-${row.equipment.serial}`}
+                            href={`/dashboard/equipment/${row.equipment.serial}`}
                             title={`${row.equipment.flNumber} — ${row.equipment.makeColor}`}
                             className="flex p-1"
                           >
@@ -460,7 +376,7 @@ function InspectionRequestBanner({ rows }: { rows: EquipmentRow[] }) {
         {requested.map((row, i) => (
           <span key={row.equipment.serial}>
             {i > 0 && ", "}
-            <a href={`#eq-${row.equipment.serial}`} className="underline">
+            <a href={`/dashboard/equipment/${row.equipment.serial}`} className="underline">
               {row.equipment.flNumber} — {row.equipment.makeColor}
             </a>
           </span>
@@ -484,7 +400,7 @@ function NeedsAttentionBanner({ rows }: { rows: EquipmentRow[] }) {
         {needsAttentionRows.map((row, i) => (
           <span key={row.equipment.serial}>
             {i > 0 && ", "}
-            <a href={`#eq-${row.equipment.serial}`} className="underline">
+            <a href={`/dashboard/equipment/${row.equipment.serial}`} className="underline">
               {row.equipment.flNumber} — {row.equipment.makeColor}
             </a>
           </span>
@@ -496,13 +412,11 @@ function NeedsAttentionBanner({ rows }: { rows: EquipmentRow[] }) {
 
 
 function EquipmentCard({
-  row: { equipment, history, latest, stage, since },
+  row: { equipment, latest, stage, since },
   today,
-  savedManagerName,
 }: {
   row: EquipmentRow
   today: string
-  savedManagerName: string
 }) {
   const hasPhotos = latest
     ? Object.values(latest.answers).some((a) => (a.photos?.length ?? 0) > 0)
@@ -510,335 +424,71 @@ function EquipmentCard({
   const daysPassed = since ? daysPassedCount(since, today) : 0
 
   return (
-    <details
-      id={`eq-${equipment.serial}`}
-      className={`rounded-lg border bg-white p-4 ${
+    <Link
+      href={`/dashboard/equipment/${equipment.serial}`}
+      className={`relative flex items-start gap-2 rounded-lg border bg-white p-4 transition-colors duration-100 active:bg-gray-50 ${
         stage === "unresolved" ? "border-red-300" : "border-gray-300"
       }`}
     >
-      <summary className="-m-4 relative flex cursor-pointer items-start gap-2 rounded-lg p-4 transition-colors duration-100 active:bg-gray-50">
-        <span className="mt-1">
-          <StatusDot stage={stage} size="lg" />
-        </span>
-        <div className="w-full">
-          <p className="pr-6 text-lg font-semibold text-gray-900">
-            {equipment.makeColor} · {equipmentTypeLabel(equipment.type)} · {equipment.flNumber}
-          </p>
+      <span className="mt-1">
+        <StatusDot stage={stage} size="lg" />
+      </span>
+      <div className="w-full">
+        <p className="pr-6 text-lg font-semibold text-gray-900 lg:text-base">
+          {equipment.makeColor} · {equipmentTypeLabel(equipment.type)} · {equipment.flNumber}
+        </p>
 
-          <p className="text-sm text-gray-600">
-            Serial#: {equipment.serial} · {equipment.location}
+        <p className="text-sm text-gray-600">
+          Serial#: {equipment.serial} · {equipment.location}
+        </p>
+        {latest ? (
+          <p className="mt-1 text-sm text-gray-600">
+            Last inspected {latest.inspection.date} ·{" "}
+            {latest.inspection.shift} · {latest.inspection.firstName}{" "}
+            {latest.inspection.lastName}
           </p>
-          {latest?.answers.locationCheck?.value === "No" && (
-            <p className="mt-0.5 text-sm font-medium text-amber-700">
-              📍 Reported at {latest.answers.locationCheck.specify || "an unspecified location"}
-            </p>
+        ) : (
+          <p className="mt-1 text-sm text-gray-500">No inspection yet</p>
+        )}
+        {latest &&
+          (stage === "unresolved" || stage === "pending-confirm") &&
+          latest.flagged.length > 0 && (
+            <IssueLine
+              flagged={latest.flagged}
+              review={latest.review}
+              critical={isCriticalInspection(latest.inspection)}
+            />
           )}
-          {latest ? (
-            <p className="mt-1 text-sm text-gray-600">
-              Last inspected {latest.inspection.date} ·{" "}
-              {latest.inspection.shift} · {latest.inspection.firstName}{" "}
-              {latest.inspection.lastName}
-            </p>
-          ) : (
-            <p className="mt-1 text-sm text-gray-500">No inspection yet</p>
-          )}
-          {latest &&
-            (stage === "unresolved" || stage === "pending-confirm") &&
-            latest.flagged.length > 0 && (
-              <IssueLine
-                flagged={latest.flagged}
-                review={latest.review}
-                critical={isCriticalInspection(latest.inspection)}
-              />
-            )}
-        </div>
+      </div>
 
-        {hasPhotos && (
-          <span
-            title="Photo attached (latest inspection)"
-            className="absolute right-4 top-4 text-gray-400"
+      {hasPhotos && (
+        <span
+          title="Photo attached (latest inspection)"
+          className="absolute right-4 top-4 text-gray-400"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 20 20"
+            fill="currentColor"
+            className="h-4 w-4"
           >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 20 20"
-              fill="currentColor"
-              className="h-4 w-4"
-            >
-              <path
-                fillRule="evenodd"
-                d="M1 8a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 018.07 3h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0016.07 6H17a2 2 0 012 2v9a2 2 0 01-2 2H3a2 2 0 01-2-2V8zm13.5 3a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0z"
-                clipRule="evenodd"
-              />
-            </svg>
-          </span>
-        )}
-
-        {since && (
-          <p className="absolute bottom-4 right-4 animate-[status-blink_3s_ease-in-out_infinite] text-right text-xs font-semibold leading-tight text-red-600">
-            {daysPassed} day{daysPassed === 1 ? "" : "s"}
-            <br />
-            passed
-          </p>
-        )}
-      </summary>
-
-      {latest && (
-        <div className="mt-4 border-t border-gray-200 pt-4">
-          {latest.stage === "pending-confirm" &&
-            (latest.flagged.every((q) => latest.review.issueStatus[q.id] === "complete") ? (
-              <form
-                action={confirmResolved}
-                className="mb-4 flex items-center justify-between gap-3 rounded-lg border border-amber-300 bg-amber-50 p-3"
-              >
-                <input type="hidden" name="inspectionId" value={latest.inspection.id} />
-                <input
-                  type="text"
-                  name="reviewerName"
-                  defaultValue={savedManagerName}
-                  placeholder="Supervisor name"
-                  required
-                  className="min-w-0 flex-1 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
-                />
-                <button
-                  type="submit"
-                  className="shrink-0 rounded-lg bg-amber-600 px-3 py-2 text-sm font-semibold text-white transition-transform duration-100 active:scale-95 active:bg-amber-700"
-                >
-                  ✓ Confirm All Clear
-                </button>
-              </form>
-            ) : (
-              <div className="mb-4 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">
-                Mark every flagged item below <strong>Complete</strong> before you can
-                confirm all clear.
-              </div>
-            ))}
-
-          <form action={saveActivity} className="space-y-2.5">
-            <input type="hidden" name="inspectionId" value={latest.inspection.id} />
-
-            {(isCriticalInspection(latest.inspection)
-              ? [REPAIR_REQUEST_QUESTION]
-              : QUESTIONS
-            ).map((q) => {
-              const answer = latest.answers[q.id]
-              if (!answer) return null
-              const isRepairRequest = q.id === REPAIR_REQUEST_ISSUE_ID
-              const bad = needsAttention(answer.value)
-              const critical = isCriticalInspection(latest.inspection) && bad
-              const status = latest.review.issueStatus[q.id]
-              const fixed = bad && status === "complete"
-              const textColor = fixed
-                ? "text-gray-500"
-                : critical
-                  ? "text-red-700"
-                  : bad
-                    ? "text-amber-700"
-                    : "text-gray-700"
-              return (
-                <div key={q.id} className={bad ? "space-y-1.5" : ""}>
-                  <div className={`text-sm ${textColor}`}>
-                    <span className="font-semibold">
-                      {isRepairRequest ? "Repair Request" : `${q.number}. ${q.label}`}:
-                    </span>{" "}
-                    {isRepairRequest ? "" : answer.value}
-                    {!isRepairRequest && answer.specify ? ` — ${answer.specify}` : ""}
-                  </div>
-                  {answer.note && (
-                    <p className="text-xs text-gray-600">
-                      {isRepairRequest ? "" : "Note: "}
-                      {answer.note}
-                    </p>
-                  )}
-                  {answer.photos && answer.photos.length > 0 && (
-                    <PhotoGallery photos={answer.photos} notes={answer.photoNotes} />
-                  )}
-                  {bad && (
-                    <div className="flex gap-2">
-                      <label className="flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-gray-300 px-2 py-1.5 text-xs font-semibold text-amber-700 has-checked:border-amber-500 has-checked:bg-amber-50">
-                        <input
-                          type="radio"
-                          name={`issue_${q.id}`}
-                          value="in_review"
-                          required
-                          defaultChecked={status === "in_review"}
-                          className="h-3.5 w-3.5"
-                        />
-                        In Review
-                      </label>
-                      <label className="flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-gray-300 px-2 py-1.5 text-xs font-semibold text-blue-700 has-checked:border-blue-500 has-checked:bg-blue-50">
-                        <input
-                          type="radio"
-                          name={`issue_${q.id}`}
-                          value="complete"
-                          required
-                          defaultChecked={status === "complete"}
-                          className="h-3.5 w-3.5"
-                        />
-                        Complete
-                      </label>
-                    </div>
-                  )}
-                </div>
-              )
-            })}
-
-            <div className="mt-4">
-              <label className="mb-1 block text-sm font-medium text-gray-700">
-                Note
-              </label>
-              <textarea
-                name="noteText"
-                placeholder="What did you check or change?"
-                rows={2}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-              />
-            </div>
-
-            <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
-              <label className="mb-1 block text-sm font-medium text-gray-700">
-                Supervisor Confirmation
-              </label>
-              <input
-                type="text"
-                name="reviewerName"
-                defaultValue={savedManagerName}
-                placeholder="Name of the supervisor"
-                required
-                className="mb-2 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
-              />
-              <button
-                type="submit"
-                className="flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 py-3 text-base font-semibold text-white transition-transform duration-100 active:scale-95 active:bg-blue-700"
-              >
-                ✓ Confirm Review
-              </button>
-            </div>
-
-            {latest.review.activity.length > 0 && (
-              <div className="border-t border-gray-100 pt-2.5">
-                <p className="mb-1.5 text-xs font-semibold text-gray-500">Activity</p>
-                <ul className="space-y-1.5">
-                  {[...latest.review.activity].reverse().map((entry) => (
-                    <li key={entry.id} className="text-xs text-gray-600">
-                      <ActivityLine entry={entry} />
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-          </form>
-
-          <div className="mt-5 border-t border-gray-200 pt-4">
-            <p className="mb-2 text-xs font-semibold text-gray-500">
-              Inspection History ({history.length})
-            </p>
-            <ul className="space-y-2">
-              {history.slice(0, HISTORY_PREVIEW_COUNT).map((row) => (
-                <HistoryLine key={row.inspection.id} row={row} />
-              ))}
-            </ul>
-            {history.length > HISTORY_PREVIEW_COUNT && (
-              <details className="mt-2">
-                <summary className="cursor-pointer text-xs font-medium text-blue-600">
-                  Show {history.length - HISTORY_PREVIEW_COUNT} more
-                </summary>
-                <ul className="mt-2 space-y-2">
-                  {history.slice(HISTORY_PREVIEW_COUNT).map((row) => (
-                    <HistoryLine key={row.inspection.id} row={row} />
-                  ))}
-                </ul>
-              </details>
-            )}
-          </div>
-        </div>
+            <path
+              fillRule="evenodd"
+              d="M1 8a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 018.07 3h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0016.07 6H17a2 2 0 012 2v9a2 2 0 01-2 2H3a2 2 0 01-2-2V8zm13.5 3a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0z"
+              clipRule="evenodd"
+            />
+          </svg>
+        </span>
       )}
 
-      <div className="mt-5 flex items-center justify-between gap-3 border-t border-gray-200 pt-4">
-        <form
-          action={updateEquipmentLocation}
-          className="flex flex-1 items-center gap-2"
-        >
-          <input type="hidden" name="serial" value={equipment.serial} />
-          <label className="text-xs font-semibold text-gray-500">Location</label>
-          <select
-            name="location"
-            defaultValue={equipment.location}
-            className="flex-1 rounded-lg border border-gray-300 px-2 py-1.5 text-sm"
-          >
-            {LOCATIONS.map((loc) => (
-              <option key={loc} value={loc}>
-                {loc}
-              </option>
-            ))}
-          </select>
-          <button
-            type="submit"
-            className="shrink-0 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white transition-transform duration-100 active:scale-95 active:bg-blue-700"
-          >
-            Save
-          </button>
-        </form>
-      </div>
-
-      <div className="mt-3">
-        <DeleteVehicleControl serial={equipment.serial} flNumber={equipment.flNumber} />
-      </div>
-    </details>
-  )
-}
-
-function HistoryLine({ row }: { row: InspectionRow }) {
-  return (
-    <li>
-      <details>
-        <summary className="-mx-1 flex cursor-pointer items-center justify-between gap-3 rounded-lg px-1 py-1 text-sm transition-colors duration-100 active:bg-gray-50">
-          <span className="text-gray-700">
-            {row.inspection.date} · {row.inspection.shift} · {row.inspection.firstName}{" "}
-            {row.inspection.lastName}
-          </span>
-          <StageBadge stage={row.stage} unresolvedCount={row.unresolved.length} compact />
-        </summary>
-        <div className="mt-2 space-y-2 border-l-2 border-gray-100 py-1 pl-3">
-          {(isCriticalInspection(row.inspection)
-            ? [REPAIR_REQUEST_QUESTION]
-            : QUESTIONS
-          ).map((q) => {
-            const answer = row.answers[q.id]
-            if (!answer) return null
-            const isRepairRequest = q.id === REPAIR_REQUEST_ISSUE_ID
-            const bad = needsAttention(answer.value)
-            return (
-              <div key={q.id}>
-                <div className={`text-xs ${bad ? "text-red-700" : "text-gray-600"}`}>
-                  <span className="font-semibold">
-                    {isRepairRequest ? "Repair Request" : `${q.number}. ${q.label}`}:
-                  </span>{" "}
-                  {isRepairRequest ? "" : answer.value}
-                  {!isRepairRequest && answer.specify ? ` — ${answer.specify}` : ""}
-                </div>
-                {answer.note && (
-                  <p className="text-xs text-gray-500">
-                    {isRepairRequest ? "" : "Note: "}
-                    {answer.note}
-                  </p>
-                )}
-                {answer.photos && answer.photos.length > 0 && (
-                  <div className="mt-1">
-                    <PhotoGallery photos={answer.photos} notes={answer.photoNotes} />
-                  </div>
-                )}
-              </div>
-            )
-          })}
-        </div>
-      </details>
-    </li>
-  )
-}
-
-function daysPassedCount(since: string, today: string): number {
-  return Math.round(
-    (new Date(today).getTime() - new Date(since).getTime()) / (1000 * 60 * 60 * 24)
+      {since && (
+        <p className="absolute bottom-4 right-4 animate-[status-blink_3s_ease-in-out_infinite] text-right text-xs font-semibold leading-tight text-red-600">
+          {daysPassed} day{daysPassed === 1 ? "" : "s"}
+          <br />
+          passed
+        </p>
+      )}
+    </Link>
   )
 }
 
@@ -880,93 +530,3 @@ function IssueLine({
   )
 }
 
-function StageBadge({
-  stage,
-  unresolvedCount,
-  compact,
-}: {
-  stage: Stage
-  unresolvedCount: number
-  compact?: boolean
-}) {
-  const base = compact
-    ? "shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold"
-    : "shrink-0 rounded-full px-3 py-1 text-xs font-semibold"
-
-  if (stage === "unresolved") {
-    return (
-      <span className={`${base} bg-red-100 text-red-700`}>
-        🔴 {unresolvedCount} unresolved
-      </span>
-    )
-  }
-  if (stage === "pending-confirm") {
-    return (
-      <span className={`${base} bg-amber-100 text-amber-700`}>
-        🟡 Needs attention
-      </span>
-    )
-  }
-  if (stage === "confirmed") {
-    return (
-      <span className={`${base} bg-green-100 text-green-700`}>
-        🟢 Resolved &amp; confirmed
-      </span>
-    )
-  }
-  return (
-    <span className={`${base} bg-green-100 text-green-700`}>🟢 All good</span>
-  )
-}
-
-function ActivityLine({ entry }: { entry: ActivityEntry }) {
-  const when = new Date(entry.timestamp).toLocaleString()
-
-  if (entry.type === "confirmed") {
-    return (
-      <>
-        🟢 Confirmed all clear by{" "}
-        <span className="font-medium text-gray-800">{entry.authorName}</span> — {when}
-      </>
-    )
-  }
-
-  if (entry.type === "viewed") {
-    return (
-      <>
-        ✓ Reviewed by{" "}
-        <span className="font-medium text-gray-800">{entry.authorName}</span> — {when}
-      </>
-    )
-  }
-
-  if (entry.type === "location") {
-    return (
-      <>
-        📍 Location set to{" "}
-        <span className="font-medium text-gray-800">{entry.location}</span> by{" "}
-        <span className="font-medium text-gray-800">{entry.authorName}</span> — {when}
-      </>
-    )
-  }
-
-  if (entry.type === "issue") {
-    const q = QUESTIONS_BY_ID[entry.questionId]
-    const label = entry.status === "complete" ? "Complete" : "In Review"
-    return (
-      <>
-        <span className={entry.status === "complete" ? "text-blue-700" : "text-amber-700"}>
-          {q?.label ?? entry.questionId} marked {label}
-        </span>{" "}
-        by <span className="font-medium text-gray-800">{entry.authorName}</span> — {when}
-      </>
-    )
-  }
-
-  return (
-    <>
-      <span className="font-medium text-gray-800">{entry.authorName}</span>: {entry.text}{" "}
-      — {when}
-    </>
-  )
-}
