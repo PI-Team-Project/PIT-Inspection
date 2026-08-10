@@ -521,7 +521,7 @@ function EquipmentCard({
 // kept as one literal string, duplicated into EquipmentBrowser.tsx, since
 // the two live in different components with no cheap way to share a
 // Tailwind arbitrary-value class across a server/client boundary.
-const EQUIPMENT_TABLE_COLS = "grid-cols-[1.6fr_1fr_1.1fr_1.1fr_0.9fr_1fr]"
+const EQUIPMENT_TABLE_COLS = "grid-cols-6"
 
 const STAGE_LABEL: Record<Stage | "none", string> = {
   unresolved: "Unresolved",
@@ -540,17 +540,25 @@ function EquipmentTableRow({ row }: { row: EquipmentRow }) {
         stage === "unresolved" ? "bg-red-50" : ""
       }`}
     >
-      <span className="truncate font-medium text-gray-900">{equipment.makeColor}</span>
-      <span className="flex min-w-0 items-center gap-1.5">
+      <span className="flex min-w-0 items-center gap-2.5">
         <StatusDot stage={stage} />
         <span className="truncate text-xs text-gray-600">{STAGE_LABEL[stage]}</span>
       </span>
-      <span className="truncate text-gray-600">{latest ? latest.inspection.date : "—"}</span>
-      <span className="truncate text-gray-600">
+      <span className="truncate text-center font-medium text-gray-900">
+        {equipment.makeColor}
+      </span>
+      <span className="truncate text-center text-gray-600">
+        {equipmentTypeLabel(equipment.type)}
+      </span>
+      <span className="truncate text-center font-medium text-gray-700">
+        {equipment.flNumber}
+      </span>
+      <span className="truncate text-center text-gray-600">
+        {latest ? latest.inspection.date : "—"}
+      </span>
+      <span className="truncate text-center text-gray-600">
         {latest ? `${latest.inspection.firstName} ${latest.inspection.lastName}` : "—"}
       </span>
-      <span className="truncate text-gray-600">{equipmentTypeLabel(equipment.type)}</span>
-      <span className="truncate font-medium text-gray-700">{equipment.flNumber}</span>
     </Link>
   )
 }

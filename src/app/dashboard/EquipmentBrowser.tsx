@@ -16,19 +16,19 @@ type Card = {
 // Kept in sync by hand with the identical literal in page.tsx's
 // EquipmentTableRow — the two live on opposite sides of a server/client
 // boundary, so there's no cheap way to share one constant between them.
-const TABLE_COLS = "grid-cols-[1.6fr_1fr_1.1fr_1.1fr_0.9fr_1fr]"
+const TABLE_COLS = "grid-cols-6"
 
 function TableHeaderRow() {
   return (
     <div
       className={`grid ${TABLE_COLS} gap-2 border-b border-gray-300 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-gray-500`}
     >
-      <span>Title</span>
       <span>Status</span>
-      <span>Last Inspected</span>
-      <span>Inspector</span>
-      <span>Type</span>
-      <span>FL#</span>
+      <span className="text-center">Title</span>
+      <span className="text-center">Type</span>
+      <span className="text-center">FL#</span>
+      <span className="text-center">Last Inspected</span>
+      <span className="text-center">Inspector</span>
     </div>
   )
 }
@@ -136,7 +136,8 @@ export default function EquipmentBrowser({ cards }: { cards: Card[] }) {
   )
 
   const palletBlock = palletCards.length > 0 && (
-    <div key="pallet" className="mt-6">
+    <div key="pallet">
+      <h2 className="mt-6 text-sm font-bold tracking-wide text-brand uppercase">Pallet Jacks</h2>
       <TypeGroup title="Pallet Jacks" rows={palletCards} />
     </div>
   )
@@ -205,7 +206,7 @@ export default function EquipmentBrowser({ cards }: { cards: Card[] }) {
             onClick={() => setActiveSubtypes(FORKLIFT_TYPES)}
             className={`flex-1 rounded-md py-1 text-center transition-colors duration-100 active:scale-95 ${
               activeSubtypes.length === FORKLIFT_TYPES.length
-                ? "bg-white text-gray-900 shadow-sm"
+                ? "bg-blue-50 text-blue-700 shadow-sm ring-1 ring-blue-200"
                 : "text-gray-500"
             }`}
           >
@@ -219,7 +220,9 @@ export default function EquipmentBrowser({ cards }: { cards: Card[] }) {
                 key={type}
                 onClick={() => setActiveSubtypes(toggleSubtype(activeSubtypes, type))}
                 className={`flex-1 rounded-md py-1 text-center transition-colors duration-100 active:scale-95 ${
-                  selected ? "bg-white text-gray-900 shadow-sm" : "text-gray-500"
+                  selected
+                    ? "bg-blue-50 text-blue-700 shadow-sm ring-1 ring-blue-200"
+                    : "text-gray-500"
                 }`}
               >
                 {selected ? "✓ " : ""}
