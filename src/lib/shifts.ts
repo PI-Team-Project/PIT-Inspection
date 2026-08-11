@@ -107,3 +107,17 @@ export function getCurrentShiftWindow(now: Date): ShiftWindow {
   const end = new Date(start.getTime() + 12 * 60 * 60 * 1000)
   return { label: isDay ? "Day" : "Night", start, end }
 }
+
+// The most recent occurrence of each shift — whichever one is currently in
+// progress, plus whichever one most recently ended. Shifts run back-to-back
+// with no gaps, so the other shift's last window is simply the 12 hours
+// immediately before the current one started.
+export function getMostRecentShiftWindows(now: Date): { Day: ShiftWindow; Night: ShiftWindow } {
+  const current = getCurrentShiftWindow(now)
+  const previous: ShiftWindow = {
+    label: current.label === "Day" ? "Night" : "Day",
+    start: new Date(current.start.getTime() - 12 * 60 * 60 * 1000),
+    end: current.start,
+  }
+  return current.label === "Day" ? { Day: current, Night: previous } : { Day: previous, Night: current }
+}

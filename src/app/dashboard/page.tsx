@@ -13,7 +13,7 @@ import {
 } from "@/lib/equipment"
 import { getEquipmentListWithCurrentLocations } from "@/lib/equipmentLocations"
 import { isCriticalInspection, type Stage } from "@/lib/review"
-import { getCurrentShiftWindow, FLEET_TIME_ZONE } from "@/lib/shifts"
+import { getCurrentShiftWindow, getMostRecentShiftWindows, FLEET_TIME_ZONE } from "@/lib/shifts"
 import { DASHBOARD_COOKIE, dashboardSessionValue } from "@/lib/auth"
 import PinForm from "./PinForm"
 import HomeLink from "./HomeLink"
@@ -50,6 +50,7 @@ export default async function DashboardPage({
   searchParams: Promise<{
     error?: string
     filter?: string
+    shift?: string
   }>
 }) {
   const params = await searchParams
@@ -97,7 +98,10 @@ export default async function DashboardPage({
   const isNotInspected = (stage: Stage | "none") => stage === "none"
 
   const now = new Date()
-  const shiftWindow = getCurrentShiftWindow(now)
+  const currentShift = getCurrentShiftWindow(now)
+  const recentShifts = getMostRecentShiftWindows(now)
+  const selectedShiftLabel = params.shift === "night" ? "Night" : params.shift === "day" ? "Day" : currentShift.label
+  const shiftWindow = recentShifts[selectedShiftLabel as "Day" | "Night"]
   const inspectedThisShift = (row: EquipmentRow) => {
     const createdAt = row.latest?.inspection.createdAt
     return Boolean(createdAt && createdAt >= shiftWindow.start && createdAt < shiftWindow.end)
@@ -175,6 +179,8 @@ export default async function DashboardPage({
         <ShiftOverview
           now={now}
           shiftWindow={shiftWindow}
+          selectedShiftLabel={selectedShiftLabel}
+          currentShiftLabel={currentShift.label}
           rows={equipmentRows}
           inspectedThisShift={inspectedThisShift}
         />
@@ -408,41 +414,68 @@ function LocationRows({
 function ShiftOverview({
   now,
   shiftWindow,
+  selectedShiftLabel,
+  currentShiftLabel,
   rows,
   inspectedThisShift,
 }: {
   now: Date
   shiftWindow: { label: string; start: Date; end: Date }
+  selectedShiftLabel: string
+  currentShiftLabel: string
   rows: EquipmentRow[]
   inspectedThisShift: (row: EquipmentRow) => boolean
 }) {
   const inspected = rows.filter(inspectedThisShift)
   const notInspected = rows.filter((row) => !inspectedThisShift(row))
 
-  const dateLabel = new Intl.DateTimeFormat("en-US", {
-    timeZone: FLEET_TIME_ZONE,
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-  }).format(now)
   const timeLabel = new Intl.DateTimeFormat("en-US", {
     timeZone: FLEET_TIME_ZONE,
     hour: "2-digit",
     minute: "2-digit",
     hour12: true,
   }).format(now)
+  const dateLabel = new Intl.DateTimeFormat("en-US", {
+    timeZone: FLEET_TIME_ZONE,
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  }).format(shiftWindow.start)
   const hoursLabel = shiftWindow.label === "Day" ? "5am–5pm" : "5pm–5am"
 
   return (
     <div>
-      <div className="mb-1.5 flex flex-wrap items-center gap-2">
+      <div className="mb-2 flex flex-wrap items-center gap-2">
         <span className="rounded-md bg-gray-900 px-2 py-0.5 font-mono text-sm tracking-wider text-green-400 tabular-nums">
           {timeLabel}
         </span>
-        <h2 className="text-xs font-semibold tracking-wide text-brand uppercase">
-          {dateLabel} · {shiftWindow.label} Shift ({hoursLabel})
-        </h2>
+        <span className="text-xs font-medium text-gray-400">Eastern Time — Holland, MI</span>
       </div>
+
+      <div className="mb-2 flex gap-1.5 rounded-lg border border-gray-200 bg-gray-50 p-1 text-sm font-medium">
+        {(["Day", "Night"] as const).map((label) => {
+          const selected = selectedShiftLabel === label
+          const isLive = currentShiftLabel === label
+          return (
+            <Link
+              key={label}
+              href={`/dashboard?shift=${label.toLowerCase()}`}
+              scroll={false}
+              className={`flex flex-1 items-center justify-center gap-1.5 rounded-md py-1.5 text-center transition-colors duration-100 active:scale-95 ${
+                selected ? "bg-white text-gray-900 shadow-sm" : "text-gray-500"
+              }`}
+            >
+              {label} Shift
+              {isLive && <span className="h-1.5 w-1.5 rounded-full bg-green-500" />}
+            </Link>
+          )
+        })}
+      </div>
+
+      <h2 className="mb-1.5 text-xs font-semibold tracking-wide text-brand uppercase">
+        {dateLabel} · {shiftWindow.label} Shift ({hoursLabel})
+        {selectedShiftLabel === currentShiftLabel && " · In Progress"}
+      </h2>
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
         <div className="rounded-lg border border-green-200 bg-green-50 p-3">
           <p className="mb-1 text-sm font-semibold text-green-800">
