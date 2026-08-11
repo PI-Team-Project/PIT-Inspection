@@ -61,10 +61,12 @@ export async function saveActivity(formData: FormData) {
   >
   const flaggedIds = flaggedIssueIds(inspection, answers)
   for (const id of flaggedIds) {
-    const raw = formData.get(`issue_${id}`)
-    const newVal: IssueStatusValue | null =
-      raw === "in_review" || raw === "complete" ? raw : null
-    if (newVal && issueStatus[id] !== newVal) {
+    // Rendered as a single "Mark Complete" checkbox, not a pair of radios —
+    // an unchecked box sends no field at all, which means "in review".
+    const newVal: IssueStatusValue = formData.get(`issue_${id}`) === "complete"
+      ? "complete"
+      : "in_review"
+    if (issueStatus[id] !== newVal) {
       activity.push({
         id: crypto.randomUUID(),
         type: "issue",

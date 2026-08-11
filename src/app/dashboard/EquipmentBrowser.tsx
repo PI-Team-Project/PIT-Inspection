@@ -149,7 +149,11 @@ export default function EquipmentBrowser({ cards }: { cards: Card[] }) {
 
   return (
     <>
-      <div className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-gray-50 p-1 text-sm font-medium">
+      <div
+        className={`flex items-center gap-1.5 rounded-t-lg border border-gray-200 bg-gray-50 p-1 text-sm font-medium ${
+          tab === "forklift" ? "" : "rounded-b-lg"
+        }`}
+      >
         <button
           type="button"
           onClick={() => setTab("all")}
@@ -199,39 +203,43 @@ export default function EquipmentBrowser({ cards }: { cards: Card[] }) {
         </button>
       </div>
 
-      {tab === "forklift" && (
-        <div className="slide-down mt-2 flex rounded-lg border border-gray-200 bg-gray-50 p-1 text-xs font-medium">
-          <button
-            type="button"
-            onClick={() => setActiveSubtypes(FORKLIFT_TYPES)}
-            className={`flex-1 rounded-md py-1 text-center transition-colors duration-100 active:scale-95 ${
-              activeSubtypes.length === FORKLIFT_TYPES.length
-                ? "bg-blue-50 text-blue-700 shadow-sm ring-1 ring-blue-200"
-                : "text-gray-500"
-            }`}
-          >
-            All
-          </button>
-          {FORKLIFT_TYPES.map((type) => {
-            const selected = activeSubtypes.includes(type)
-            return (
-              <button
-                type="button"
-                key={type}
-                onClick={() => setActiveSubtypes(toggleSubtype(activeSubtypes, type))}
-                className={`flex-1 rounded-md py-1 text-center transition-colors duration-100 active:scale-95 ${
-                  selected
-                    ? "bg-blue-50 text-blue-700 shadow-sm ring-1 ring-blue-200"
-                    : "text-gray-500"
-                }`}
-              >
-                {selected ? "✓ " : ""}
-                {equipmentTypeLabel(type)}
-              </button>
-            )
-          })}
-        </div>
-      )}
+      {tab === "forklift" && (() => {
+        const allSelected = activeSubtypes.length === FORKLIFT_TYPES.length
+        return (
+          <div className="slide-down flex gap-1 rounded-b-lg border border-t-0 border-gray-200 bg-gray-100/70 p-1.5 text-xs font-medium">
+            <button
+              type="button"
+              onClick={() => setActiveSubtypes(FORKLIFT_TYPES)}
+              className={`flex-1 rounded-md py-1 text-center transition-colors duration-100 active:scale-95 ${
+                allSelected
+                  ? "bg-brand/10 text-brand shadow-sm ring-1 ring-brand/30"
+                  : "text-gray-400 hover:text-gray-600"
+              }`}
+            >
+              All
+            </button>
+            {FORKLIFT_TYPES.map((type) => {
+              const selected = activeSubtypes.includes(type)
+              const style = allSelected
+                ? "text-gray-500 hover:text-gray-700"
+                : selected
+                  ? "bg-brand/10 text-brand shadow-sm ring-1 ring-brand/30"
+                  : "text-gray-400 line-through"
+              return (
+                <button
+                  type="button"
+                  key={type}
+                  onClick={() => setActiveSubtypes(toggleSubtype(activeSubtypes, type))}
+                  className={`flex-1 rounded-md py-1 text-center transition-colors duration-100 active:scale-95 ${style}`}
+                >
+                  {!allSelected && selected ? "✓ " : ""}
+                  {equipmentTypeLabel(type)}
+                </button>
+              )
+            })}
+          </div>
+        )
+      })()}
 
       {typedCards.length === 0 && (
         <p className="mt-3 text-gray-500">No matching equipment.</p>

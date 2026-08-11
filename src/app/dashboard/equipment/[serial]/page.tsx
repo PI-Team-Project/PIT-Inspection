@@ -207,6 +207,21 @@ export default async function EquipmentDetailPage({
                       {isRepairRequest ? "" : answer.value}
                       {!isRepairRequest && answer.specify ? ` — ${answer.specify}` : ""}
                     </span>
+                    {bad && (
+                      <div className="col-span-2 -mt-0.5">
+                        <label className="inline-flex cursor-pointer select-none items-center gap-1 rounded-full border border-amber-300 bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700 transition-colors duration-100 has-checked:border-green-300 has-checked:bg-green-50 has-checked:text-green-700">
+                          <input
+                            type="checkbox"
+                            name={`issue_${q.id}`}
+                            value="complete"
+                            defaultChecked={status === "complete"}
+                            className="peer sr-only"
+                          />
+                          <span className="peer-checked:hidden">⚠ Needs Fix</span>
+                          <span className="hidden peer-checked:inline">✓ Fixed</span>
+                        </label>
+                      </div>
+                    )}
                     {(answer.note || (answer.photos && answer.photos.length > 0)) && (
                       <div className="col-span-2 -mt-0.5 flex flex-wrap items-start gap-2">
                         {answer.note && (
@@ -220,38 +235,13 @@ export default async function EquipmentDetailPage({
                         )}
                       </div>
                     )}
-                    {bad && (
-                      <div className="col-span-2 -mt-0.5 grid grid-cols-2 gap-2">
-                        <label className="flex cursor-pointer items-center justify-center gap-1 rounded-md border border-gray-300 px-2 py-1 text-xs font-semibold text-amber-700 has-checked:border-amber-500 has-checked:bg-amber-50">
-                          <input
-                            type="radio"
-                            name={`issue_${q.id}`}
-                            value="in_review"
-                            required
-                            defaultChecked={status === "in_review"}
-                            className="h-3 w-3"
-                          />
-                          In Review
-                        </label>
-                        <label className="flex cursor-pointer items-center justify-center gap-1 rounded-md border border-gray-300 px-2 py-1 text-xs font-semibold text-blue-700 has-checked:border-blue-500 has-checked:bg-blue-50">
-                          <input
-                            type="radio"
-                            name={`issue_${q.id}`}
-                            value="complete"
-                            required
-                            defaultChecked={status === "complete"}
-                            className="h-3 w-3"
-                          />
-                          Complete
-                        </label>
-                      </div>
-                    )}
                   </Fragment>
                 )
               })}
             </div>
 
-            <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+            <div className="mt-6 rounded-lg border border-gray-200 bg-gray-50 p-3">
+              <p className="mb-3 text-sm font-semibold text-gray-900">Supervisor Review</p>
               <label className="mb-1 block text-sm font-medium text-gray-700">Note</label>
               <textarea
                 name="noteText"
