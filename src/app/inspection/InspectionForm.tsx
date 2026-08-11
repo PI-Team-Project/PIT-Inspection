@@ -225,7 +225,7 @@ export default function InspectionForm({
             value={values.date ?? ""}
             onChange={(e) => set("date", e.target.value)}
             required
-            className="w-full rounded-lg border border-gray-300 px-4 py-3 text-base"
+            className="block w-full max-w-full min-w-0 rounded-lg border border-gray-300 px-4 py-3 text-base"
           />
         </div>
 

@@ -1,3 +1,4 @@
+import { Fragment } from "react"
 import Link from "next/link"
 import { notFound, redirect } from "next/navigation"
 import { cookies } from "next/headers"
@@ -117,7 +118,7 @@ export default async function EquipmentDetailPage({
             <StatusDot stage={stage} size="lg" />
           </span>
           <div className="w-full">
-            <p className="text-lg font-semibold text-gray-900">
+            <p className={`text-lg font-semibold text-gray-900 ${since ? "pr-16" : ""}`}>
               {equipment.makeColor} · {equipmentTypeLabel(equipment.type)} · {equipment.flNumber}
             </p>
             <p className="text-sm text-gray-600">
@@ -174,11 +175,14 @@ export default async function EquipmentDetailPage({
               </div>
             ))}
 
-          <form action={saveActivity} className="space-y-2.5">
+          <form action={saveActivity} className="space-y-4">
             <input type="hidden" name="inspectionId" value={latest.inspection.id} />
 
-            {(isCriticalInspection(latest.inspection) ? [REPAIR_REQUEST_QUESTION] : QUESTIONS).map(
-              (q) => {
+            <div className="grid grid-cols-[auto_1fr] items-baseline gap-x-4 gap-y-1.5 text-sm">
+              {(isCriticalInspection(latest.inspection)
+                ? [REPAIR_REQUEST_QUESTION]
+                : QUESTIONS
+              ).map((q, i) => {
                 const answer = latest.answers[q.id]
                 if (!answer) return null
                 const isRepairRequest = q.id === REPAIR_REQUEST_ISSUE_ID
@@ -193,83 +197,88 @@ export default async function EquipmentDetailPage({
                     : bad
                       ? "text-amber-700"
                       : "text-gray-700"
+                const rowBorder = i > 0 ? "border-t border-gray-100 pt-1.5" : ""
                 return (
-                  <div key={q.id} className={bad ? "space-y-1.5" : ""}>
-                    <div className={`text-sm ${textColor}`}>
-                      <span className="font-semibold">
-                        {isRepairRequest ? "Repair Request" : `${q.number}. ${q.label}`}:
-                      </span>{" "}
+                  <Fragment key={q.id}>
+                    <span className={`whitespace-nowrap font-semibold ${textColor} ${rowBorder}`}>
+                      {isRepairRequest ? "Repair Request" : `${q.number}. ${q.label}`}
+                    </span>
+                    <span className={`${textColor} ${rowBorder}`}>
                       {isRepairRequest ? "" : answer.value}
                       {!isRepairRequest && answer.specify ? ` — ${answer.specify}` : ""}
-                    </div>
-                    {answer.note && (
-                      <p className="text-xs text-gray-600">
-                        {isRepairRequest ? "" : "Note: "}
-                        {answer.note}
-                      </p>
-                    )}
-                    {answer.photos && answer.photos.length > 0 && (
-                      <PhotoGallery photos={answer.photos} notes={answer.photoNotes} />
+                    </span>
+                    {(answer.note || (answer.photos && answer.photos.length > 0)) && (
+                      <div className="col-span-2 -mt-0.5 flex flex-wrap items-start gap-2">
+                        {answer.note && (
+                          <p className="text-xs text-gray-500">
+                            {isRepairRequest ? "" : "Note: "}
+                            {answer.note}
+                          </p>
+                        )}
+                        {answer.photos && answer.photos.length > 0 && (
+                          <PhotoGallery photos={answer.photos} notes={answer.photoNotes} />
+                        )}
+                      </div>
                     )}
                     {bad && (
-                      <div className="flex gap-2">
-                        <label className="flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-gray-300 px-2 py-1.5 text-xs font-semibold text-amber-700 has-checked:border-amber-500 has-checked:bg-amber-50">
+                      <div className="col-span-2 -mt-0.5 grid grid-cols-2 gap-2">
+                        <label className="flex cursor-pointer items-center justify-center gap-1 rounded-md border border-gray-300 px-2 py-1 text-xs font-semibold text-amber-700 has-checked:border-amber-500 has-checked:bg-amber-50">
                           <input
                             type="radio"
                             name={`issue_${q.id}`}
                             value="in_review"
                             required
                             defaultChecked={status === "in_review"}
-                            className="h-3.5 w-3.5"
+                            className="h-3 w-3"
                           />
                           In Review
                         </label>
-                        <label className="flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-gray-300 px-2 py-1.5 text-xs font-semibold text-blue-700 has-checked:border-blue-500 has-checked:bg-blue-50">
+                        <label className="flex cursor-pointer items-center justify-center gap-1 rounded-md border border-gray-300 px-2 py-1 text-xs font-semibold text-blue-700 has-checked:border-blue-500 has-checked:bg-blue-50">
                           <input
                             type="radio"
                             name={`issue_${q.id}`}
                             value="complete"
                             required
                             defaultChecked={status === "complete"}
-                            className="h-3.5 w-3.5"
+                            className="h-3 w-3"
                           />
                           Complete
                         </label>
                       </div>
                     )}
-                  </div>
+                  </Fragment>
                 )
-              }
-            )}
+              })}
+            </div>
 
-            <div className="mt-4">
+            <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
               <label className="mb-1 block text-sm font-medium text-gray-700">Note</label>
               <textarea
                 name="noteText"
                 placeholder="What did you check or change?"
                 rows={2}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
               />
-            </div>
 
-            <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
-              <label className="mb-1 block text-sm font-medium text-gray-700">
-                Supervisor Confirmation
-              </label>
-              <input
-                type="text"
-                name="reviewerName"
-                defaultValue={savedManagerName}
-                placeholder="Name of the supervisor"
-                required
-                className="mb-2 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
-              />
-              <button
-                type="submit"
-                className="flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 py-3 text-base font-semibold text-white transition-transform duration-100 active:scale-95 active:bg-blue-700"
-              >
-                ✓ Confirm Review
-              </button>
+              <div className="mt-3 border-t border-gray-200 pt-3">
+                <label className="mb-1 block text-sm font-medium text-gray-700">
+                  Supervisor Confirmation
+                </label>
+                <input
+                  type="text"
+                  name="reviewerName"
+                  defaultValue={savedManagerName}
+                  placeholder="Name of the supervisor"
+                  required
+                  className="mb-2 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
+                />
+                <button
+                  type="submit"
+                  className="flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 py-3 text-base font-semibold text-white transition-transform duration-100 active:scale-95 active:bg-blue-700"
+                >
+                  ✓ Confirm Review
+                </button>
+              </div>
             </div>
 
             {latest.review.activity.length > 0 && (
