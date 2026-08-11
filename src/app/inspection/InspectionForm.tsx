@@ -328,7 +328,6 @@ export default function InspectionForm({
                 name="repairDescription"
                 value={values.repairDescription ?? ""}
                 onChange={(e) => set("repairDescription", e.target.value)}
-                required
                 rows={3}
                 placeholder="Describe the problem in as much detail as possible"
                 className="w-full rounded-lg border border-gray-300 px-4 py-3 text-base"

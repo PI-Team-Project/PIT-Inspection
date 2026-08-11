@@ -450,17 +450,25 @@ function ShiftOverview({
           </p>
           {inspected.length > 0 && (
             <p className="text-xs text-green-700">
-              {inspected.map((row, i) => (
-                <span key={row.equipment.serial}>
-                  {i > 0 && ", "}
-                  <a
-                    href={`/dashboard/equipment/${row.equipment.serial}`}
-                    className="underline"
-                  >
-                    {row.equipment.flNumber}
-                  </a>
-                </span>
-              ))}
+              {inspected.map((row, i) => {
+                const color =
+                  row.stage === "unresolved"
+                    ? "text-red-700"
+                    : row.stage === "pending-confirm"
+                      ? "text-amber-700"
+                      : "text-green-700"
+                return (
+                  <span key={row.equipment.serial}>
+                    {i > 0 && ", "}
+                    <a
+                      href={`/dashboard/equipment/${row.equipment.serial}`}
+                      className={`underline ${color}`}
+                    >
+                      {row.equipment.flNumber}
+                    </a>
+                  </span>
+                )
+              })}
             </p>
           )}
         </div>
