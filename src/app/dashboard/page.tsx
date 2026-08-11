@@ -510,7 +510,7 @@ function InspectionRequestBanner({ rows }: { rows: EquipmentRow[] }) {
           <span key={row.equipment.serial}>
             {i > 0 && ", "}
             <a href={`/dashboard/equipment/${row.equipment.serial}`} className="underline">
-              {row.equipment.flNumber} — {row.equipment.makeColor}
+              {row.equipment.flNumber} {row.equipment.makeColor}
             </a>
           </span>
         ))}
