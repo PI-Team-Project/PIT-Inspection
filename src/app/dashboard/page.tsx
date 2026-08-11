@@ -203,6 +203,7 @@ export default async function DashboardPage({
       />
 
       <div className="mt-8 flex justify-end border-t border-gray-100 pt-4">
+        {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- CSV download endpoint, not a page */}
         <a
           href="/dashboard/export"
           className="shrink-0 rounded-lg border border-brand/30 px-3 py-2 text-sm font-medium text-brand transition-transform duration-100 active:scale-95 active:bg-brand/10"

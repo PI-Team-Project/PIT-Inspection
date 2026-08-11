@@ -297,7 +297,13 @@ export default async function EquipmentDetailPage({
         </div>
       )}
 
-      <div className="mt-4">
+      <div className="mt-4 flex items-center justify-between">
+        <a
+          href={`/dashboard/export/${equipment.serial}`}
+          className="text-xs font-medium text-brand hover:underline"
+        >
+          Export this vehicle&apos;s history (CSV)
+        </a>
         <DeleteVehicleControl serial={equipment.serial} flNumber={equipment.flNumber} />
       </div>
 
