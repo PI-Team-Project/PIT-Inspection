@@ -241,12 +241,17 @@ function FleetOverview({
         {title} ({total})
       </h3>
       <div
-        className={`flex flex-wrap items-center gap-x-5 gap-y-[5px] rounded-lg border border-gray-200 bg-gray-50 px-3 ${
+        className={`flex flex-col gap-y-1.5 rounded-lg border border-gray-200 bg-gray-50 px-3 ${
           compact ? "py-1.5" : "py-3"
         }`}
       >
-        {visible.map((g) => (
-          <div key={g.label} className="flex items-center gap-[5px]">
+        {visible.map((g, i) => (
+          <div
+            key={g.label}
+            className={`flex items-center gap-[5px] ${
+              showSubLabels && i > 0 ? "border-t border-gray-200/70 pt-1.5" : ""
+            }`}
+          >
             {showSubLabels && (
               <span className="w-24 shrink-0 text-xs font-medium text-gray-500">
                 {equipmentTypeLabel(g.label)} ({g.rows.length})

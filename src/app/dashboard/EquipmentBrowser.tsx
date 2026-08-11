@@ -91,14 +91,15 @@ function byType(cards: Card[], type: EquipmentType) {
 
 type TabValue = "all" | "forklift" | "Pallet Jack" | "red" | "yellow"
 
+// Empty means no filter applied (show every subtype). Clicking a subtype
+// adds it to the filter; clicking it again removes it — a plain multi-select.
 function toggleSubtype(active: EquipmentType[], type: EquipmentType): EquipmentType[] {
-  const next = active.includes(type) ? active.filter((t) => t !== type) : [...active, type]
-  return next.length === 0 ? FORKLIFT_TYPES : next
+  return active.includes(type) ? active.filter((t) => t !== type) : [...active, type]
 }
 
 export default function EquipmentBrowser({ cards }: { cards: Card[] }) {
   const [tab, setTab] = useState<TabValue>("all")
-  const [activeSubtypes, setActiveSubtypes] = useState<EquipmentType[]>(FORKLIFT_TYPES)
+  const [activeSubtypes, setActiveSubtypes] = useState<EquipmentType[]>([])
 
   if (cards.length === 0) {
     return <p className="mt-3 text-gray-500">No equipment on file.</p>
@@ -113,7 +114,9 @@ export default function EquipmentBrowser({ cards }: { cards: Card[] }) {
 
   const typedCards =
     tab === "forklift"
-      ? statusFiltered.filter((c) => activeSubtypes.includes(c.type))
+      ? activeSubtypes.length > 0
+        ? statusFiltered.filter((c) => activeSubtypes.includes(c.type))
+        : statusFiltered
       : tab === "Pallet Jack"
         ? statusFiltered.filter((c) => c.type === "Pallet Jack")
         : statusFiltered
@@ -203,43 +206,38 @@ export default function EquipmentBrowser({ cards }: { cards: Card[] }) {
         </button>
       </div>
 
-      {tab === "forklift" && (() => {
-        const allSelected = activeSubtypes.length === FORKLIFT_TYPES.length
-        return (
-          <div className="slide-down flex gap-1 rounded-b-lg border border-t-0 border-gray-200 bg-gray-100/70 p-1.5 text-xs font-medium">
-            <button
-              type="button"
-              onClick={() => setActiveSubtypes(FORKLIFT_TYPES)}
-              className={`flex-1 rounded-md py-1 text-center transition-colors duration-100 active:scale-95 ${
-                allSelected
-                  ? "bg-brand/10 text-brand shadow-sm ring-1 ring-brand/30"
-                  : "text-gray-400 hover:text-gray-600"
-              }`}
-            >
-              All
-            </button>
-            {FORKLIFT_TYPES.map((type) => {
-              const selected = activeSubtypes.includes(type)
-              const style = allSelected
-                ? "text-gray-500 hover:text-gray-700"
-                : selected
-                  ? "bg-brand/10 text-brand shadow-sm ring-1 ring-brand/30"
-                  : "text-gray-400 line-through"
-              return (
-                <button
-                  type="button"
-                  key={type}
-                  onClick={() => setActiveSubtypes(toggleSubtype(activeSubtypes, type))}
-                  className={`flex-1 rounded-md py-1 text-center transition-colors duration-100 active:scale-95 ${style}`}
-                >
-                  {!allSelected && selected ? "✓ " : ""}
-                  {equipmentTypeLabel(type)}
-                </button>
-              )
-            })}
-          </div>
-        )
-      })()}
+      {tab === "forklift" && (
+        <div className="slide-down flex gap-1 rounded-b-lg border border-t-0 border-gray-200 bg-gray-100/70 p-1.5 text-xs font-medium">
+          <button
+            type="button"
+            onClick={() => setActiveSubtypes([])}
+            className={`flex-1 rounded-md py-1 text-center transition-colors duration-100 active:scale-95 ${
+              activeSubtypes.length === 0
+                ? "bg-brand/10 text-brand shadow-sm ring-1 ring-brand/30"
+                : "text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            All
+          </button>
+          {FORKLIFT_TYPES.map((type) => {
+            const selected = activeSubtypes.includes(type)
+            return (
+              <button
+                type="button"
+                key={type}
+                onClick={() => setActiveSubtypes(toggleSubtype(activeSubtypes, type))}
+                className={`flex-1 rounded-md py-1 text-center transition-colors duration-100 active:scale-95 ${
+                  selected
+                    ? "bg-brand/10 text-brand shadow-sm ring-1 ring-brand/30"
+                    : "text-gray-500 hover:text-gray-700"
+                }`}
+              >
+                {equipmentTypeLabel(type)}
+              </button>
+            )
+          })}
+        </div>
+      )}
 
       {typedCards.length === 0 && (
         <p className="mt-3 text-gray-500">No matching equipment.</p>
