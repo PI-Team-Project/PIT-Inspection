@@ -6,6 +6,7 @@ import { type Question } from "@/lib/questions"
 import {
   equipmentCategory,
   equipmentTypeLabel,
+  isUnderRepair,
   LOCATIONS,
   type Equipment,
   type EquipmentType,
@@ -468,8 +469,15 @@ function EquipmentCard({
           {equipment.makeColor} · {equipmentTypeLabel(equipment.type)} · {equipment.flNumber}
         </p>
 
-        <p className="text-sm text-gray-600">
-          Serial#: {equipment.serial} · {equipment.location}
+        <p className="flex flex-wrap items-center gap-1.5 text-sm text-gray-600">
+          Serial#: {equipment.serial} ·
+          {isUnderRepair(equipment.location) ? (
+            <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-sm font-semibold text-amber-800">
+              🛠️ Under Repair
+            </span>
+          ) : (
+            equipment.location
+          )}
         </p>
         {latest ? (
           <p className="mt-1 text-sm text-gray-600">

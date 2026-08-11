@@ -18,6 +18,11 @@ export const LOCATIONS = [
 ] as const
 export type Location = (typeof LOCATIONS)[number]
 
+export const REPAIR_LOCATION: Location = "Repairing 🛠️"
+export function isUnderRepair(location: string): boolean {
+  return location === REPAIR_LOCATION
+}
+
 export type Equipment = {
   type: EquipmentType
   flNumber: string

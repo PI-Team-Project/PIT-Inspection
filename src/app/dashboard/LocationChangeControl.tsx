@@ -1,7 +1,7 @@
 "use client"
 
 import { useActionState, useEffect, useRef, useState } from "react"
-import { LOCATIONS } from "@/lib/equipment"
+import { LOCATIONS, REPAIR_LOCATION, isUnderRepair } from "@/lib/equipment"
 import { updateEquipmentLocation } from "./actions"
 
 export default function LocationChangeControl({
@@ -25,15 +25,20 @@ export default function LocationChangeControl({
     wasPending.current = pending
   }, [pending])
 
+  const underRepair = isUnderRepair(currentLocation)
+
   if (!open) {
     return (
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 transition-transform duration-100 active:scale-95"
+        className={
+          underRepair
+            ? "inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-sm font-semibold text-amber-800 active:scale-95"
+            : "inline-flex items-center gap-1 text-sm text-gray-600 underline-offset-2 hover:underline active:scale-95"
+        }
       >
-        📍 {currentLocation}
-        <span className="text-xs font-medium text-gray-400">change</span>
+        {underRepair ? "🛠️ Under Repair" : `📍 ${currentLocation}`}
       </button>
     )
   }
@@ -72,11 +77,16 @@ export default function LocationChangeControl({
               defaultValue={currentLocation}
               className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
             >
-              {LOCATIONS.map((loc) => (
-                <option key={loc} value={loc}>
-                  {loc}
-                </option>
-              ))}
+              <optgroup label="Warehouse Locations">
+                {LOCATIONS.filter((loc) => loc !== REPAIR_LOCATION).map((loc) => (
+                  <option key={loc} value={loc}>
+                    {loc}
+                  </option>
+                ))}
+              </optgroup>
+              <optgroup label="Status">
+                <option value={REPAIR_LOCATION}>{REPAIR_LOCATION}</option>
+              </optgroup>
             </select>
           </div>
           <div>

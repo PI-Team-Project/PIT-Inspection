@@ -122,14 +122,14 @@ export default async function EquipmentDetailPage({
             <p className={`text-lg font-semibold text-gray-900 ${since ? "pr-16" : ""}`}>
               {equipment.makeColor} · {equipmentTypeLabel(equipment.type)} · {equipment.flNumber}
             </p>
-            <p className="text-sm text-gray-600">Serial#: {equipment.serial}</p>
-            <div className="mt-2">
+            <p className="flex flex-wrap items-center gap-1.5 text-sm text-gray-600">
+              Serial#: {equipment.serial} ·
               <LocationChangeControl
                 serial={equipment.serial}
                 currentLocation={equipment.location}
                 savedManagerName={savedManagerName}
               />
-            </div>
+            </p>
             {latest ? (
               <p className="mt-1 text-sm text-gray-600">
                 Last inspected {latest.inspection.date} · {latest.inspection.shift} ·{" "}
