@@ -13,6 +13,7 @@ import {
 } from "@/lib/equipment"
 import { getEquipmentListWithCurrentLocations } from "@/lib/equipmentLocations"
 import { isCriticalInspection, type Stage } from "@/lib/review"
+import { getCurrentShiftWindow, FLEET_TIME_ZONE } from "@/lib/shifts"
 import { DASHBOARD_COOKIE, dashboardSessionValue } from "@/lib/auth"
 import PinForm from "./PinForm"
 import HomeLink from "./HomeLink"
@@ -95,6 +96,13 @@ export default async function DashboardPage({
     stage === "unresolved" || stage === "pending-confirm"
   const isNotInspected = (stage: Stage | "none") => stage === "none"
 
+  const now = new Date()
+  const shiftWindow = getCurrentShiftWindow(now)
+  const inspectedThisShift = (row: EquipmentRow) => {
+    const createdAt = row.latest?.inspection.createdAt
+    return Boolean(createdAt && createdAt >= shiftWindow.start && createdAt < shiftWindow.end)
+  }
+
   const rows =
     filter === "working"
       ? equipmentRows.filter((row) => isWorking(row.stage))
@@ -161,6 +169,15 @@ export default async function DashboardPage({
             {noInspectionCount}/{equipmentList.length} not yet inspected
           </Link>
         )}
+      </div>
+
+      <div className="mt-4">
+        <ShiftOverview
+          now={now}
+          shiftWindow={shiftWindow}
+          rows={equipmentRows}
+          inspectedThisShift={inspectedThisShift}
+        />
       </div>
 
       <div className="mt-4">
@@ -385,6 +402,90 @@ function LocationRows({
         )
       })}
     </>
+  )
+}
+
+function ShiftOverview({
+  now,
+  shiftWindow,
+  rows,
+  inspectedThisShift,
+}: {
+  now: Date
+  shiftWindow: { label: string; start: Date; end: Date }
+  rows: EquipmentRow[]
+  inspectedThisShift: (row: EquipmentRow) => boolean
+}) {
+  const inspected = rows.filter(inspectedThisShift)
+  const notInspected = rows.filter((row) => !inspectedThisShift(row))
+
+  const dateLabel = new Intl.DateTimeFormat("en-US", {
+    timeZone: FLEET_TIME_ZONE,
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  }).format(now)
+  const timeLabel = new Intl.DateTimeFormat("en-US", {
+    timeZone: FLEET_TIME_ZONE,
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+  }).format(now)
+  const hoursLabel = shiftWindow.label === "Day" ? "5am–5pm" : "5pm–5am"
+
+  return (
+    <div>
+      <div className="mb-1.5 flex flex-wrap items-center gap-2">
+        <span className="rounded-md bg-gray-900 px-2 py-0.5 font-mono text-sm tracking-wider text-green-400 tabular-nums">
+          {timeLabel}
+        </span>
+        <h2 className="text-xs font-semibold tracking-wide text-brand uppercase">
+          {dateLabel} · {shiftWindow.label} Shift ({hoursLabel})
+        </h2>
+      </div>
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+        <div className="rounded-lg border border-green-200 bg-green-50 p-3">
+          <p className="mb-1 text-sm font-semibold text-green-800">
+            ✅ Inspected ({inspected.length}/{rows.length})
+          </p>
+          {inspected.length > 0 && (
+            <p className="text-xs text-green-700">
+              {inspected.map((row, i) => (
+                <span key={row.equipment.serial}>
+                  {i > 0 && ", "}
+                  <a
+                    href={`/dashboard/equipment/${row.equipment.serial}`}
+                    className="underline"
+                  >
+                    {row.equipment.flNumber}
+                  </a>
+                </span>
+              ))}
+            </p>
+          )}
+        </div>
+        <div className="rounded-lg border border-gray-300 bg-gray-50 p-3">
+          <p className="mb-1 text-sm font-semibold text-gray-700">
+            ⏳ Not Yet Inspected ({notInspected.length}/{rows.length})
+          </p>
+          {notInspected.length > 0 && (
+            <p className="text-xs text-gray-600">
+              {notInspected.map((row, i) => (
+                <span key={row.equipment.serial}>
+                  {i > 0 && ", "}
+                  <a
+                    href={`/dashboard/equipment/${row.equipment.serial}`}
+                    className="underline"
+                  >
+                    {row.equipment.flNumber}
+                  </a>
+                </span>
+              ))}
+            </p>
+          )}
+        </div>
+      </div>
+    </div>
   )
 }
 
