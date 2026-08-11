@@ -184,7 +184,7 @@ export default async function EquipmentDetailPage({
           <form action={saveActivity} className="space-y-4">
             <input type="hidden" name="inspectionId" value={latest.inspection.id} />
 
-            <div className="grid grid-cols-[auto_1fr] items-baseline gap-x-4 gap-y-1.5 text-sm">
+            <div className="grid grid-cols-[auto_1fr_auto] items-baseline gap-x-4 gap-y-1.5 text-sm">
               {(isCriticalInspection(latest.inspection)
                 ? [REPAIR_REQUEST_QUESTION]
                 : QUESTIONS
@@ -209,11 +209,11 @@ export default async function EquipmentDetailPage({
                     <span className={`whitespace-nowrap font-semibold ${textColor} ${rowBorder}`}>
                       {isRepairRequest ? "Repair Request" : `${q.number}. ${q.label}`}
                     </span>
-                    <span className={`flex flex-wrap items-center gap-1.5 ${textColor} ${rowBorder}`}>
-                      <span>
-                        {isRepairRequest ? "" : answer.value}
-                        {!isRepairRequest && answer.specify ? ` — ${answer.specify}` : ""}
-                      </span>
+                    <span className={`${textColor} ${rowBorder}`}>
+                      {isRepairRequest ? "" : answer.value}
+                      {!isRepairRequest && answer.specify ? ` — ${answer.specify}` : ""}
+                    </span>
+                    <span className={`flex justify-end ${rowBorder}`}>
                       {bad && (
                         <label
                           title={status === "complete" ? "Marked fixed — click to reopen" : "Click to mark fixed"}
@@ -233,7 +233,7 @@ export default async function EquipmentDetailPage({
                       )}
                     </span>
                     {(answer.note || (answer.photos && answer.photos.length > 0)) && (
-                      <div className="col-span-2 -mt-0.5 flex flex-wrap items-start gap-2">
+                      <div className="col-span-3 -mt-0.5 flex flex-wrap items-start gap-2">
                         {answer.note && (
                           <p className="text-xs text-gray-500">
                             {isRepairRequest ? "" : "Note: "}

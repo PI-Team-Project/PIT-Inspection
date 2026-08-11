@@ -35,10 +35,11 @@ export default function LocationChangeControl({
         className={
           underRepair
             ? "inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-sm font-semibold text-amber-800 active:scale-95"
-            : "inline-flex items-center gap-1 text-sm text-gray-600 underline-offset-2 hover:underline active:scale-95"
+            : "inline-flex items-center gap-1 rounded-full border border-gray-300 px-2 py-0.5 text-sm text-gray-600 active:scale-95"
         }
       >
         {underRepair ? "🛠️ Under Repair" : `📍 ${currentLocation}`}
+        {!underRepair && <span className="text-gray-400">✎</span>}
       </button>
     )
   }
