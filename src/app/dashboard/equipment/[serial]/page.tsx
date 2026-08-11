@@ -203,13 +203,16 @@ export default async function EquipmentDetailPage({
                     <span className={`whitespace-nowrap font-semibold ${textColor} ${rowBorder}`}>
                       {isRepairRequest ? "Repair Request" : `${q.number}. ${q.label}`}
                     </span>
-                    <span className={`${textColor} ${rowBorder}`}>
-                      {isRepairRequest ? "" : answer.value}
-                      {!isRepairRequest && answer.specify ? ` — ${answer.specify}` : ""}
-                    </span>
-                    {bad && (
-                      <div className="col-span-2 -mt-0.5">
-                        <label className="inline-flex cursor-pointer select-none items-center gap-1 rounded-full border border-amber-300 bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700 transition-colors duration-100 has-checked:border-green-300 has-checked:bg-green-50 has-checked:text-green-700">
+                    <span className={`flex flex-wrap items-center gap-1.5 ${textColor} ${rowBorder}`}>
+                      <span>
+                        {isRepairRequest ? "" : answer.value}
+                        {!isRepairRequest && answer.specify ? ` — ${answer.specify}` : ""}
+                      </span>
+                      {bad && (
+                        <label
+                          title={status === "complete" ? "Marked fixed — click to reopen" : "Click to mark fixed"}
+                          className="inline-flex h-6 w-6 shrink-0 cursor-pointer select-none items-center justify-center rounded-full border border-amber-300 bg-amber-50 text-sm leading-none shadow-sm transition-all duration-100 hover:border-amber-400 hover:bg-amber-100 active:scale-90 has-checked:border-green-300 has-checked:bg-green-50"
+                        >
                           <input
                             type="checkbox"
                             name={`issue_${q.id}`}
@@ -217,11 +220,12 @@ export default async function EquipmentDetailPage({
                             defaultChecked={status === "complete"}
                             className="peer sr-only"
                           />
-                          <span className="peer-checked:hidden">⚠ Needs Fix</span>
-                          <span className="hidden peer-checked:inline">✓ Fixed</span>
+                          <span className="sr-only">Mark fixed</span>
+                          <span className="peer-checked:hidden">⚠</span>
+                          <span className="hidden peer-checked:inline">✓</span>
                         </label>
-                      </div>
-                    )}
+                      )}
+                    </span>
                     {(answer.note || (answer.photos && answer.photos.length > 0)) && (
                       <div className="col-span-2 -mt-0.5 flex flex-wrap items-start gap-2">
                         {answer.note && (
