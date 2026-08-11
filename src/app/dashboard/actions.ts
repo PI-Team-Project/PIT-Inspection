@@ -145,13 +145,21 @@ export async function confirmResolved(formData: FormData) {
   revalidatePath("/dashboard/equipment/[serial]", "page")
 }
 
-export async function updateEquipmentLocation(formData: FormData) {
+export async function updateEquipmentLocation(
+  _prevState: null,
+  formData: FormData
+): Promise<null> {
   const serial = String(formData.get("serial") ?? "")
   const location = String(formData.get("location") ?? "")
-  if (!serial || !(LOCATIONS as readonly string[]).includes(location)) return
+  const managerName = String(formData.get("managerName") ?? "").trim() || "Unknown"
+  if (!serial || !(LOCATIONS as readonly string[]).includes(location)) return null
 
   const cookieStore = await cookies()
-  const managerName = cookieStore.get(MANAGER_NAME_COOKIE)?.value || "Unknown"
+  cookieStore.set(MANAGER_NAME_COOKIE, managerName, {
+    httpOnly: true,
+    sameSite: "lax",
+    maxAge: 60 * 60 * 24 * 30,
+  })
 
   await prisma.equipmentLocation.upsert({
     where: { serial },
@@ -187,6 +195,7 @@ export async function updateEquipmentLocation(formData: FormData) {
   revalidatePath("/dashboard")
   revalidatePath("/dashboard/equipment/[serial]", "page")
   revalidatePath("/inspection")
+  return null
 }
 
 export async function archiveEquipment(

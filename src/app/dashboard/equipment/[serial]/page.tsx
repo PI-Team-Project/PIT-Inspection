@@ -10,7 +10,7 @@ import {
   REPAIR_REQUEST_ISSUE_ID,
   REPAIR_REQUEST_QUESTION,
 } from "@/lib/questions"
-import { equipmentTypeLabel, LOCATIONS } from "@/lib/equipment"
+import { equipmentTypeLabel } from "@/lib/equipment"
 import { getEquipmentListWithCurrentLocations } from "@/lib/equipmentLocations"
 import { isCriticalInspection, type ActivityEntry, type Stage } from "@/lib/review"
 import { DASHBOARD_COOKIE, MANAGER_NAME_COOKIE, dashboardSessionValue } from "@/lib/auth"
@@ -24,7 +24,8 @@ import {
 import StatusDot from "../../StatusDot"
 import PhotoGallery from "../../PhotoGallery"
 import DeleteVehicleControl from "../../DeleteVehicleControl"
-import { saveActivity, confirmResolved, updateEquipmentLocation } from "../../actions"
+import LocationChangeControl from "../../LocationChangeControl"
+import { saveActivity, confirmResolved } from "../../actions"
 
 const PAGE_SIZE = 20
 // How far back "since" escalation looks for a run of consecutive bad
@@ -121,9 +122,14 @@ export default async function EquipmentDetailPage({
             <p className={`text-lg font-semibold text-gray-900 ${since ? "pr-16" : ""}`}>
               {equipment.makeColor} · {equipmentTypeLabel(equipment.type)} · {equipment.flNumber}
             </p>
-            <p className="text-sm text-gray-600">
-              Serial#: {equipment.serial} · {equipment.location}
-            </p>
+            <p className="text-sm text-gray-600">Serial#: {equipment.serial}</p>
+            <div className="mt-2">
+              <LocationChangeControl
+                serial={equipment.serial}
+                currentLocation={equipment.location}
+                savedManagerName={savedManagerName}
+              />
+            </div>
             {latest ? (
               <p className="mt-1 text-sm text-gray-600">
                 Last inspected {latest.inspection.date} · {latest.inspection.shift} ·{" "}
@@ -291,31 +297,7 @@ export default async function EquipmentDetailPage({
         </div>
       )}
 
-      <div className="mt-4 flex items-center gap-2 rounded-lg border border-gray-300 bg-white p-4">
-        <form action={updateEquipmentLocation} className="flex flex-1 items-center gap-2">
-          <input type="hidden" name="serial" value={equipment.serial} />
-          <label className="text-xs font-semibold text-gray-500">Location</label>
-          <select
-            name="location"
-            defaultValue={equipment.location}
-            className="flex-1 rounded-lg border border-gray-300 px-2 py-1.5 text-sm"
-          >
-            {LOCATIONS.map((loc) => (
-              <option key={loc} value={loc}>
-                {loc}
-              </option>
-            ))}
-          </select>
-          <button
-            type="submit"
-            className="shrink-0 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white transition-transform duration-100 active:scale-95 active:bg-blue-700"
-          >
-            Save
-          </button>
-        </form>
-      </div>
-
-      <div className="mt-3">
+      <div className="mt-4">
         <DeleteVehicleControl serial={equipment.serial} flNumber={equipment.flNumber} />
       </div>
 
