@@ -35,6 +35,13 @@ export async function getEquipmentBySerial(serial: string): Promise<Equipment | 
   return row ? toEquipment(row) : null
 }
 
+// Only the equipment detail page needs this, so it's its own lookup rather
+// than widening the shared Equipment type everywhere.
+export async function getEquipmentCreatedAt(serial: string): Promise<Date | null> {
+  const row = await prisma.equipment.findUnique({ where: { serial }, select: { createdAt: true } })
+  return row?.createdAt ?? null
+}
+
 export type EquipmentRecord = Equipment & { retiredAt: Date | null; retiredBy: string | null }
 
 // Every vehicle on file, active or retired — the Manage Vehicles page is the

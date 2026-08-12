@@ -136,6 +136,21 @@ export async function retireVehicle(formData: FormData) {
   refreshManagePaths()
 }
 
+export async function retireVehicles(formData: FormData) {
+  const serials = formData.getAll("serial").map(String).filter(Boolean)
+  if (serials.length === 0) return
+
+  const cookieStore = await cookies()
+  const managerName = cookieStore.get(MANAGER_NAME_COOKIE)?.value || "Unknown"
+
+  await prisma.equipment.updateMany({
+    where: { serial: { in: serials } },
+    data: { retiredAt: new Date(), retiredBy: managerName },
+  })
+
+  refreshManagePaths()
+}
+
 export async function restoreVehicle(formData: FormData) {
   const serial = String(formData.get("serial") ?? "")
   if (!serial) return

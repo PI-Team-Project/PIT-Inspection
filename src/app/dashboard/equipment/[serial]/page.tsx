@@ -11,7 +11,7 @@ import {
   REPAIR_REQUEST_QUESTION,
 } from "@/lib/questions"
 import { equipmentTypeLabel } from "@/lib/equipment"
-import { getEquipmentBySerial } from "@/lib/equipmentLocations"
+import { getEquipmentBySerial, getEquipmentCreatedAt } from "@/lib/equipmentLocations"
 import { isCriticalInspection, type ActivityEntry, type Stage } from "@/lib/review"
 import { DASHBOARD_COOKIE, MANAGER_NAME_COOKIE, dashboardSessionValue } from "@/lib/auth"
 import {
@@ -51,6 +51,7 @@ export default async function EquipmentDetailPage({
 
   const equipment = await getEquipmentBySerial(serial)
   if (!equipment) notFound()
+  const addedAt = await getEquipmentCreatedAt(serial)
 
   const cutoff = retentionCutoff(equipment.type, today)
   const where = { equipmentSerial: serial, date: { gte: cutoff } }
@@ -128,6 +129,11 @@ export default async function EquipmentDetailPage({
                 savedManagerName={savedManagerName}
               />
             </p>
+            {addedAt && (
+              <p className="text-xs text-gray-400">
+                Added {addedAt.toISOString().slice(0, 10)}
+              </p>
+            )}
             {latest ? (
               <p className="mt-1 text-sm text-gray-600">
                 Last inspected {latest.inspection.date} · {latest.inspection.shift} ·{" "}

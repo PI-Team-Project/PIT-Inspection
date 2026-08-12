@@ -1,29 +1,66 @@
 "use client"
 
 import { useActionState, useEffect, useRef, useState } from "react"
-import { LOCATIONS, REPAIR_LOCATION } from "@/lib/equipment"
+import { LOCATIONS, REPAIR_LOCATION, type Equipment } from "@/lib/equipment"
 import { addVehicles } from "./actions"
 
 const EQUIPMENT_TYPES = ["Sit Down", "Propane", "Standup", "Pallet Jack"] as const
 const CONTRACT_TYPES = ["Rent", "Leasing", "Own"] as const
 
+type Prefill = { type: string; makeColor: string; contractType: string; location: string }
+
 let nextRowKey = 1
 
-export default function AddVehicleForm({ savedManagerName }: { savedManagerName: string }) {
+function rowsFromEquipment(list: Equipment[]): { key: number; prefill: Prefill }[] {
+  return list.map((eq) => ({
+    key: nextRowKey++,
+    prefill: {
+      type: eq.type,
+      makeColor: eq.makeColor,
+      contractType: eq.contractType,
+      location: eq.location,
+    },
+  }))
+}
+
+export default function AddVehicleForm({
+  savedManagerName,
+  duplicateSeed,
+  hideTriggerButton,
+}: {
+  savedManagerName: string
+  duplicateSeed?: Equipment[] | null
+  hideTriggerButton?: boolean
+}) {
   const [open, setOpen] = useState(false)
-  const [rowKeys, setRowKeys] = useState<number[]>([0])
+  const [rows, setRows] = useState<{ key: number; prefill?: Prefill }[]>([{ key: 0 }])
   const [state, formAction, pending] = useActionState(addVehicles, { error: null })
   const wasPending = useRef(false)
 
   useEffect(() => {
     if (wasPending.current && !pending && !state.error) {
       setOpen(false)
-      setRowKeys([0])
+      setRows([{ key: nextRowKey++ }])
     }
     wasPending.current = pending
   }, [pending, state.error])
 
+  // Adjusting state in response to a changed prop belongs during render,
+  // not in an effect. Refs can't be read during render, so the "last seen
+  // seed" has to live in state too — per React's docs on storing info from
+  // previous renders. This still only reacts once per actual reference
+  // change (a fresh .filter() array each time "Duplicate" is clicked).
+  const [prevSeed, setPrevSeed] = useState<Equipment[] | null | undefined>(undefined)
+  if (duplicateSeed !== prevSeed) {
+    setPrevSeed(duplicateSeed)
+    if (duplicateSeed && duplicateSeed.length > 0) {
+      setRows(rowsFromEquipment(duplicateSeed))
+      setOpen(true)
+    }
+  }
+
   if (!open) {
+    if (hideTriggerButton) return null
     return (
       <button
         type="button"
@@ -45,7 +82,9 @@ export default function AddVehicleForm({ savedManagerName }: { savedManagerName:
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-3 flex items-center justify-between">
-          <h3 className="text-base font-bold text-gray-900">Add Vehicle</h3>
+          <h3 className="text-base font-bold text-gray-900">
+            {rows.some((r) => r.prefill) ? "Duplicate Vehicle" : "Add Vehicle"}
+          </h3>
           <button
             type="button"
             onClick={() => setOpen(false)}
@@ -58,17 +97,24 @@ export default function AddVehicleForm({ savedManagerName }: { savedManagerName:
           </button>
         </div>
 
-        <form action={formAction} className="space-y-3">
-          <input type="hidden" name="rowCount" value={rowKeys.length} />
+        {rows.some((r) => r.prefill) && (
+          <p className="mb-3 text-xs text-gray-500">
+            Pre-filled from the selected vehicle{rows.length > 1 ? "s" : ""} — just set a new
+            FL# and serial for each.
+          </p>
+        )}
 
-          {rowKeys.map((key, index) => (
+        <form action={formAction} className="space-y-3">
+          <input type="hidden" name="rowCount" value={rows.length} />
+
+          {rows.map(({ key, prefill }, index) => (
             <div key={key} className="space-y-2 rounded-lg border border-gray-200 p-3">
               <div className="flex items-center justify-between">
                 <p className="text-xs font-semibold text-gray-500">Vehicle {index + 1}</p>
-                {rowKeys.length > 1 && (
+                {rows.length > 1 && (
                   <button
                     type="button"
-                    onClick={() => setRowKeys((keys) => keys.filter((k) => k !== key))}
+                    onClick={() => setRows((rs) => rs.filter((r) => r.key !== key))}
                     className="text-xs font-medium text-gray-400 hover:text-red-600"
                   >
                     ✕ Remove
@@ -79,7 +125,7 @@ export default function AddVehicleForm({ savedManagerName }: { savedManagerName:
               <div className="grid grid-cols-2 gap-2">
                 <select
                   name={`type_${index}`}
-                  defaultValue={EQUIPMENT_TYPES[0]}
+                  defaultValue={prefill?.type ?? EQUIPMENT_TYPES[0]}
                   className="rounded-lg border border-gray-300 px-3 py-2 text-sm"
                 >
                   {EQUIPMENT_TYPES.map((t) => (
@@ -90,7 +136,7 @@ export default function AddVehicleForm({ savedManagerName }: { savedManagerName:
                 </select>
                 <select
                   name={`contractType_${index}`}
-                  defaultValue={CONTRACT_TYPES[0]}
+                  defaultValue={prefill?.contractType ?? CONTRACT_TYPES[0]}
                   className="rounded-lg border border-gray-300 px-3 py-2 text-sm"
                 >
                   {CONTRACT_TYPES.map((c) => (
@@ -119,13 +165,14 @@ export default function AddVehicleForm({ savedManagerName }: { savedManagerName:
               <input
                 type="text"
                 name={`makeColor_${index}`}
+                defaultValue={prefill?.makeColor}
                 placeholder="Make / Color (e.g. Mint Mitsubishi)"
                 required
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
               />
               <select
                 name={`location_${index}`}
-                defaultValue={LOCATIONS[0]}
+                defaultValue={prefill?.location ?? LOCATIONS[0]}
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
               >
                 <optgroup label="Warehouse Locations">
@@ -144,7 +191,7 @@ export default function AddVehicleForm({ savedManagerName }: { savedManagerName:
 
           <button
             type="button"
-            onClick={() => setRowKeys((keys) => [...keys, nextRowKey++])}
+            onClick={() => setRows((rs) => [...rs, { key: nextRowKey++ }])}
             className="w-full rounded-lg border border-dashed border-gray-300 py-2 text-sm font-medium text-gray-500 active:scale-95"
           >
             + Add another vehicle
@@ -179,7 +226,7 @@ export default function AddVehicleForm({ savedManagerName }: { savedManagerName:
               disabled={pending}
               className="flex-1 rounded-lg bg-blue-600 py-2 text-sm font-semibold text-white transition-transform duration-100 active:scale-95 active:bg-blue-700 disabled:opacity-50"
             >
-              {pending ? "Saving…" : `Save ${rowKeys.length > 1 ? `${rowKeys.length} Vehicles` : "Vehicle"}`}
+              {pending ? "Saving…" : `Save ${rows.length > 1 ? `${rows.length} Vehicles` : "Vehicle"}`}
             </button>
           </div>
         </form>

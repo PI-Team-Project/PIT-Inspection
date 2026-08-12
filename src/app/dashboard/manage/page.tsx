@@ -5,60 +5,8 @@ import { equipmentTypeLabel, type Equipment } from "@/lib/equipment"
 import { getAllEquipmentIncludingRetired, RETENTION_DAYS } from "@/lib/equipmentLocations"
 import { DASHBOARD_COOKIE, MANAGER_NAME_COOKIE, dashboardSessionValue } from "@/lib/auth"
 import { restoreVehicle } from "./actions"
-import AddVehicleForm from "./AddVehicleForm"
-import EditVehicleControl from "./EditVehicleControl"
-
-// The trailing action column is a fixed width, not `auto` — an `auto`
-// track sizes to its row's own content, and the header row's action cell
-// is empty while data rows have a real button, so the two would compute
-// different track widths and throw every `fr` column out of alignment.
-const ACTIVE_COLS = "grid-cols-[1fr_0.7fr_1.2fr_2rem] sm:grid-cols-[1.1fr_0.8fr_1.3fr_0.7fr_1fr_1.3fr_2rem]"
-const RETIRED_COLS = "grid-cols-[1fr_0.7fr_0.9fr_4rem] sm:grid-cols-[1.1fr_0.8fr_1.3fr_0.9fr_0.9fr_0.9fr_4rem]"
-// Contract/Location/Serial# (active) and Make-Color/Retired By/Retired On
-// (retired) only show at sm+ — narrow phones get the essentials plus the
-// action, everything else is one tap away in the edit popup.
-const HIDE_ON_MOBILE = "hidden sm:block"
-
-const SORT_FIELDS = {
-  flNumber: (eq: Equipment) => eq.flNumber,
-  type: (eq: Equipment) => equipmentTypeLabel(eq.type),
-  makeColor: (eq: Equipment) => eq.makeColor,
-  contractType: (eq: Equipment) => eq.contractType,
-  location: (eq: Equipment) => eq.location,
-  serial: (eq: Equipment) => eq.serial,
-} as const
-type SortField = keyof typeof SORT_FIELDS
-
-function isSortField(value: string): value is SortField {
-  return value in SORT_FIELDS
-}
-
-function SortableHeader({
-  field,
-  label,
-  sort,
-  dir,
-  className,
-}: {
-  field: SortField
-  label: string
-  sort: SortField
-  dir: "asc" | "desc"
-  className?: string
-}) {
-  const active = sort === field
-  const nextDir = active && dir === "asc" ? "desc" : "asc"
-  return (
-    <Link
-      href={`/dashboard/manage?sort=${field}&dir=${nextDir}`}
-      scroll={false}
-      className={`${className ?? "flex"} items-center gap-0.5 hover:text-gray-700 ${active ? "text-gray-700" : ""}`}
-    >
-      {label}
-      {active && <span>{dir === "asc" ? "▲" : "▼"}</span>}
-    </Link>
-  )
-}
+import ActiveVehiclesTable from "./ActiveVehiclesTable"
+import { RETIRED_COLS, HIDE_ON_MOBILE, SORT_FIELDS, isSortField, type SortField } from "./tableShared"
 
 export default async function ManageVehiclesPage({
   searchParams,
@@ -99,70 +47,25 @@ export default async function ManageVehiclesPage({
         Dashboard
       </Link>
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-bold text-gray-900 sm:text-2xl">Manage Vehicles</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            Add, edit, or retire vehicles in the fleet. Retiring a vehicle keeps its history
-            on file for 2 years and hides it from the dashboard and inspection form.
-          </p>
-        </div>
-        <AddVehicleForm savedManagerName={savedManagerName} />
-      </div>
+      <h1 className="text-xl font-bold text-gray-900 sm:text-2xl">Manage Vehicles</h1>
+      <p className="mt-1 text-sm text-gray-500">Add, edit, or retire vehicles in the fleet.</p>
 
-      <div className="mt-6 rounded-lg border border-gray-200">
-        <div
-          className={`grid ${ACTIVE_COLS} gap-1.5 border-b border-gray-300 bg-gray-50 px-2 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-gray-500 sm:gap-2 sm:px-3 sm:py-2 sm:text-xs`}
-        >
-          <SortableHeader field="flNumber" label="FL#" sort={sort} dir={dir} />
-          <SortableHeader field="type" label="Type" sort={sort} dir={dir} />
-          <SortableHeader field="makeColor" label="Make / Color" sort={sort} dir={dir} />
-          <SortableHeader
-            field="contractType"
-            label="Contract"
-            sort={sort}
-            dir={dir}
-            className="hidden sm:flex"
-          />
-          <SortableHeader
-            field="location"
-            label="Location"
-            sort={sort}
-            dir={dir}
-            className="hidden sm:flex"
-          />
-          <SortableHeader
-            field="serial"
-            label="Serial#"
-            sort={sort}
-            dir={dir}
-            className="hidden sm:flex"
-          />
-          <span></span>
-        </div>
-        {active.length === 0 ? (
-          <p className="px-3 py-6 text-center text-sm text-gray-400">No active vehicles.</p>
-        ) : (
-          active.map((eq) => (
-            <div
-              key={eq.serial}
-              className={`grid ${ACTIVE_COLS} items-center gap-1.5 border-b border-gray-100 px-2 py-1.5 text-xs last:border-b-0 hover:bg-gray-50 sm:gap-2 sm:px-3 sm:py-2 sm:text-sm`}
-            >
-              <span className="truncate font-medium text-gray-900">{eq.flNumber}</span>
-              <span className="truncate text-gray-600">{equipmentTypeLabel(eq.type)}</span>
-              <span className="truncate text-gray-700">{eq.makeColor}</span>
-              <span className={`truncate text-gray-600 ${HIDE_ON_MOBILE}`}>{eq.contractType}</span>
-              <span className={`truncate text-gray-600 ${HIDE_ON_MOBILE}`}>{eq.location}</span>
-              <span className={`truncate text-gray-400 ${HIDE_ON_MOBILE}`}>{eq.serial}</span>
-              <EditVehicleControl equipment={eq} savedManagerName={savedManagerName} />
-            </div>
-          ))
-        )}
+      <div className="mt-6">
+        <ActiveVehiclesTable
+          active={active}
+          savedManagerName={savedManagerName}
+          sort={sort}
+          dir={dir}
+        />
       </div>
 
       <h2 className="mt-8 mb-1.5 text-xs font-semibold tracking-wide text-gray-400 uppercase">
         Retired Vehicles ({retired.length})
       </h2>
+      <p className="mb-2 text-xs text-gray-500">
+        Retiring a vehicle keeps its history on file for 2 years and hides it from the
+        dashboard and inspection form.
+      </p>
       <div className="rounded-lg border border-gray-200 bg-gray-50/60">
         <div
           className={`grid ${RETIRED_COLS} gap-1.5 border-b border-gray-200 px-2 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-gray-400 sm:gap-2 sm:px-3 sm:py-2 sm:text-xs`}

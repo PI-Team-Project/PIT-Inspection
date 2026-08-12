@@ -37,6 +37,7 @@ model Inspection {
 // being eligible for permanent removal.
 model Equipment {
   serial       String    @id
+  createdAt    DateTime  @default(now())
   type         String
   flNumber     String
   makeColor    String
