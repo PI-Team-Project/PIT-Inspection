@@ -85,24 +85,30 @@ export default async function ManageVehiclesPage({
 
   return (
     <main className="mx-auto max-w-lg px-4 py-8 sm:max-w-2xl lg:max-w-5xl">
-      <div className="flex items-center gap-3">
-        <Link
-          href="/dashboard"
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-gray-300 text-gray-500 active:scale-95"
-          aria-label="Back to dashboard"
-        >
-          ←
-        </Link>
-        <h1 className="text-xl font-bold text-gray-900 sm:text-2xl">Manage Vehicles</h1>
-        <div className="ml-auto">
-          <AddVehicleForm savedManagerName={savedManagerName} />
-        </div>
-      </div>
+      <Link
+        href="/dashboard"
+        className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-gray-600"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
+          <path
+            fillRule="evenodd"
+            d="M9.707 14.707a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414l4-4a1 1 0 111.414 1.414L7.414 9H15a1 1 0 110 2H7.414l2.293 2.293a1 1 0 010 1.414z"
+            clipRule="evenodd"
+          />
+        </svg>
+        Dashboard
+      </Link>
 
-      <p className="mt-2 ml-12 text-sm text-gray-500">
-        Add, edit, or retire vehicles in the fleet. Retiring a vehicle keeps its history on
-        file for 2 years and hides it from the dashboard and inspection form.
-      </p>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-bold text-gray-900 sm:text-2xl">Manage Vehicles</h1>
+          <p className="mt-1 text-sm text-gray-500">
+            Add, edit, or retire vehicles in the fleet. Retiring a vehicle keeps its history
+            on file for 2 years and hides it from the dashboard and inspection form.
+          </p>
+        </div>
+        <AddVehicleForm savedManagerName={savedManagerName} />
+      </div>
 
       <div className="mt-6 rounded-lg border border-gray-200">
         <div
