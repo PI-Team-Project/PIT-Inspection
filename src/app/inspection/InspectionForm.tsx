@@ -75,15 +75,18 @@ export default function InspectionForm({
   questions,
   equipmentList,
   today,
+  alreadyInspectedThisShift,
 }: {
   questions: Question[]
   equipmentList: Equipment[]
   today: string
+  alreadyInspectedThisShift: Record<string, { by: string; when: string }>
 }) {
   const [step, setStep] = useState(0)
   const [values, setValues] = useState<Record<string, string>>({
     date: today,
   })
+  const [duplicateWarningSerial, setDuplicateWarningSerial] = useState<string | null>(null)
 
   const steps: StepDef[] =
     values.inspectionType === "Repair Request"
@@ -568,7 +571,13 @@ export default function InspectionForm({
                         <button
                           key={eq.serial}
                           type="button"
-                          onClick={() => selectAndAdvance("equipmentSerial", eq.serial)}
+                          onClick={() => {
+                            if (alreadyInspectedThisShift[eq.serial]) {
+                              setDuplicateWarningSerial(eq.serial)
+                            } else {
+                              selectAndAdvance("equipmentSerial", eq.serial)
+                            }
+                          }}
                           className={`flex flex-col items-center rounded-lg border px-2 py-3 transition-transform duration-100 active:scale-95 ${
                             isChecked
                               ? "border-blue-600 bg-blue-50"
@@ -591,6 +600,36 @@ export default function InspectionForm({
                   </div>
                 )
               })()}
+
+              {duplicateWarningSerial && alreadyInspectedThisShift[duplicateWarningSerial] && (
+                <div className="mt-3 rounded-lg border border-amber-300 bg-amber-50 p-3">
+                  <p className="text-sm text-amber-800">
+                    ⚠ It&apos;s been inspected by{" "}
+                    <strong>{alreadyInspectedThisShift[duplicateWarningSerial].by}</strong> for{" "}
+                    {alreadyInspectedThisShift[duplicateWarningSerial].when}. Submit another
+                    inspection anyway?
+                  </p>
+                  <div className="mt-2 flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setDuplicateWarningSerial(null)}
+                      className="flex-1 rounded-lg border border-gray-300 bg-white py-2 text-xs font-semibold text-gray-700 active:scale-95"
+                    >
+                      Choose a Different Vehicle
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        selectAndAdvance("equipmentSerial", duplicateWarningSerial)
+                        setDuplicateWarningSerial(null)
+                      }}
+                      className="flex-1 rounded-lg bg-amber-600 py-2 text-xs font-semibold text-white active:scale-95"
+                    >
+                      Continue Anyway
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
