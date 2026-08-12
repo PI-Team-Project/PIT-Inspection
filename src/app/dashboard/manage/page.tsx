@@ -99,7 +99,7 @@ export default async function ManageVehiclesPage({
         </div>
       </div>
 
-      <p className="mt-2 text-sm text-gray-500">
+      <p className="mt-2 ml-12 text-sm text-gray-500">
         Add, edit, or retire vehicles in the fleet. Retiring a vehicle keeps its history on
         file for 2 years and hides it from the dashboard and inspection form.
       </p>
