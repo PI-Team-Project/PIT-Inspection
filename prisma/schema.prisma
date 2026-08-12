@@ -45,19 +45,3 @@ model Equipment {
   retiredAt    DateTime?
   retiredBy    String?
 }
-
-// TEMPORARY — kept only long enough to backfill Equipment from these,
-// then dropped in a follow-up migration once every codepath reads from
-// Equipment instead.
-model EquipmentLocation {
-  serial    String   @id
-  location  String
-  updatedAt DateTime @updatedAt
-  updatedBy String?
-}
-
-model EquipmentArchived {
-  serial     String   @id
-  archivedAt DateTime @default(now())
-  archivedBy String?
-}

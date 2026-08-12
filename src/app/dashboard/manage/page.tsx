@@ -8,8 +8,12 @@ import { restoreVehicle } from "./actions"
 import AddVehicleForm from "./AddVehicleForm"
 import EditVehicleControl from "./EditVehicleControl"
 
-const ACTIVE_COLS = "grid-cols-[1fr_0.7fr_1.2fr_auto] sm:grid-cols-[1.1fr_0.8fr_1.3fr_0.7fr_1fr_1.3fr_auto]"
-const RETIRED_COLS = "grid-cols-[1fr_0.7fr_0.9fr_auto] sm:grid-cols-[1.1fr_0.8fr_1.3fr_0.9fr_0.9fr_0.9fr_auto]"
+// The trailing action column is a fixed width, not `auto` — an `auto`
+// track sizes to its row's own content, and the header row's action cell
+// is empty while data rows have a real button, so the two would compute
+// different track widths and throw every `fr` column out of alignment.
+const ACTIVE_COLS = "grid-cols-[1fr_0.7fr_1.2fr_2rem] sm:grid-cols-[1.1fr_0.8fr_1.3fr_0.7fr_1fr_1.3fr_2rem]"
+const RETIRED_COLS = "grid-cols-[1fr_0.7fr_0.9fr_4rem] sm:grid-cols-[1.1fr_0.8fr_1.3fr_0.9fr_0.9fr_0.9fr_4rem]"
 // Contract/Location/Serial# (active) and Make-Color/Retired By/Retired On
 // (retired) only show at sm+ — narrow phones get the essentials plus the
 // action, everything else is one tap away in the edit popup.
