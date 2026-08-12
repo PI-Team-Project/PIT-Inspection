@@ -11,7 +11,7 @@ import {
   type Equipment,
   type EquipmentType,
 } from "@/lib/equipment"
-import { getEquipmentListWithCurrentLocations } from "@/lib/equipmentLocations"
+import { getActiveEquipmentList, getRetiredEquipmentNearingExpiry } from "@/lib/equipmentLocations"
 import { isCriticalInspection, type Stage } from "@/lib/review"
 import { getCurrentShiftWindow, getMostRecentShiftWindows, FLEET_TIME_ZONE } from "@/lib/shifts"
 import { DASHBOARD_COOKIE, dashboardSessionValue } from "@/lib/auth"
@@ -64,9 +64,10 @@ export default async function DashboardPage({
   const filter = params.filter
   const today = new Date().toISOString().slice(0, 10)
 
-  const [allInspections, equipmentList] = await Promise.all([
+  const [allInspections, equipmentList, expiringRetired] = await Promise.all([
     prisma.inspection.findMany({ orderBy: { createdAt: "desc" } }),
-    getEquipmentListWithCurrentLocations(),
+    getActiveEquipmentList(),
+    getRetiredEquipmentNearingExpiry(30),
   ])
 
   const withFlags = allInspections.map(buildRow)
@@ -229,7 +230,31 @@ export default async function DashboardPage({
         }))}
       />
 
-      <div className="mt-8 flex justify-end border-t border-gray-100 pt-4">
+      {expiringRetired.length > 0 && (
+        <Link
+          href="/dashboard/manage"
+          className="mt-4 block rounded-md bg-amber-50 px-3 py-2.5 text-sm text-amber-800 hover:bg-amber-100"
+        >
+          <span className="font-semibold">
+            <span className="text-amber-500">▶</span> Retention Expiring Soon (
+            {expiringRetired.length}):
+          </span>{" "}
+          {expiringRetired.map((eq, i) => (
+            <span key={eq.serial}>
+              {i > 0 && ", "}
+              {eq.flNumber} — {eq.expiresAt.toISOString().slice(0, 10)}
+            </span>
+          ))}
+        </Link>
+      )}
+
+      <div className="mt-8 flex justify-end gap-2 border-t border-gray-100 pt-4">
+        <Link
+          href="/dashboard/manage"
+          className="shrink-0 rounded-lg border border-brand/30 px-3 py-2 text-sm font-medium text-brand transition-transform duration-100 active:scale-95 active:bg-brand/10"
+        >
+          Manage Vehicles
+        </Link>
         {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- CSV download endpoint, not a page */}
         <a
           href="/dashboard/export"
@@ -431,7 +456,11 @@ function ShiftOverview({
   inspectedThisShift: (row: EquipmentRow) => boolean
 }) {
   const inspected = rows.filter(inspectedThisShift)
-  const notInspected = rows.filter((row) => !inspectedThisShift(row))
+  // Unresolved (red) ones sort first in `rows` overall (most urgent), but
+  // here they should trail at the end of this specific list instead.
+  const notInspected = rows
+    .filter((row) => !inspectedThisShift(row))
+    .sort((a, b) => Number(a.stage === "unresolved") - Number(b.stage === "unresolved"))
 
   const timeLabel = new Intl.DateTimeFormat("en-US", {
     timeZone: FLEET_TIME_ZONE,

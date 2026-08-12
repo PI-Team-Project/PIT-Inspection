@@ -11,7 +11,7 @@ import {
   REPAIR_REQUEST_QUESTION,
 } from "@/lib/questions"
 import { equipmentTypeLabel } from "@/lib/equipment"
-import { getEquipmentListWithCurrentLocations } from "@/lib/equipmentLocations"
+import { getEquipmentBySerial } from "@/lib/equipmentLocations"
 import { isCriticalInspection, type ActivityEntry, type Stage } from "@/lib/review"
 import { DASHBOARD_COOKIE, MANAGER_NAME_COOKIE, dashboardSessionValue } from "@/lib/auth"
 import {
@@ -23,7 +23,6 @@ import {
 } from "../../inspectionRow"
 import StatusDot from "../../StatusDot"
 import PhotoGallery from "../../PhotoGallery"
-import DeleteVehicleControl from "../../DeleteVehicleControl"
 import LocationChangeControl from "../../LocationChangeControl"
 import { saveActivity, confirmResolved } from "../../actions"
 
@@ -50,8 +49,7 @@ export default async function EquipmentDetailPage({
   const savedManagerName = cookieStore.get(MANAGER_NAME_COOKIE)?.value ?? ""
   const today = new Date().toISOString().slice(0, 10)
 
-  const equipmentList = await getEquipmentListWithCurrentLocations()
-  const equipment = equipmentList.find((eq) => eq.serial === serial)
+  const equipment = await getEquipmentBySerial(serial)
   if (!equipment) notFound()
 
   const cutoff = retentionCutoff(equipment.type, today)
@@ -304,7 +302,9 @@ export default async function EquipmentDetailPage({
         >
           Export this vehicle&apos;s history (CSV)
         </a>
-        <DeleteVehicleControl serial={equipment.serial} flNumber={equipment.flNumber} />
+        <a href="/dashboard/manage" className="text-xs font-medium text-gray-500 hover:underline">
+          Manage this vehicle →
+        </a>
       </div>
 
       <div className="mt-6">

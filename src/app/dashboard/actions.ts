@@ -161,10 +161,9 @@ export async function updateEquipmentLocation(
     maxAge: 60 * 60 * 24 * 30,
   })
 
-  await prisma.equipmentLocation.upsert({
+  await prisma.equipment.update({
     where: { serial },
-    update: { location, updatedBy: managerName },
-    create: { serial, location, updatedBy: managerName },
+    data: { location },
   })
 
   // Log the change on the equipment's most recent inspection so it shows up
@@ -198,27 +197,3 @@ export async function updateEquipmentLocation(
   return null
 }
 
-export async function archiveEquipment(
-  _prevState: { error: string | null },
-  formData: FormData
-): Promise<{ error: string | null }> {
-  const pin = String(formData.get("pin") ?? "")
-  const serial = String(formData.get("serial") ?? "")
-
-  if (!isValidPin(pin)) {
-    return { error: "Incorrect PIN." }
-  }
-
-  const cookieStore = await cookies()
-  const managerName = cookieStore.get(MANAGER_NAME_COOKIE)?.value || "Unknown"
-
-  await prisma.equipmentArchived.upsert({
-    where: { serial },
-    update: {},
-    create: { serial, archivedBy: managerName },
-  })
-
-  revalidatePath("/dashboard")
-  revalidatePath("/inspection")
-  redirect("/dashboard")
-}

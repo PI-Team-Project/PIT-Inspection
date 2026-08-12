@@ -10,7 +10,7 @@ import {
   REPAIR_REQUEST_PHOTO_SLOTS,
   CHECKLIST_PHOTO_SLOTS,
 } from "@/lib/questions"
-import { EQUIPMENT_LIST } from "@/lib/equipment"
+import { getEquipmentBySerial } from "@/lib/equipmentLocations"
 
 async function filesToDataUris(files: FormDataEntryValue[]): Promise<string[]> {
   const photos = files.filter((f): f is File => f instanceof File && f.size > 0)
@@ -31,7 +31,7 @@ export async function submitInspection(formData: FormData) {
   const lastName = String(formData.get("lastName") ?? "")
   const firstName = String(formData.get("firstName") ?? "")
   const equipmentSerial = String(formData.get("equipmentSerial") ?? "")
-  const equipment = EQUIPMENT_LIST.find((e) => e.serial === equipmentSerial)
+  const equipment = await getEquipmentBySerial(equipmentSerial)
 
   const answers: Record<
     string,
@@ -57,11 +57,10 @@ export async function submitInspection(formData: FormData) {
   if (locationMatches === "No" && actualLocation && equipmentSerial) {
     // Persists so every future inspection (and the dashboard) shows this as
     // the equipment's current location instead of repeating the same
-    // "wrong" default from EQUIPMENT_LIST every time.
-    await prisma.equipmentLocation.upsert({
+    // "wrong" default every time.
+    await prisma.equipment.update({
       where: { serial: equipmentSerial },
-      update: { location: actualLocation, updatedBy: `${firstName} ${lastName}`.trim() },
-      create: { serial: equipmentSerial, location: actualLocation, updatedBy: `${firstName} ${lastName}`.trim() },
+      data: { location: actualLocation },
     })
   }
 

@@ -1,6 +1,6 @@
 import InspectionForm from "./InspectionForm"
 import { QUESTIONS } from "@/lib/questions"
-import { getEquipmentListWithCurrentLocations } from "@/lib/equipmentLocations"
+import { getActiveEquipmentList } from "@/lib/equipmentLocations"
 
 // Location overrides change at runtime (someone reports a correction), so
 // this can't be statically prerendered — it has to re-fetch on every visit
@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic"
 
 export default async function InspectionPage() {
   const today = new Date().toISOString().slice(0, 10)
-  const equipmentList = await getEquipmentListWithCurrentLocations()
+  const equipmentList = await getActiveEquipmentList()
 
   return (
     <div className="mx-auto flex h-full w-full max-w-lg flex-col">

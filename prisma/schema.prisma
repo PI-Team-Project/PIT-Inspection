@@ -26,9 +26,29 @@ model Inspection {
   review          Json?
 }
 
-// Overrides EQUIPMENT_LIST's hardcoded default location once someone
-// reports the equipment is actually somewhere else — one row per serial,
-// always the current known location for that piece of equipment.
+// The fleet's master vehicle list — supersedes the old hardcoded
+// EQUIPMENT_LIST array plus the EquipmentLocation/EquipmentArchived
+// override tables, now that supervisors can add/edit/retire vehicles
+// through the Manage Vehicles page instead of a code deploy.
+//
+// A non-null retiredAt is a soft delete: hidden from the dashboard and
+// the inspection wizard's equipment picker, past Inspection rows left
+// untouched, and the row itself kept for 2 years for retention before
+// being eligible for permanent removal.
+model Equipment {
+  serial       String    @id
+  type         String
+  flNumber     String
+  makeColor    String
+  contractType String
+  location     String
+  retiredAt    DateTime?
+  retiredBy    String?
+}
+
+// TEMPORARY — kept only long enough to backfill Equipment from these,
+// then dropped in a follow-up migration once every codepath reads from
+// Equipment instead.
 model EquipmentLocation {
   serial    String   @id
   location  String
@@ -36,9 +56,6 @@ model EquipmentLocation {
   updatedBy String?
 }
 
-// A serial in this table is hidden from the dashboard and the inspection
-// wizard's equipment picker. Its past Inspection rows are left untouched —
-// this is a soft delete for retention purposes, never a real deletion.
 model EquipmentArchived {
   serial     String   @id
   archivedAt DateTime @default(now())
