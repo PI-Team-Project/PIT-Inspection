@@ -103,6 +103,10 @@ export default async function DashboardPage({
   const selectedShiftLabel = params.shift === "night" ? "Night" : params.shift === "day" ? "Day" : currentShift.label
   const shiftWindow = recentShifts[selectedShiftLabel as "Day" | "Night"]
   const inspectedThisShift = (row: EquipmentRow) => {
+    // Unresolved (red) means out of service until fixed — being inspected
+    // this shift doesn't make it ready to use, so it never counts as
+    // "Inspected" regardless of timing.
+    if (row.stage === "unresolved") return false
     const createdAt = row.latest?.inspection.createdAt
     return Boolean(createdAt && createdAt >= shiftWindow.start && createdAt < shiftWindow.end)
   }
@@ -479,23 +483,20 @@ function ShiftOverview({
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
         <div className="rounded-lg border border-green-200 bg-green-50 p-3">
           <p className="mb-1 text-sm font-semibold text-green-800">
-            ✅ Inspected ({inspected.length}/{rows.length})
+            Inspected ({inspected.length}/{rows.length})
           </p>
           {inspected.length > 0 && (
             <p className="text-xs text-green-700">
               {inspected.map((row, i) => {
-                const color =
-                  row.stage === "unresolved"
-                    ? "text-red-700"
-                    : row.stage === "pending-confirm"
-                      ? "text-amber-700"
-                      : "text-green-700"
+                const isPendingConfirm = row.stage === "pending-confirm"
                 return (
                   <span key={row.equipment.serial}>
                     {i > 0 && ", "}
                     <a
                       href={`/dashboard/equipment/${row.equipment.serial}`}
-                      className={`underline ${color}`}
+                      className={`underline rounded-sm ${
+                        isPendingConfirm ? "bg-amber-100 px-1 text-amber-700" : "text-green-700"
+                      }`}
                     >
                       {row.equipment.flNumber}
                     </a>
@@ -507,7 +508,7 @@ function ShiftOverview({
         </div>
         <div className="rounded-lg border border-gray-300 bg-gray-50 p-3">
           <p className="mb-1 text-sm font-semibold text-gray-700">
-            ⏳ Not Yet Inspected ({notInspected.length}/{rows.length})
+            Not Yet Inspected ({notInspected.length}/{rows.length})
           </p>
           {notInspected.length > 0 && (
             <p className="text-xs text-gray-600">
@@ -516,7 +517,9 @@ function ShiftOverview({
                   {i > 0 && ", "}
                   <a
                     href={`/dashboard/equipment/${row.equipment.serial}`}
-                    className="underline"
+                    className={`underline rounded-sm ${
+                      row.stage === "unresolved" ? "bg-red-100 px-1 text-red-700" : ""
+                    }`}
                   >
                     {row.equipment.flNumber}
                   </a>
