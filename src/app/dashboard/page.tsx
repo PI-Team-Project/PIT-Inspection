@@ -164,7 +164,8 @@ export default async function DashboardPage({
           }`}
         >
           <span className="h-2.5 w-2.5 rounded-full bg-green-500 shadow-[0_0_3px_0.5px_rgba(34,197,94,0.9),0_0_6px_1px_rgba(34,197,94,0.5)]" />
-          {workingCount}/{equipmentList.length} working
+          {workingCount}/{equipmentList.length}
+          <span className="hidden sm:inline">&nbsp;working</span>
         </Link>
         {noInspectionCount > 0 && (
           <Link
@@ -175,7 +176,8 @@ export default async function DashboardPage({
             }`}
           >
             <span className="h-2.5 w-2.5 rounded-full bg-gray-300" />
-            {noInspectionCount}/{equipmentList.length} not yet inspected
+            {noInspectionCount}/{equipmentList.length}
+            <span className="hidden sm:inline">&nbsp;not yet inspected</span>
           </Link>
         )}
       </div>
