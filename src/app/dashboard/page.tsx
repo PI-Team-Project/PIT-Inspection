@@ -104,7 +104,9 @@ export default async function DashboardPage({
     hour: "2-digit",
     minute: "2-digit",
     hour12: true,
-  }).format(now)
+  })
+    .format(now)
+    .replace(" ", "")
   const currentShift = getCurrentShiftWindow(now)
   const recentShifts = getMostRecentShiftWindows(now)
   const selectedShiftLabel = params.shift === "night" ? "Night" : params.shift === "day" ? "Day" : currentShift.label
@@ -505,7 +507,7 @@ function ShiftOverview({
         })}
       </div>
 
-      <h2 className="mt-4 mb-1.5 text-xs font-semibold tracking-wide text-brand uppercase">
+      <h2 className="mt-4 mb-1.5 text-xs font-semibold tracking-wide text-gray-500 uppercase">
         {dateLabel} · {hoursLabel}
       </h2>
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
