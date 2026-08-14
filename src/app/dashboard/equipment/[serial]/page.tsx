@@ -17,6 +17,7 @@ import {
   EQUIPMENT_ADDED_DATE_TRACKING_STARTS_AT,
 } from "@/lib/equipmentLocations"
 import { isCriticalInspection, type ActivityEntry, type Stage } from "@/lib/review"
+import { FLEET_TIME_ZONE } from "@/lib/shifts"
 import { DASHBOARD_COOKIE, MANAGER_NAME_COOKIE, dashboardSessionValue } from "@/lib/auth"
 import {
   buildRow,
@@ -52,6 +53,12 @@ export default async function EquipmentDetailPage({
   const { page: pageParam } = await searchParams
   const savedManagerName = cookieStore.get(MANAGER_NAME_COOKIE)?.value ?? ""
   const today = new Date().toISOString().slice(0, 10)
+  const todayDisplay = new Intl.DateTimeFormat("en-US", {
+    timeZone: FLEET_TIME_ZONE,
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  }).format(new Date())
 
   const equipment = await getEquipmentBySerial(serial)
   if (!equipment) notFound()
@@ -248,22 +255,32 @@ export default async function EquipmentDetailPage({
               />
 
               <div className="mt-2 border-t border-gray-200 pt-3">
-                <label className="mb-1 block text-sm font-medium text-gray-700">
-                  Supervisor Confirmation
-                </label>
-                <input
-                  type="text"
-                  name="reviewerName"
-                  defaultValue={savedManagerName}
-                  placeholder="Name of the supervisor"
-                  required
-                  className="mb-2 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
-                />
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="mb-1 block text-sm font-medium text-gray-700">
+                      Supervisor Signature
+                    </label>
+                    <input
+                      type="text"
+                      name="reviewerName"
+                      defaultValue={savedManagerName}
+                      placeholder="Name of the supervisor"
+                      required
+                      className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-sm font-medium text-gray-700">Date</label>
+                    <p className="rounded-lg border border-gray-200 bg-gray-100 px-3 py-2 text-sm text-gray-600">
+                      {todayDisplay}
+                    </p>
+                  </div>
+                </div>
                 <button
                   type="submit"
-                  className="flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 py-3 text-base font-semibold text-white transition-transform duration-100 active:scale-95 active:bg-blue-700"
+                  className="mt-2 flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 py-3 text-base font-semibold text-white transition-transform duration-100 active:scale-95 active:bg-blue-700"
                 >
-                  ✓ Confirm Review
+                  ✓ Sign & Confirm
                 </button>
               </div>
             </div>
