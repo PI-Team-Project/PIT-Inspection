@@ -21,6 +21,7 @@ import StatusDot from "./StatusDot"
 import LocationVehiclesButton from "./LocationVehiclesButton"
 import EquipmentSearch from "./EquipmentSearch"
 import EquipmentBrowser from "./EquipmentBrowser"
+import InspectedChip from "./InspectedChip"
 import {
   buildRow,
   badSince,
@@ -519,18 +520,21 @@ function ShiftOverview({
             <div className="flex flex-wrap gap-1.5 border-t border-green-200/60 pt-2">
               {inspected.map((row) => {
                 const isPendingConfirm = row.stage === "pending-confirm"
+                const inspectorName = row.latest
+                  ? `${row.latest.inspection.firstName} ${row.latest.inspection.lastName}`
+                  : "Unknown"
                 return (
-                  <a
+                  <InspectedChip
                     key={row.equipment.serial}
                     href={`/dashboard/equipment/${row.equipment.serial}`}
+                    label={row.equipment.flNumber}
+                    inspectorName={inspectorName}
                     className={`rounded-md px-1.5 py-0.5 text-xs font-medium ${
                       isPendingConfirm
                         ? "bg-amber-100 text-amber-700"
                         : "border border-green-200 bg-white text-green-700"
                     }`}
-                  >
-                    {row.equipment.flNumber}
-                  </a>
+                  />
                 )
               })}
             </div>
