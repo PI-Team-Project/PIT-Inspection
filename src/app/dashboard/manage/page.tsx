@@ -47,8 +47,10 @@ export default async function ManageVehiclesPage({
         Dashboard
       </Link>
 
-      <h1 className="text-xl font-bold text-gray-900 sm:text-2xl">Manage Vehicles</h1>
-      <p className="mt-1 text-sm text-gray-500">Add, edit, or retire vehicles in the fleet.</p>
+      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+        <h1 className="text-xl font-bold text-gray-900 sm:text-2xl">Manage Vehicles</h1>
+        <p className="text-sm text-gray-500">Add, edit, or retire vehicles in the fleet.</p>
+      </div>
 
       <div className="mt-3 border-t border-gray-100" />
 
