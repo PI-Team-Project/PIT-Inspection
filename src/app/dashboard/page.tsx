@@ -165,7 +165,6 @@ export default async function DashboardPage({
         >
           <span className="h-2.5 w-2.5 rounded-full bg-green-500 shadow-[0_0_3px_0.5px_rgba(34,197,94,0.9),0_0_6px_1px_rgba(34,197,94,0.5)]" />
           {workingCount}/{equipmentList.length}
-          <span className="hidden sm:inline">&nbsp;working</span>
         </Link>
         {noInspectionCount > 0 && (
           <Link
@@ -517,24 +516,24 @@ function ShiftOverview({
             Inspected ({inspected.length}/{rows.length})
           </p>
           {inspected.length > 0 && (
-            <p className="text-xs text-green-700">
-              {inspected.map((row, i) => {
+            <div className="flex flex-wrap gap-1.5">
+              {inspected.map((row) => {
                 const isPendingConfirm = row.stage === "pending-confirm"
                 return (
-                  <span key={row.equipment.serial}>
-                    {i > 0 && ", "}
-                    <a
-                      href={`/dashboard/equipment/${row.equipment.serial}`}
-                      className={`underline rounded-sm ${
-                        isPendingConfirm ? "bg-amber-100 px-1 text-amber-700" : "text-green-700"
-                      }`}
-                    >
-                      {row.equipment.flNumber}
-                    </a>
-                  </span>
+                  <a
+                    key={row.equipment.serial}
+                    href={`/dashboard/equipment/${row.equipment.serial}`}
+                    className={`rounded-md px-1.5 py-0.5 text-xs font-medium ${
+                      isPendingConfirm
+                        ? "bg-amber-100 text-amber-700"
+                        : "border border-green-200 bg-white text-green-700"
+                    }`}
+                  >
+                    {row.equipment.flNumber}
+                  </a>
                 )
               })}
-            </p>
+            </div>
           )}
         </div>
         <div className="rounded-lg border border-gray-300 bg-gray-50 p-3">
@@ -542,21 +541,21 @@ function ShiftOverview({
             Not Yet Inspected ({notInspected.length}/{rows.length})
           </p>
           {notInspected.length > 0 && (
-            <p className="text-xs text-gray-600">
-              {notInspected.map((row, i) => (
-                <span key={row.equipment.serial}>
-                  {i > 0 && ", "}
-                  <a
-                    href={`/dashboard/equipment/${row.equipment.serial}`}
-                    className={`underline rounded-sm ${
-                      row.stage === "unresolved" ? "bg-red-100 px-1 text-red-700" : ""
-                    }`}
-                  >
-                    {row.equipment.flNumber}
-                  </a>
-                </span>
+            <div className="flex flex-wrap gap-1.5">
+              {notInspected.map((row) => (
+                <a
+                  key={row.equipment.serial}
+                  href={`/dashboard/equipment/${row.equipment.serial}`}
+                  className={`rounded-md px-1.5 py-0.5 text-xs font-medium ${
+                    row.stage === "unresolved"
+                      ? "bg-red-100 text-red-700"
+                      : "border border-gray-200 bg-white text-gray-600"
+                  }`}
+                >
+                  {row.equipment.flNumber}
+                </a>
               ))}
-            </p>
+            </div>
           )}
         </div>
       </div>
