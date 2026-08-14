@@ -215,7 +215,7 @@ export default async function DashboardPage({
             >
               <span className="h-2.5 w-2.5 rounded-full bg-gray-300" />
               {noInspectionCount}/{equipmentList.length}
-              <span className="hidden sm:inline">&nbsp;not yet inspected</span>
+              <span className="hidden sm:inline">&nbsp;never inspected</span>
             </Link>
           )}
         </div>
@@ -234,12 +234,7 @@ export default async function DashboardPage({
         />
       </div>
 
-      <div className="mt-4">
-        <InspectionRequestBanner rows={equipmentRows} />
-        <NeedsAttentionBanner rows={equipmentRows} />
-      </div>
-
-      <details className="group mt-6" open>
+      <details className="group mt-6">
         <summary className="flex cursor-pointer items-center gap-1.5 text-sm font-semibold text-gray-700">
           Vehicle Status
           <svg
@@ -624,61 +619,6 @@ function ShiftOverview({
     </div>
   )
 }
-
-function InspectionRequestBanner({ rows }: { rows: EquipmentRow[] }) {
-  const requested = rows.filter((row) => row.stage === "unresolved")
-
-  if (requested.length === 0) {
-    return (
-      <p className="flex items-center gap-1.5 text-sm font-medium text-green-700">
-        🟢 No Inspection Requests — all equipment clear
-      </p>
-    )
-  }
-
-  return (
-    <div className="rounded-md bg-red-50 py-2.5 pl-3 pr-3">
-      <p className="text-sm text-red-700">
-        <span className="font-semibold">
-          <span className="text-red-500">▶</span> Inspection Requested ({requested.length}):
-        </span>{" "}
-        {requested.map((row, i) => (
-          <span key={row.equipment.serial}>
-            {i > 0 && ", "}
-            <a href={`/dashboard/equipment/${row.equipment.serial}`} className="underline">
-              {row.equipment.flNumber} {row.equipment.makeColor}
-            </a>
-          </span>
-        ))}
-      </p>
-    </div>
-  )
-}
-
-function NeedsAttentionBanner({ rows }: { rows: EquipmentRow[] }) {
-  const needsAttentionRows = rows.filter((row) => row.stage === "pending-confirm")
-  if (needsAttentionRows.length === 0) return null
-
-  return (
-    <div className="mt-2 rounded-md bg-amber-50 py-2.5 pl-3 pr-3">
-      <p className="text-sm text-amber-700">
-        <span className="font-semibold">
-          <span className="text-yellow-500">▶</span> Needs Attention (
-          {needsAttentionRows.length}):
-        </span>{" "}
-        {needsAttentionRows.map((row, i) => (
-          <span key={row.equipment.serial}>
-            {i > 0 && ", "}
-            <a href={`/dashboard/equipment/${row.equipment.serial}`} className="underline">
-              {row.equipment.flNumber} — {row.equipment.makeColor}
-            </a>
-          </span>
-        ))}
-      </p>
-    </div>
-  )
-}
-
 
 function EquipmentCard({
   row: { equipment, latest, stage, since },
