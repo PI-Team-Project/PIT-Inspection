@@ -25,14 +25,14 @@ export default function Home() {
         <span className="text-sweep-highlight rounded px-0.5 font-medium text-gray-700">
           must be completed at beginning of every shift
         </span>{" "}
-        to ensure equipment is good condition to use — thanks for keeping us
-        safe.
+        to ensure equipment is in good condition to use. Thanks for keeping
+        us safe.
       </p>
 
       <div className="mt-12 flex w-full flex-col gap-3">
         <Link
           href="/inspection"
-          className="rounded-lg bg-blue-600 px-6 py-3 font-semibold text-white transition-transform duration-100 active:scale-95 active:bg-blue-700"
+          className="rounded-lg bg-brand px-6 py-3 font-semibold text-white transition-transform duration-100 active:scale-95 active:bg-brand-dark"
         >
           Start Inspection
         </Link>

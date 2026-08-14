@@ -22,7 +22,7 @@ export default function PhotoGallery({
       <button
         type="button"
         onClick={() => openAt(0)}
-        className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 underline-offset-2 hover:underline active:scale-95"
+        className="inline-flex items-center gap-1 text-xs font-semibold text-brand underline-offset-2 hover:underline active:scale-95"
       >
         🖼️ View Photos ({photos.length})
       </button>

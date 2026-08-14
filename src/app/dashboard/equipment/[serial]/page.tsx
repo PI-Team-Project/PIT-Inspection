@@ -278,7 +278,7 @@ export default async function EquipmentDetailPage({
                 </div>
                 <button
                   type="submit"
-                  className="mt-2 flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 py-3 text-base font-semibold text-white transition-transform duration-100 active:scale-95 active:bg-blue-700"
+                  className="mt-2 flex w-full items-center justify-center gap-2 rounded-lg bg-brand py-3 text-base font-semibold text-white transition-transform duration-100 active:scale-95 active:bg-brand-dark"
                 >
                   ✓ Sign & Confirm
                 </button>
@@ -328,7 +328,7 @@ export default async function EquipmentDetailPage({
             {page > 1 ? (
               <Link
                 href={`/dashboard/equipment/${serial}?page=${page - 1}`}
-                className="font-medium text-blue-600"
+                className="font-medium text-brand"
               >
                 ← Newer
               </Link>
@@ -341,7 +341,7 @@ export default async function EquipmentDetailPage({
             {page < totalPages ? (
               <Link
                 href={`/dashboard/equipment/${serial}?page=${page + 1}`}
-                className="font-medium text-blue-600"
+                className="font-medium text-brand"
               >
                 Older →
               </Link>
@@ -462,7 +462,7 @@ function ActivityLine({ entry }: { entry: ActivityEntry }) {
     const label = entry.status === "complete" ? "Complete" : "In Review"
     return (
       <>
-        <span className={entry.status === "complete" ? "text-blue-700" : "text-amber-700"}>
+        <span className={entry.status === "complete" ? "text-brand" : "text-amber-700"}>
           {q?.label ?? entry.questionId} marked {label}
         </span>{" "}
         by <span className="font-medium text-gray-800">{entry.authorName}</span> — {when}

@@ -123,7 +123,7 @@ export default function ActiveVehiclesTable({
             <div
               key={eq.serial}
               className={`grid ${ACTIVE_COLS} items-center gap-1.5 border-b border-gray-100 px-2 py-1.5 text-xs last:border-b-0 hover:bg-gray-50 sm:gap-2 sm:px-3 sm:py-2 sm:text-sm ${
-                validSelected.has(eq.serial) ? "bg-blue-50/60" : ""
+                validSelected.has(eq.serial) ? "bg-brand/10" : ""
               }`}
             >
               <input

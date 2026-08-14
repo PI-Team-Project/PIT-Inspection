@@ -201,7 +201,7 @@ export default function InspectionForm({
         </div>
         <div className="h-1.5 w-full overflow-hidden rounded-full bg-gray-100">
           <div
-            className="h-full rounded-full bg-blue-600 transition-all duration-200"
+            className="h-full rounded-full bg-brand transition-all duration-200"
             style={{ width: `${((step + 1) / total) * 100}%` }}
           />
         </div>
@@ -209,7 +209,7 @@ export default function InspectionForm({
           You&apos;re the first to notice. Thank you for checking.
         </p>
         {showGreeting && (
-          <p className="mt-1.5 text-sm font-semibold text-blue-600">
+          <p className="mt-1.5 text-sm font-semibold text-brand">
             {timeOfDayIcon(new Date())} Hello, {values.firstName}!
           </p>
         )}
@@ -276,7 +276,7 @@ export default function InspectionForm({
                 <label
                   key={value}
                   className={`flex items-center gap-3 rounded-lg border px-4 py-3 transition-transform duration-100 active:scale-95 ${
-                    isChecked ? "border-blue-600 bg-blue-50" : "border-gray-300"
+                    isChecked ? "border-brand bg-brand/10" : "border-gray-300"
                   }`}
                 >
                   <input
@@ -292,7 +292,7 @@ export default function InspectionForm({
                   />
                   <span
                     className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${
-                      isChecked ? "border-blue-600 bg-blue-600" : "border-gray-300"
+                      isChecked ? "border-brand bg-brand" : "border-gray-300"
                     }`}
                   >
                     {isChecked && (
@@ -375,7 +375,7 @@ export default function InspectionForm({
                   key={s.name}
                   className={`flex items-center gap-3 rounded-lg border px-4 py-3 transition-transform duration-100 active:scale-95 ${
                     isChecked
-                      ? "border-blue-600 bg-blue-50"
+                      ? "border-brand bg-brand/10"
                       : "border-gray-300"
                   }`}
                 >
@@ -393,7 +393,7 @@ export default function InspectionForm({
                   <span
                     className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${
                       isChecked
-                        ? "border-blue-600 bg-blue-600"
+                        ? "border-brand bg-brand"
                         : "border-gray-300"
                     }`}
                   >
@@ -440,7 +440,7 @@ export default function InspectionForm({
                   }}
                   className={`flex flex-col items-center gap-2 rounded-lg border p-2 transition-transform duration-100 active:scale-95 ${
                     isChecked
-                      ? "border-blue-600 bg-blue-50"
+                      ? "border-brand bg-brand/10"
                       : "border-gray-300"
                   }`}
                 >
@@ -452,7 +452,7 @@ export default function InspectionForm({
                     className="h-20 w-full rounded object-contain"
                   />
                   <span
-                    className={`text-base ${isChecked ? "font-semibold text-blue-700" : "text-gray-800"}`}
+                    className={`text-base ${isChecked ? "font-semibold text-brand" : "text-gray-800"}`}
                   >
                     {cat}
                   </span>
@@ -480,7 +480,7 @@ export default function InspectionForm({
                       }}
                       className={`flex flex-col items-center gap-1.5 rounded-lg border p-2 transition-transform duration-100 active:scale-95 ${
                         isChecked
-                          ? "border-blue-600 bg-blue-50"
+                          ? "border-brand bg-brand/10"
                           : "border-gray-300"
                       }`}
                     >
@@ -492,7 +492,7 @@ export default function InspectionForm({
                         className="h-16 w-full rounded object-contain"
                       />
                       <span
-                        className={`text-xs ${isChecked ? "font-semibold text-blue-700" : "text-gray-800"}`}
+                        className={`text-xs ${isChecked ? "font-semibold text-brand" : "text-gray-800"}`}
                       >
                         {equipmentTypeLabel(type)}
                       </span>
@@ -537,7 +537,7 @@ export default function InspectionForm({
                           }}
                           className={`flex-1 rounded-lg border px-3 py-3 text-sm transition-transform duration-100 active:scale-95 ${
                             isChecked
-                              ? "border-blue-600 bg-blue-50 font-semibold text-blue-700"
+                              ? "border-brand bg-brand/10 font-semibold text-brand"
                               : "border-gray-300 text-gray-800"
                           }`}
                         >
@@ -580,13 +580,13 @@ export default function InspectionForm({
                           }}
                           className={`flex flex-col items-center rounded-lg border px-2 py-3 transition-transform duration-100 active:scale-95 ${
                             isChecked
-                              ? "border-blue-600 bg-blue-50"
+                              ? "border-brand bg-brand/10"
                               : "border-gray-300"
                           }`}
                         >
                           <span
                             className={`text-lg font-semibold ${
-                              isChecked ? "text-blue-700" : "text-gray-900"
+                              isChecked ? "text-brand" : "text-gray-900"
                             }`}
                           >
                             {suffix}
@@ -664,7 +664,7 @@ export default function InspectionForm({
                       <label
                         key={opt}
                         className={`flex items-center gap-3 rounded-lg border px-4 py-3 transition-transform duration-100 active:scale-95 ${
-                          isChecked ? "border-blue-600 bg-blue-50" : "border-gray-300"
+                          isChecked ? "border-brand bg-brand/10" : "border-gray-300"
                         }`}
                       >
                         <input
@@ -684,7 +684,7 @@ export default function InspectionForm({
                         />
                         <span
                           className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${
-                            isChecked ? "border-blue-600 bg-blue-600" : "border-gray-300"
+                            isChecked ? "border-brand bg-brand" : "border-gray-300"
                           }`}
                         >
                           {isChecked && (
@@ -722,7 +722,7 @@ export default function InspectionForm({
                             onClick={() => set("actualLocation", loc)}
                             className={`rounded-lg border px-3 py-3 text-sm transition-transform duration-100 active:scale-95 ${
                               isChecked
-                                ? "border-blue-600 bg-blue-50 font-semibold text-blue-700"
+                                ? "border-brand bg-brand/10 font-semibold text-brand"
                                 : "border-gray-300 text-gray-800"
                             }`}
                           >
@@ -753,7 +753,7 @@ export default function InspectionForm({
                     key={opt}
                     className={`flex items-center gap-3 rounded-lg border px-4 py-3 transition-transform duration-100 active:scale-95 ${
                       isChecked
-                        ? "border-blue-600 bg-blue-50"
+                        ? "border-brand bg-brand/10"
                         : "border-gray-300"
                     }`}
                   >
@@ -774,7 +774,7 @@ export default function InspectionForm({
                     <span
                       className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${
                         isChecked
-                          ? "border-blue-600 bg-blue-600"
+                          ? "border-brand bg-brand"
                           : "border-gray-300"
                       }`}
                     >
@@ -860,7 +860,7 @@ export default function InspectionForm({
             <button
               type="submit"
               disabled={!canAdvance}
-              className="flex-1 rounded-lg bg-blue-600 px-4 py-4 text-lg font-semibold text-white transition-transform duration-100 active:scale-95 active:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-300 disabled:active:scale-100"
+              className="flex-1 rounded-lg bg-brand px-4 py-4 text-lg font-semibold text-white transition-transform duration-100 active:scale-95 active:bg-brand-dark disabled:cursor-not-allowed disabled:bg-gray-300 disabled:active:scale-100"
             >
               Submit Inspection
             </button>
@@ -870,7 +870,7 @@ export default function InspectionForm({
                 type="button"
                 onClick={handleNext}
                 disabled={!canAdvance}
-                className="flex-1 rounded-lg bg-blue-600 px-4 py-4 text-lg font-semibold text-white transition-transform duration-100 active:scale-95 active:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-300 disabled:active:scale-100"
+                className="flex-1 rounded-lg bg-brand px-4 py-4 text-lg font-semibold text-white transition-transform duration-100 active:scale-95 active:bg-brand-dark disabled:cursor-not-allowed disabled:bg-gray-300 disabled:active:scale-100"
               >
                 Continue
               </button>
@@ -1054,7 +1054,7 @@ function PhotoSlot({
           {note && (
             <span
               title={note}
-              className="absolute bottom-1 left-1 flex h-4 w-4 items-center justify-center rounded-full bg-blue-600 text-[9px] font-bold text-white"
+              className="absolute bottom-1 left-1 flex h-4 w-4 items-center justify-center rounded-full bg-brand text-[9px] font-bold text-white"
             >
               i
             </span>
@@ -1387,7 +1387,7 @@ function PhotoEditorModal({
               onClick={() => setTool("crop")}
               onPointerDown={(e) => e.stopPropagation()}
               aria-label="Crop"
-              className={`${overlayButton} ${tool === "crop" ? "bg-blue-600" : ""}`}
+              className={`${overlayButton} ${tool === "crop" ? "bg-brand" : ""}`}
             >
               <CropIcon className="h-4 w-4" />
             </button>
@@ -1396,7 +1396,7 @@ function PhotoEditorModal({
               onClick={() => setTool("pen")}
               onPointerDown={(e) => e.stopPropagation()}
               aria-label="Pen"
-              className={`${overlayButton} ${tool === "pen" ? "bg-blue-600" : ""}`}
+              className={`${overlayButton} ${tool === "pen" ? "bg-brand" : ""}`}
             >
               <PenIcon className="h-4 w-4" />
             </button>
@@ -1474,7 +1474,7 @@ function PhotoEditorModal({
           <button
             type="button"
             onClick={handleApply}
-            className="flex-1 rounded-lg bg-blue-600 py-2 text-sm font-semibold text-white transition-transform duration-100 active:scale-95"
+            className="flex-1 rounded-lg bg-brand py-2 text-sm font-semibold text-white transition-transform duration-100 active:scale-95"
           >
             Save
           </button>

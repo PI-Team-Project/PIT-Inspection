@@ -1,10 +1,14 @@
 import type { Metadata } from "next";
 import Image from "next/image";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Inter, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+// Inter over the previous (unused — body{} was hardcoded to Arial) Geist
+// Sans: built for UI legibility at small sizes, with tighter horizontal
+// metrics than Geist so dense screens like the dashboard don't run out of
+// room as quickly.
+const inter = Inter({
+  variable: "--font-inter",
   subsets: ["latin"],
 });
 
@@ -26,7 +30,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full overflow-x-hidden antialiased`}
+      className={`${inter.variable} ${geistMono.variable} h-full overflow-x-hidden antialiased`}
     >
       <body className="flex h-dvh flex-col overflow-hidden">
         <div className="flex-1 overflow-y-auto">{children}</div>

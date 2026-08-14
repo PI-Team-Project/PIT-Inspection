@@ -114,7 +114,7 @@ export default function LocationChangeControl({
             <button
               type="submit"
               disabled={pending}
-              className="flex-1 rounded-lg bg-blue-600 py-2 text-sm font-semibold text-white transition-transform duration-100 active:scale-95 active:bg-blue-700 disabled:opacity-50"
+              className="flex-1 rounded-lg bg-brand py-2 text-sm font-semibold text-white transition-transform duration-100 active:scale-95 active:bg-brand-dark disabled:opacity-50"
             >
               {pending ? "Saving…" : "Save New Location"}
             </button>

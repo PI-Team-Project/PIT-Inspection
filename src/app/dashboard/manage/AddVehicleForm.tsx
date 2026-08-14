@@ -65,7 +65,7 @@ export default function AddVehicleForm({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white transition-transform duration-100 active:scale-95 active:bg-blue-700"
+        className="rounded-lg bg-brand px-3 py-2 text-sm font-semibold text-white transition-transform duration-100 active:scale-95 active:bg-brand-dark"
       >
         + Add Vehicle
       </button>
@@ -224,7 +224,7 @@ export default function AddVehicleForm({
             <button
               type="submit"
               disabled={pending}
-              className="flex-1 rounded-lg bg-blue-600 py-2 text-sm font-semibold text-white transition-transform duration-100 active:scale-95 active:bg-blue-700 disabled:opacity-50"
+              className="flex-1 rounded-lg bg-brand py-2 text-sm font-semibold text-white transition-transform duration-100 active:scale-95 active:bg-brand-dark disabled:opacity-50"
             >
               {pending ? "Saving…" : `Save ${rows.length > 1 ? `${rows.length} Vehicles` : "Vehicle"}`}
             </button>

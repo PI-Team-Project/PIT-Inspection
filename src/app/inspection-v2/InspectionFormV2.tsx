@@ -28,7 +28,7 @@ export default function InspectionFormV2({
         </div>
         <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-gray-100">
           <div
-            className="h-full rounded-full bg-blue-600 transition-all duration-200"
+            className="h-full rounded-full bg-brand transition-all duration-200"
             style={{ width: `${percent}%` }}
           />
         </div>
@@ -100,13 +100,13 @@ export default function InspectionFormV2({
                 const isOther = opt.startsWith("Other")
                 const qualifierMatch = !isOther && opt.match(/^(.+?)\s\((.+)\)$/)
                 const isChecked = selected[q.id] === opt
-                const textColor = isChecked ? "text-blue-700" : "text-gray-800"
+                const textColor = isChecked ? "text-brand" : "text-gray-800"
                 return (
                   <label
                     key={opt}
-                    className={`relative flex min-h-16 min-w-[80px] flex-1 basis-0 items-center justify-center rounded-lg border px-2 py-3 text-center text-sm leading-snug transition-transform duration-100 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-blue-400 active:scale-95 ${
+                    className={`relative flex min-h-16 min-w-[80px] flex-1 basis-0 items-center justify-center rounded-lg border px-2 py-3 text-center text-sm leading-snug transition-transform duration-100 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-brand/50 active:scale-95 ${
                       isChecked
-                        ? "border-blue-600 bg-blue-50 font-semibold"
+                        ? "border-brand bg-brand/10 font-semibold"
                         : "border-gray-300"
                     }`}
                   >
@@ -122,7 +122,7 @@ export default function InspectionFormV2({
                       className="sr-only"
                     />
                     {isChecked && (
-                      <span className="absolute top-1 right-1 flex h-4 w-4 items-center justify-center rounded-full bg-blue-600">
+                      <span className="absolute top-1 right-1 flex h-4 w-4 items-center justify-center rounded-full bg-brand">
                         <svg
                           viewBox="0 0 24 24"
                           fill="none"
@@ -168,7 +168,7 @@ export default function InspectionFormV2({
       <div className="pt-6">
         <button
           type="submit"
-          className="w-full rounded-lg bg-blue-600 px-4 py-4 text-lg font-semibold text-white transition-transform duration-100 active:scale-95 active:bg-blue-700"
+          className="w-full rounded-lg bg-brand px-4 py-4 text-lg font-semibold text-white transition-transform duration-100 active:scale-95 active:bg-brand-dark"
         >
           Submit Inspection
         </button>

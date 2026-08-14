@@ -30,7 +30,7 @@ export default function PinForm({ error }: { error?: boolean }) {
         )}
         <button
           type="submit"
-          className="w-full rounded-lg bg-blue-600 px-4 py-3 font-semibold text-white transition-transform duration-100 active:scale-95 active:bg-blue-700"
+          className="w-full rounded-lg bg-brand px-4 py-3 font-semibold text-white transition-transform duration-100 active:scale-95 active:bg-brand-dark"
         >
           Unlock
         </button>

@@ -77,7 +77,7 @@ export default function InspectionForm({
                 <label
                   key={opt}
                   className={`flex items-center gap-3 rounded-lg border px-4 py-3 transition-transform duration-100 active:scale-95 ${
-                    isChecked ? "border-blue-600 bg-blue-50" : "border-gray-300"
+                    isChecked ? "border-brand bg-brand/10" : "border-gray-300"
                   }`}
                 >
                   <input
@@ -91,7 +91,7 @@ export default function InspectionForm({
                   />
                   <span
                     className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${
-                      isChecked ? "border-blue-600 bg-blue-600" : "border-gray-300"
+                      isChecked ? "border-brand bg-brand" : "border-gray-300"
                     }`}
                   >
                     {isChecked && (
@@ -128,7 +128,7 @@ export default function InspectionForm({
       <div className="pt-6">
         <button
           type="submit"
-          className="w-full rounded-lg bg-blue-600 px-4 py-4 text-lg font-semibold text-white transition-transform duration-100 active:scale-95 active:bg-blue-700"
+          className="w-full rounded-lg bg-brand px-4 py-4 text-lg font-semibold text-white transition-transform duration-100 active:scale-95 active:bg-brand-dark"
         >
           Submit Inspection
         </button>
