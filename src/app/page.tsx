@@ -44,7 +44,7 @@ export default function Home() {
         </Link>
       </div>
 
-      <div className="mt-12 flex aspect-square w-full max-w-[160px] items-center justify-center rounded-lg border-2 border-dashed border-gray-300 text-center text-sm text-gray-400">
+      <div className="mt-20 flex aspect-square w-full max-w-[160px] items-center justify-center rounded-lg border-2 border-dashed border-gray-300 text-center text-sm text-gray-400">
         <span>
           QR Code
           <br />
