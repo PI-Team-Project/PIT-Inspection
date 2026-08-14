@@ -72,6 +72,14 @@ export default async function DashboardPage({
 
   const filter = params.filter
   const today = new Date().toISOString().slice(0, 10)
+  // `today` is a plain calendar-date string with no time zone of its own —
+  // formatting it as UTC (rather than the server's local zone) guarantees
+  // the displayed month/day always matches its digits, with no drift.
+  const todayDisplay = new Intl.DateTimeFormat("en-US", {
+    timeZone: "UTC",
+    month: "short",
+    day: "numeric",
+  }).format(new Date(`${today}T00:00:00Z`))
 
   const [allInspections, equipmentList, expiringRetired] = await Promise.all([
     prisma.inspection.findMany({ orderBy: { createdAt: "desc" } }),
@@ -279,7 +287,12 @@ export default async function DashboardPage({
           stage: row.stage,
           escalated: row.escalated,
           node: (
-            <EquipmentCard key={row.equipment.serial} row={row} today={today} />
+            <EquipmentCard
+              key={row.equipment.serial}
+              row={row}
+              today={today}
+              todayDisplay={todayDisplay}
+            />
           ),
           tableRow: <EquipmentTableRow key={row.equipment.serial} row={row} />,
         }))}
@@ -635,9 +648,11 @@ function ShiftOverview({
 function EquipmentCard({
   row: { equipment, latest, stage, since },
   today,
+  todayDisplay,
 }: {
   row: EquipmentRow
   today: string
+  todayDisplay: string
 }) {
   const hasPhotos = latest
     ? Object.values(latest.answers).some((a) => (a.photos?.length ?? 0) > 0)
@@ -670,11 +685,21 @@ function EquipmentCard({
           )}
         </p>
         {latest ? (
-          <p className="mt-1 text-sm text-gray-600">
-            Last inspected {latest.inspection.date} ·{" "}
-            {latest.inspection.shift} · {latest.inspection.firstName}{" "}
-            {latest.inspection.lastName}
-          </p>
+          latest.inspection.date === today ? (
+            <p className="mt-1 text-sm text-gray-600">
+              <span className="font-semibold text-gray-900">
+                Inspected Today, {todayDisplay}
+              </span>{" "}
+              · {latest.inspection.shift} Shift · {latest.inspection.firstName}{" "}
+              {latest.inspection.lastName}
+            </p>
+          ) : (
+            <p className="mt-1 text-sm text-gray-600">
+              Last inspected {latest.inspection.date} ·{" "}
+              {latest.inspection.shift} · {latest.inspection.firstName}{" "}
+              {latest.inspection.lastName}
+            </p>
+          )
         ) : (
           <p className="mt-1 text-sm text-gray-500">No inspection yet</p>
         )}
