@@ -676,36 +676,43 @@ function EquipmentCard({
           {equipment.makeColor} · {equipmentTypeLabel(equipment.type)} · {equipment.flNumber}
         </p>
 
-        <p className="flex flex-wrap items-center gap-1.5 text-sm text-gray-600">
-          Serial#: {equipment.serial} ·
-          {isUnderRepair(equipment.location) ? (
-            <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-sm font-semibold text-amber-800">
-              🛠️ Under Repair
-            </span>
+        <div className="mt-1.5 space-y-1 text-sm text-gray-600">
+          <p>
+            <span className="text-gray-400">Serial:</span> {equipment.serial}
+          </p>
+          <p className="flex flex-wrap items-center gap-1.5">
+            <span className="text-gray-400">Location:</span>
+            {isUnderRepair(equipment.location) ? (
+              <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-sm font-semibold text-amber-800">
+                🛠️ Under Repair
+              </span>
+            ) : (
+              equipment.location
+            )}
+          </p>
+          {latest ? (
+            latest.inspection.date === today ? (
+              <p>
+                <span className="text-gray-400">Last Inspected:</span>{" "}
+                <span className="font-semibold text-gray-900">
+                  Today, {todayDisplay}
+                </span>{" "}
+                · {latest.inspection.shift} Shift · {latest.inspection.firstName}{" "}
+                {latest.inspection.lastName}
+              </p>
+            ) : (
+              <p>
+                <span className="text-gray-400">Last Inspected:</span>{" "}
+                {latest.inspection.date} · {latest.inspection.shift} ·{" "}
+                {latest.inspection.firstName} {latest.inspection.lastName}
+              </p>
+            )
           ) : (
-            equipment.location
+            <p>
+              <span className="text-gray-400">Last Inspected:</span> No inspection yet
+            </p>
           )}
-        </p>
-        {latest ? (
-          latest.inspection.date === today ? (
-            <p className="mt-1 text-sm text-gray-600">
-              Inspected{" "}
-              <span className="font-semibold text-gray-900">
-                Today, {todayDisplay}
-              </span>{" "}
-              · {latest.inspection.shift} Shift · {latest.inspection.firstName}{" "}
-              {latest.inspection.lastName}
-            </p>
-          ) : (
-            <p className="mt-1 text-sm text-gray-600">
-              Last inspected {latest.inspection.date} ·{" "}
-              {latest.inspection.shift} · {latest.inspection.firstName}{" "}
-              {latest.inspection.lastName}
-            </p>
-          )
-        ) : (
-          <p className="mt-1 text-sm text-gray-500">No inspection yet</p>
-        )}
+        </div>
         {latest &&
           (stage === "unresolved" || stage === "pending-confirm") &&
           latest.flagged.length > 0 && (
