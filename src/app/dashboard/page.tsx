@@ -161,6 +161,8 @@ export default async function DashboardPage({
         </div>
       </div>
 
+      <div className="mt-3 border-t border-gray-100" />
+
       <div className="mt-4 flex items-center justify-between gap-3">
         <span className="text-2xl font-semibold tracking-wide text-gray-900 tabular-nums">
           {timeLabel}
