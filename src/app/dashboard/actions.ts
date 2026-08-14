@@ -101,44 +101,18 @@ export async function saveActivity(formData: FormData) {
     })
   }
 
+  // Marking every flagged item Complete now confirms all-clear in this same
+  // submission — a supervisor doing both in one visit no longer has to come
+  // back for a second, separate confirmation step.
   const stillUnresolved = flaggedIds.some((id) => issueStatus[id] !== "complete")
-  const confirmedResolved = stillUnresolved ? false : review.confirmedResolved
+  const confirmedResolved = !stillUnresolved
+  if (confirmedResolved && !review.confirmedResolved) {
+    activity.push({ id: crypto.randomUUID(), type: "confirmed", authorName, timestamp })
+  }
 
   await prisma.inspection.update({
     where: { id: inspectionId },
     data: { review: { issueStatus, activity, confirmedResolved } },
-  })
-
-  revalidatePath("/dashboard")
-  revalidatePath("/dashboard/equipment/[serial]", "page")
-}
-
-export async function confirmResolved(formData: FormData) {
-  const inspectionId = String(formData.get("inspectionId") ?? "")
-  const authorName = String(formData.get("reviewerName") ?? "").trim() || "Unknown"
-  const timestamp = new Date().toISOString()
-
-  const cookieStore = await cookies()
-  cookieStore.set(MANAGER_NAME_COOKIE, authorName, {
-    httpOnly: true,
-    sameSite: "lax",
-    maxAge: 60 * 60 * 24 * 30,
-  })
-
-  const inspection = await prisma.inspection.findUniqueOrThrow({
-    where: { id: inspectionId },
-  })
-  const review = parseReview(inspection.review)
-  const activity: ActivityEntry[] = [
-    ...review.activity,
-    { id: crypto.randomUUID(), type: "confirmed", authorName, timestamp },
-  ]
-
-  await prisma.inspection.update({
-    where: { id: inspectionId },
-    data: {
-      review: { ...review, activity, confirmedResolved: true },
-    },
   })
 
   revalidatePath("/dashboard")

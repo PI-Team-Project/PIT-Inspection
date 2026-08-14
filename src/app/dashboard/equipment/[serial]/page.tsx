@@ -28,7 +28,7 @@ import {
 import StatusDot from "../../StatusDot"
 import PhotoGallery from "../../PhotoGallery"
 import LocationChangeControl from "../../LocationChangeControl"
-import { saveActivity, confirmResolved } from "../../actions"
+import { saveActivity } from "../../actions"
 
 const PAGE_SIZE = 20
 // How far back "since" escalation looks for a run of consecutive bad
@@ -161,33 +161,12 @@ export default async function EquipmentDetailPage({
       {latest && (
         <div className="mt-4 rounded-lg border border-gray-300 bg-white p-4">
           {latest.stage === "pending-confirm" &&
-            (latest.flagged.every((q) => latest.review.issueStatus[q.id] === "complete") ? (
-              <form
-                action={confirmResolved}
-                className="mb-4 flex items-center justify-between gap-3 rounded-lg border border-amber-300 bg-amber-50 p-3"
-              >
-                <input type="hidden" name="inspectionId" value={latest.inspection.id} />
-                <input
-                  type="text"
-                  name="reviewerName"
-                  defaultValue={savedManagerName}
-                  placeholder="Supervisor name"
-                  required
-                  className="min-w-0 flex-1 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
-                />
-                <button
-                  type="submit"
-                  className="shrink-0 rounded-lg bg-amber-600 px-3 py-2 text-sm font-semibold text-white transition-transform duration-100 active:scale-95 active:bg-amber-700"
-                >
-                  ✓ Confirm All Clear
-                </button>
-              </form>
-            ) : (
+            !latest.flagged.every((q) => latest.review.issueStatus[q.id] === "complete") && (
               <div className="mb-4 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">
-                Mark every flagged item below <strong>Complete</strong> before you can confirm
-                all clear.
+                Mark every flagged item below <strong>Complete</strong>, then submit below to
+                confirm all clear.
               </div>
-            ))}
+            )}
 
           <form action={saveActivity} className="space-y-4">
             <input type="hidden" name="inspectionId" value={latest.inspection.id} />
