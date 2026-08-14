@@ -499,8 +499,7 @@ function ShiftOverview({
                 selected ? "bg-white text-gray-900 shadow-sm" : "text-gray-500"
               }`}
             >
-              {label} Shift
-              {isLive && <span className="h-1.5 w-1.5 rounded-full bg-green-500" />}
+              {label} Shift{isLive && " · Now"}
             </Link>
           )
         })}
