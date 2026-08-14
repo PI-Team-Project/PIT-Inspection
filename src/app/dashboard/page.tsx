@@ -363,7 +363,7 @@ function FleetOverview({
         {title} ({total})
       </h3>
       <div
-        className={`flex flex-col gap-y-1.5 rounded-lg border border-gray-200 bg-gray-50 px-3 ${
+        className={`flex flex-col gap-y-1.5 rounded-lg border border-gray-200 px-3 ${
           compact ? "py-1.5" : "py-3"
         }`}
       >
@@ -411,8 +411,8 @@ function LocationOverview({ rows }: { rows: EquipmentRow[] }) {
   const right = byLocation.slice(half)
 
   return (
-    <details className="group rounded-lg border border-gray-200 bg-gray-50">
-      <summary className="flex cursor-pointer items-center justify-between rounded-lg px-3 py-2.5 text-sm font-medium text-gray-700 transition-colors duration-100 active:scale-[0.99] active:bg-gray-100">
+    <details className="group rounded-lg border border-gray-200">
+      <summary className="flex cursor-pointer items-center justify-between rounded-lg px-3 py-2.5 text-sm font-medium text-gray-700 transition-colors duration-100 hover:bg-gray-50 active:scale-[0.99] active:bg-gray-100">
         <span>📍 See all vehicle locations here</span>
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -576,7 +576,7 @@ function ShiftOverview({
         isViewingLive={isViewingLive}
       />
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-        <div className="rounded-lg border border-green-200 bg-green-50 p-3">
+        <div className="rounded-lg border border-green-200 bg-green-50 p-3 shadow-sm">
           <p className="pb-1.5 text-sm font-semibold text-green-800">
             Inspected ({inspected.length}/{rows.length})
           </p>
@@ -604,7 +604,7 @@ function ShiftOverview({
             </div>
           )}
         </div>
-        <div className="relative rounded-lg border border-gray-300 bg-gray-50 p-3 pb-6">
+        <div className="relative rounded-lg border border-gray-300 bg-gray-50 p-3 pb-6 shadow-sm">
           <p className="pb-1.5 text-sm font-semibold text-gray-700">
             Not Yet Inspected ({notInspected.length}/{rows.length})
           </p>

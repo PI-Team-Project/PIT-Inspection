@@ -49,13 +49,13 @@ export default function ShiftDateNav({
   }
 
   return (
-    <h2 className="mt-4 mb-1.5 flex items-center gap-1.5 text-xs font-semibold tracking-wide text-gray-500 uppercase">
+    <h2 className="mt-2 mb-1 flex items-center gap-1 text-xs font-semibold tracking-wide text-gray-500 uppercase">
       <button
         type="button"
         onClick={handleBack}
         disabled={checking}
         aria-label="Go back one day"
-        className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-gray-400 transition-colors duration-100 hover:bg-gray-100 hover:text-gray-600 active:scale-95"
+        className="flex h-8 w-8 shrink-0 items-center justify-center rounded text-base text-gray-400 transition-colors duration-100 hover:bg-gray-100 hover:text-gray-600 active:scale-95"
       >
         ‹
       </button>
@@ -63,13 +63,13 @@ export default function ShiftDateNav({
         {dateLabel} · {hoursLabel}
         {!isViewingLive && <span className="ml-1 text-gray-400">(Past)</span>}
       </span>
-      <span className="relative ml-auto flex h-5 w-5 shrink-0 items-center justify-center">
+      <span className="relative ml-auto flex h-8 w-8 shrink-0 items-center justify-center">
         <button
           type="button"
           onClick={() => dateInputRef.current?.showPicker?.()}
           disabled={checking}
           aria-label="Pick a date"
-          className="flex h-5 w-5 items-center justify-center rounded text-gray-400 transition-colors duration-100 hover:bg-gray-100 hover:text-gray-600 active:scale-95"
+          className="flex h-8 w-8 items-center justify-center rounded text-gray-400 transition-colors duration-100 hover:bg-gray-100 hover:text-gray-600 active:scale-95"
         >
           📅
         </button>
