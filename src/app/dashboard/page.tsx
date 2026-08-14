@@ -687,8 +687,9 @@ function EquipmentCard({
         {latest ? (
           latest.inspection.date === today ? (
             <p className="mt-1 text-sm text-gray-600">
+              Inspected{" "}
               <span className="font-semibold text-gray-900">
-                Inspected Today, {todayDisplay}
+                Today, {todayDisplay}
               </span>{" "}
               · {latest.inspection.shift} Shift · {latest.inspection.firstName}{" "}
               {latest.inspection.lastName}
