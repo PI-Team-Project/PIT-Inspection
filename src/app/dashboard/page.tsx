@@ -165,7 +165,7 @@ export default async function DashboardPage({
 
       <div className="mt-4 flex items-center justify-between gap-3">
         <div className="flex items-baseline gap-1.5">
-          <span className="text-2xl font-semibold tracking-wide text-gray-900 tabular-nums">
+          <span className="font-mono text-2xl font-semibold tracking-wide text-gray-900 tabular-nums">
             {timeLabel}
           </span>
           <span className="text-xs font-medium text-gray-400">Eastern Time — Holland, MI</span>

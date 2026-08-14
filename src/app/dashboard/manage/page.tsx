@@ -6,6 +6,7 @@ import { getAllEquipmentIncludingRetired, RETENTION_DAYS } from "@/lib/equipment
 import { DASHBOARD_COOKIE, MANAGER_NAME_COOKIE, dashboardSessionValue } from "@/lib/auth"
 import { restoreVehicle } from "./actions"
 import ActiveVehiclesTable from "./ActiveVehiclesTable"
+import ManageVehicleSearch from "./ManageVehicleSearch"
 import { RETIRED_COLS, HIDE_ON_MOBILE, SORT_FIELDS, isSortField, type SortField } from "./tableShared"
 
 export default async function ManageVehiclesPage({
@@ -47,9 +48,21 @@ export default async function ManageVehiclesPage({
         Dashboard
       </Link>
 
-      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-        <h1 className="text-xl font-bold text-gray-900 sm:text-2xl">Manage Vehicles</h1>
-        <p className="text-sm text-gray-500">Add, edit, or retire vehicles in the fleet.</p>
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+          <h1 className="text-xl font-bold text-gray-900 sm:text-2xl">Manage Vehicles</h1>
+          <p className="text-sm text-gray-500">Add, edit, or retire vehicles in the fleet.</p>
+        </div>
+        <ManageVehicleSearch
+          vehicles={all.map((eq) => ({
+            serial: eq.serial,
+            flNumber: eq.flNumber,
+            makeColor: eq.makeColor,
+            type: eq.type,
+            location: eq.location,
+            retired: Boolean(eq.retiredAt),
+          }))}
+        />
       </div>
 
       <div className="mt-3 border-t border-gray-100" />
