@@ -618,7 +618,7 @@ function ShiftOverview({
             <div className="absolute bottom-1.5 right-2 flex items-center gap-2 text-[10px] font-medium text-gray-400">
               <span className="flex items-center gap-1">
                 <span className="h-1.5 w-1.5 rounded-full bg-red-400" />
-                needs inspection
+                inspection requested
               </span>
               <span className="flex items-center gap-1">
                 <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
