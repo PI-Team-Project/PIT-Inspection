@@ -505,7 +505,7 @@ function ShiftOverview({
         })}
       </div>
 
-      <h2 className="mb-1.5 text-xs font-semibold tracking-wide text-brand uppercase">
+      <h2 className="mt-4 mb-1.5 text-xs font-semibold tracking-wide text-brand uppercase">
         {dateLabel} · {hoursLabel}
       </h2>
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
