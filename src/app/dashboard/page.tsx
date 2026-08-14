@@ -13,7 +13,13 @@ import {
 } from "@/lib/equipment"
 import { getActiveEquipmentList, getRetiredEquipmentNearingExpiry } from "@/lib/equipmentLocations"
 import { isCriticalInspection, type Stage } from "@/lib/review"
-import { getCurrentShiftWindow, getMostRecentShiftWindows, FLEET_TIME_ZONE } from "@/lib/shifts"
+import {
+  getCurrentShiftWindow,
+  getMostRecentShiftWindows,
+  getShiftWindowForDate,
+  easternDateKey,
+  FLEET_TIME_ZONE,
+} from "@/lib/shifts"
 import { DASHBOARD_COOKIE, dashboardSessionValue } from "@/lib/auth"
 import PinForm from "./PinForm"
 import HomeLink from "./HomeLink"
@@ -22,6 +28,7 @@ import LocationVehiclesButton from "./LocationVehiclesButton"
 import EquipmentSearch from "./EquipmentSearch"
 import EquipmentBrowser from "./EquipmentBrowser"
 import InspectedChip from "./InspectedChip"
+import ShiftDateNav from "./ShiftDateNav"
 import {
   buildRow,
   badSince,
@@ -52,6 +59,7 @@ export default async function DashboardPage({
     error?: string
     filter?: string
     shift?: string
+    date?: string
   }>
 }) {
   const params = await searchParams
@@ -111,7 +119,20 @@ export default async function DashboardPage({
   const currentShift = getCurrentShiftWindow(now)
   const recentShifts = getMostRecentShiftWindows(now)
   const selectedShiftLabel = params.shift === "night" ? "Night" : params.shift === "day" ? "Day" : currentShift.label
-  const shiftWindow = recentShifts[selectedShiftLabel as "Day" | "Night"]
+
+  // A `date` param drives historical navigation (back-arrow / calendar
+  // picker). Only trusted when it parses AND doesn't land in the future —
+  // the client-side nav already blocks bad jumps before they happen, but a
+  // hand-edited URL falls back to "most recent" instead of rendering junk.
+  const dateParam = params.date && /^\d{4}-\d{2}-\d{2}$/.test(params.date) ? params.date : null
+  const requestedWindow = dateParam
+    ? getShiftWindowForDate(dateParam, selectedShiftLabel as "Day" | "Night")
+    : null
+  const shiftWindow =
+    requestedWindow && requestedWindow.start.getTime() <= currentShift.start.getTime()
+      ? requestedWindow
+      : recentShifts[selectedShiftLabel as "Day" | "Night"]
+  const isViewingLive = shiftWindow.start.getTime() === currentShift.start.getTime()
   const inspectedThisShift = (row: EquipmentRow) => {
     // Unresolved (red) means out of service until fixed — being inspected
     // this shift doesn't make it ready to use, so it never counts as
@@ -205,6 +226,9 @@ export default async function DashboardPage({
           shiftWindow={shiftWindow}
           selectedShiftLabel={selectedShiftLabel}
           currentShiftLabel={currentShift.label}
+          dateParam={dateParam}
+          todayKey={easternDateKey(now)}
+          isViewingLive={isViewingLive}
           rows={equipmentRows}
           inspectedThisShift={inspectedThisShift}
         />
@@ -215,20 +239,37 @@ export default async function DashboardPage({
         <NeedsAttentionBanner rows={equipmentRows} />
       </div>
 
-      <div className="mt-6 space-y-3">
-        <FleetOverview
-          title="Forklift"
-          subgroups={FORKLIFT_TYPES.map((type) => ({
-            label: type,
-            rows: byType(equipmentRows, type),
-          }))}
-        />
-        <FleetOverview
-          title="Pallet Jacks"
-          subgroups={[{ label: "Pallet Jack", rows: byType(equipmentRows, "Pallet Jack") }]}
-          compact
-        />
-      </div>
+      <details className="group mt-6" open>
+        <summary className="flex cursor-pointer items-center gap-1.5 text-sm font-semibold text-gray-700">
+          Vehicle Status
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 20 20"
+            fill="currentColor"
+            className="h-4 w-4 text-gray-400 transition-transform duration-200 group-open:rotate-180"
+          >
+            <path
+              fillRule="evenodd"
+              d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z"
+              clipRule="evenodd"
+            />
+          </svg>
+        </summary>
+        <div className="mt-3 space-y-3">
+          <FleetOverview
+            title="Forklift"
+            subgroups={FORKLIFT_TYPES.map((type) => ({
+              label: type,
+              rows: byType(equipmentRows, type),
+            }))}
+          />
+          <FleetOverview
+            title="Pallet Jacks"
+            subgroups={[{ label: "Pallet Jack", rows: byType(equipmentRows, "Pallet Jack") }]}
+            compact
+          />
+        </div>
+      </details>
 
       <div className="my-4 border-t border-gray-200" />
 
@@ -463,12 +504,18 @@ function ShiftOverview({
   shiftWindow,
   selectedShiftLabel,
   currentShiftLabel,
+  dateParam,
+  todayKey,
+  isViewingLive,
   rows,
   inspectedThisShift,
 }: {
   shiftWindow: { label: string; start: Date; end: Date }
   selectedShiftLabel: string
   currentShiftLabel: string
+  dateParam: string | null
+  todayKey: string
+  isViewingLive: boolean
   rows: EquipmentRow[]
   inspectedThisShift: (row: EquipmentRow) => boolean
 }) {
@@ -486,6 +533,7 @@ function ShiftOverview({
     day: "numeric",
   }).format(shiftWindow.start)
   const hoursLabel = shiftWindow.label === "Day" ? "5am–5pm" : "5pm–5am"
+  const dateKey = easternDateKey(shiftWindow.start)
 
   return (
     <div>
@@ -493,10 +541,13 @@ function ShiftOverview({
         {(["Day", "Night"] as const).map((label) => {
           const selected = selectedShiftLabel === label
           const isLive = currentShiftLabel === label
+          const href = dateParam
+            ? `/dashboard?shift=${label.toLowerCase()}&date=${dateParam}`
+            : `/dashboard?shift=${label.toLowerCase()}`
           return (
             <Link
               key={label}
-              href={`/dashboard?shift=${label.toLowerCase()}`}
+              href={href}
               scroll={false}
               className={`flex flex-1 items-center justify-center gap-1.5 rounded-md py-1.5 text-center transition-colors duration-100 active:scale-95 ${
                 selected ? "bg-white text-gray-900 shadow-sm" : "text-gray-500"
@@ -508,9 +559,14 @@ function ShiftOverview({
         })}
       </div>
 
-      <h2 className="mt-4 mb-1.5 text-xs font-semibold tracking-wide text-gray-500 uppercase">
-        {dateLabel} · {hoursLabel}
-      </h2>
+      <ShiftDateNav
+        dateKey={dateKey}
+        todayKey={todayKey}
+        label={shiftWindow.label as "Day" | "Night"}
+        dateLabel={dateLabel}
+        hoursLabel={hoursLabel}
+        isViewingLive={isViewingLive}
+      />
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
         <div className="rounded-lg border border-green-200 bg-green-50 p-3">
           <p className="pb-1.5 text-sm font-semibold text-green-800">

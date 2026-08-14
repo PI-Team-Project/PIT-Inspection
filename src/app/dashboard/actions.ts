@@ -17,6 +17,27 @@ import {
   type ActivityEntry,
   type IssueStatusValue,
 } from "@/lib/review"
+import { getShiftWindowForDate, getCurrentShiftWindow } from "@/lib/shifts"
+
+// Used before navigating to a historical shift — a future date, or a past
+// one where nothing was ever inspected, isn't worth showing a whole page
+// for, so the nav controls check first and refuse the jump instead.
+export async function shiftHasData(dateKey: string, label: "Day" | "Night"): Promise<boolean> {
+  const current = getCurrentShiftWindow(new Date())
+  const window = getShiftWindowForDate(dateKey, label)
+
+  if (window.start.getTime() > current.start.getTime()) return false
+
+  // The live shift always "has data" to show (even if it's 0/34 so far) —
+  // only completed, historical shifts need an actual inspection on record
+  // to justify the jump.
+  if (window.start.getTime() === current.start.getTime()) return true
+
+  const count = await prisma.inspection.count({
+    where: { createdAt: { gte: window.start, lt: window.end } },
+  })
+  return count > 0
+}
 
 export async function unlockDashboard(formData: FormData) {
   const pin = String(formData.get("pin") ?? "")

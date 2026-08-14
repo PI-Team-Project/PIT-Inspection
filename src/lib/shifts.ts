@@ -121,3 +121,29 @@ export function getMostRecentShiftWindows(now: Date): { Day: ShiftWindow; Night:
   }
   return current.label === "Day" ? { Day: current, Night: previous } : { Day: previous, Night: current }
 }
+
+// The Eastern-calendar-date key (YYYY-MM-DD) a given instant falls on —
+// used to seed a date picker's default value and to step it by whole days.
+export function easternDateKey(date: Date): string {
+  const { year, month, day } = easternDateParts(date)
+  return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`
+}
+
+// Plain calendar-date arithmetic on a YYYY-MM-DD key — not a timezone
+// conversion, just walking the key forward/back by whole days.
+export function shiftDateKeyByDays(dateKey: string, deltaDays: number): string {
+  const [y, m, d] = dateKey.split("-").map(Number)
+  const dt = new Date(Date.UTC(y, m - 1, d))
+  dt.setUTCDate(dt.getUTCDate() + deltaDays)
+  return `${dt.getUTCFullYear()}-${String(dt.getUTCMonth() + 1).padStart(2, "0")}-${String(dt.getUTCDate()).padStart(2, "0")}`
+}
+
+// The named shift for a specific Eastern calendar date — used when a
+// supervisor navigates to a past date instead of "whatever's most recent."
+export function getShiftWindowForDate(dateKey: string, label: "Day" | "Night"): ShiftWindow {
+  const [year, month, day] = dateKey.split("-").map(Number)
+  const startHour = label === "Day" ? 5 : 17
+  const start = easternWallClockToUtc(year, month, day, startHour)
+  const end = new Date(start.getTime() + 12 * 60 * 60 * 1000)
+  return { label, start, end }
+}
