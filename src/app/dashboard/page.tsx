@@ -512,11 +512,11 @@ function ShiftOverview({
       </h2>
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
         <div className="rounded-lg border border-green-200 bg-green-50 p-3">
-          <p className="mb-1 text-sm font-semibold text-green-800">
+          <p className="pb-1.5 text-sm font-semibold text-green-800">
             Inspected ({inspected.length}/{rows.length})
           </p>
           {inspected.length > 0 && (
-            <div className="flex flex-wrap gap-1.5">
+            <div className="flex flex-wrap gap-1.5 border-t border-green-200/60 pt-2">
               {inspected.map((row) => {
                 const isPendingConfirm = row.stage === "pending-confirm"
                 return (
@@ -537,11 +537,11 @@ function ShiftOverview({
           )}
         </div>
         <div className="rounded-lg border border-gray-300 bg-gray-50 p-3">
-          <p className="mb-1 text-sm font-semibold text-gray-700">
+          <p className="pb-1.5 text-sm font-semibold text-gray-700">
             Not Yet Inspected ({notInspected.length}/{rows.length})
           </p>
           {notInspected.length > 0 && (
-            <div className="flex flex-wrap gap-1.5">
+            <div className="flex flex-wrap gap-1.5 border-t border-gray-200 pt-2">
               {notInspected.map((row) => (
                 <a
                   key={row.equipment.serial}
@@ -549,7 +549,9 @@ function ShiftOverview({
                   className={`rounded-md px-1.5 py-0.5 text-xs font-medium ${
                     row.stage === "unresolved"
                       ? "bg-red-100 text-red-700"
-                      : "border border-gray-200 bg-white text-gray-600"
+                      : row.stage === "pending-confirm"
+                        ? "bg-amber-100 text-amber-700"
+                        : "border border-gray-200 bg-white text-gray-600"
                   }`}
                 >
                   {row.equipment.flNumber}
