@@ -99,6 +99,12 @@ export default async function DashboardPage({
   const isNotInspected = (stage: Stage | "none") => stage === "none"
 
   const now = new Date()
+  const timeLabel = new Intl.DateTimeFormat("en-US", {
+    timeZone: FLEET_TIME_ZONE,
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+  }).format(now)
   const currentShift = getCurrentShiftWindow(now)
   const recentShifts = getMostRecentShiftWindows(now)
   const selectedShiftLabel = params.shift === "night" ? "Night" : params.shift === "day" ? "Day" : currentShift.label
@@ -155,35 +161,40 @@ export default async function DashboardPage({
         </div>
       </div>
 
-      <div className="mt-4 ml-auto flex w-fit flex-col items-stretch gap-0 text-sm font-medium">
-        <Link
-          href={filter === "working" ? "/dashboard" : "/dashboard?filter=working"}
-          scroll={false}
-          className={`flex items-center gap-1.5 rounded-full px-2 py-1 transition-colors duration-100 active:scale-95 ${
-            filter === "working" ? "bg-green-100 text-green-800" : "text-gray-700"
-          }`}
-        >
-          <span className="h-2.5 w-2.5 rounded-full bg-green-500 shadow-[0_0_3px_0.5px_rgba(34,197,94,0.9),0_0_6px_1px_rgba(34,197,94,0.5)]" />
-          {workingCount}/{equipmentList.length}
-        </Link>
-        {noInspectionCount > 0 && (
+      <div className="mt-4 flex items-center justify-between gap-3">
+        <span className="text-2xl font-semibold tracking-wide text-gray-900 tabular-nums">
+          {timeLabel}
+        </span>
+        <div className="flex w-fit flex-col items-stretch gap-0 text-sm font-medium">
           <Link
-            href={filter === "not-inspected" ? "/dashboard" : "/dashboard?filter=not-inspected"}
+            href={filter === "working" ? "/dashboard" : "/dashboard?filter=working"}
             scroll={false}
             className={`flex items-center gap-1.5 rounded-full px-2 py-1 transition-colors duration-100 active:scale-95 ${
-              filter === "not-inspected" ? "bg-gray-200 text-gray-800" : "text-gray-500"
+              filter === "working" ? "bg-green-100 text-green-800" : "text-gray-700"
             }`}
           >
-            <span className="h-2.5 w-2.5 rounded-full bg-gray-300" />
-            {noInspectionCount}/{equipmentList.length}
-            <span className="hidden sm:inline">&nbsp;not yet inspected</span>
+            <span className="h-2.5 w-2.5 rounded-full bg-green-500 shadow-[0_0_3px_0.5px_rgba(34,197,94,0.9),0_0_6px_1px_rgba(34,197,94,0.5)]" />
+            {workingCount}/{equipmentList.length}
           </Link>
-        )}
+          {noInspectionCount > 0 && (
+            <Link
+              href={filter === "not-inspected" ? "/dashboard" : "/dashboard?filter=not-inspected"}
+              scroll={false}
+              className={`flex items-center gap-1.5 rounded-full px-2 py-1 transition-colors duration-100 active:scale-95 ${
+                filter === "not-inspected" ? "bg-gray-200 text-gray-800" : "text-gray-500"
+              }`}
+            >
+              <span className="h-2.5 w-2.5 rounded-full bg-gray-300" />
+              {noInspectionCount}/{equipmentList.length}
+              <span className="hidden sm:inline">&nbsp;not yet inspected</span>
+            </Link>
+          )}
+        </div>
       </div>
+      <p className="mt-0.5 text-xs font-medium text-gray-400">Eastern Time — Holland, MI</p>
 
       <div className="mt-4">
         <ShiftOverview
-          now={now}
           shiftWindow={shiftWindow}
           selectedShiftLabel={selectedShiftLabel}
           currentShiftLabel={currentShift.label}
@@ -442,14 +453,12 @@ function LocationRows({
 }
 
 function ShiftOverview({
-  now,
   shiftWindow,
   selectedShiftLabel,
   currentShiftLabel,
   rows,
   inspectedThisShift,
 }: {
-  now: Date
   shiftWindow: { label: string; start: Date; end: Date }
   selectedShiftLabel: string
   currentShiftLabel: string
@@ -463,12 +472,6 @@ function ShiftOverview({
     .filter((row) => !inspectedThisShift(row))
     .sort((a, b) => Number(a.stage === "unresolved") - Number(b.stage === "unresolved"))
 
-  const timeLabel = new Intl.DateTimeFormat("en-US", {
-    timeZone: FLEET_TIME_ZONE,
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: true,
-  }).format(now)
   const dateLabel = new Intl.DateTimeFormat("en-US", {
     timeZone: FLEET_TIME_ZONE,
     weekday: "short",
@@ -479,13 +482,6 @@ function ShiftOverview({
 
   return (
     <div>
-      <div className="mb-2 flex flex-wrap items-center gap-2">
-        <span className="rounded-md bg-gray-900 px-2 py-0.5 font-mono text-sm tracking-wider text-green-400 tabular-nums">
-          {timeLabel}
-        </span>
-        <span className="text-xs font-medium text-gray-400">Eastern Time — Holland, MI</span>
-      </div>
-
       <div className="mb-2 flex gap-1.5 rounded-lg border border-gray-200 bg-gray-50 p-1 text-sm font-medium">
         {(["Day", "Night"] as const).map((label) => {
           const selected = selectedShiftLabel === label
