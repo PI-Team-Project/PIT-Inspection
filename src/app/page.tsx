@@ -2,7 +2,7 @@ import Link from "next/link"
 
 export default function Home() {
   return (
-    <main className="relative mx-auto flex h-full w-full max-w-lg flex-col items-center justify-center overflow-hidden px-4 pt-8 pb-20 text-center">
+    <main className="relative mx-auto flex h-full w-full max-w-lg flex-col items-center justify-center overflow-hidden px-4 pt-20 pb-8 text-center">
       <div
         aria-hidden="true"
         className="pointer-events-none absolute inset-0 -z-10 flex select-none items-center justify-center"
