@@ -164,9 +164,12 @@ export default async function DashboardPage({
       <div className="mt-3 border-t border-gray-100" />
 
       <div className="mt-4 flex items-center justify-between gap-3">
-        <span className="text-2xl font-semibold tracking-wide text-gray-900 tabular-nums">
-          {timeLabel}
-        </span>
+        <div className="flex items-baseline gap-1.5">
+          <span className="text-2xl font-semibold tracking-wide text-gray-900 tabular-nums">
+            {timeLabel}
+          </span>
+          <span className="text-xs font-medium text-gray-400">Eastern Time — Holland, MI</span>
+        </div>
         <div className="flex w-fit flex-col items-stretch gap-0 text-sm font-medium">
           <Link
             href={filter === "working" ? "/dashboard" : "/dashboard?filter=working"}
@@ -193,7 +196,6 @@ export default async function DashboardPage({
           )}
         </div>
       </div>
-      <p className="mt-0.5 text-xs font-medium text-gray-400">Eastern Time — Holland, MI</p>
 
       <div className="mt-4">
         <ShiftOverview
