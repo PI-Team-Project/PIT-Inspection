@@ -101,6 +101,7 @@ export async function updateVehicle(
   const makeColor = String(formData.get("makeColor") ?? "").trim()
   const contractType = String(formData.get("contractType") ?? "")
   const location = String(formData.get("location") ?? "")
+  const notes = String(formData.get("notes") ?? "").trim()
   const managerName = String(formData.get("managerName") ?? "").trim() || "Unknown"
 
   if (!serial) return { error: "Missing serial." }
@@ -114,7 +115,7 @@ export async function updateVehicle(
   await rememberManagerName(managerName)
   await prisma.equipment.update({
     where: { serial },
-    data: { type, flNumber, makeColor, contractType, location },
+    data: { type, flNumber, makeColor, contractType, location, notes: notes || null },
   })
 
   refreshManagePaths()

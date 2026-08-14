@@ -1,7 +1,8 @@
 "use client"
 
 import { useActionState, useEffect, useRef, useState } from "react"
-import { LOCATIONS, REPAIR_LOCATION, type Equipment } from "@/lib/equipment"
+import { LOCATIONS, REPAIR_LOCATION } from "@/lib/equipment"
+import type { EquipmentRecord } from "@/lib/equipmentLocations"
 import { updateVehicle, retireVehicle } from "./actions"
 
 const EQUIPMENT_TYPES = ["Sit Down", "Propane", "Standup", "Pallet Jack"] as const
@@ -11,7 +12,7 @@ export default function EditVehicleControl({
   equipment,
   savedManagerName,
 }: {
-  equipment: Equipment
+  equipment: EquipmentRecord
   savedManagerName: string
 }) {
   const [open, setOpen] = useState(false)
@@ -137,6 +138,19 @@ export default function EditVehicleControl({
                 <option value={REPAIR_LOCATION}>{REPAIR_LOCATION}</option>
               </optgroup>
             </select>
+          </div>
+
+          <div>
+            <label className="mb-1 block text-xs font-semibold text-gray-500">
+              Note <span className="font-normal text-gray-400">(optional)</span>
+            </label>
+            <textarea
+              name="notes"
+              defaultValue={equipment.notes ?? ""}
+              placeholder="Anything special worth noting about this vehicle"
+              rows={2}
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+            />
           </div>
 
           <div>

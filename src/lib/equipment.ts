@@ -23,6 +23,14 @@ export function isUnderRepair(location: string): boolean {
   return location === REPAIR_LOCATION
 }
 
+// Every vehicle migrated from the old hardcoded EQUIPMENT_LIST got the same
+// backfill-script timestamp as its createdAt — not a real "added" date, so
+// there's nothing meaningful to show for those. Only vehicles added through
+// the Manage Vehicles page after this exact moment have a real one. Lives
+// here (not equipmentLocations.ts) so client components can import it
+// without pulling in that module's server-only Prisma dependency.
+export const EQUIPMENT_ADDED_DATE_TRACKING_STARTS_AT = new Date("2026-08-12T18:21:13.345Z")
+
 export type Equipment = {
   type: EquipmentType
   flNumber: string

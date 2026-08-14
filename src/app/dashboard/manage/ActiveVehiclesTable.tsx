@@ -1,7 +1,12 @@
 "use client"
 
 import { useState } from "react"
-import { equipmentTypeLabel, type Equipment } from "@/lib/equipment"
+import {
+  equipmentTypeLabel,
+  EQUIPMENT_ADDED_DATE_TRACKING_STARTS_AT,
+  type Equipment,
+} from "@/lib/equipment"
+import type { EquipmentRecord } from "@/lib/equipmentLocations"
 import { retireVehicles } from "./actions"
 import AddVehicleForm from "./AddVehicleForm"
 import EditVehicleControl from "./EditVehicleControl"
@@ -13,7 +18,7 @@ export default function ActiveVehiclesTable({
   sort,
   dir,
 }: {
-  active: Equipment[]
+  active: EquipmentRecord[]
   savedManagerName: string
   sort: SortField
   dir: "asc" | "desc"
@@ -128,7 +133,14 @@ export default function ActiveVehiclesTable({
                 aria-label={`Select ${eq.flNumber}`}
                 className="h-3.5 w-3.5"
               />
-              <span className="truncate font-medium text-gray-900">{eq.flNumber}</span>
+              <span className="truncate">
+                <span className="font-medium text-gray-900">{eq.flNumber}</span>
+                {eq.createdAt > EQUIPMENT_ADDED_DATE_TRACKING_STARTS_AT && (
+                  <span className="block text-[10px] leading-tight text-gray-400">
+                    Added {eq.createdAt.toISOString().slice(0, 10)}
+                  </span>
+                )}
+              </span>
               <span className="truncate text-gray-600">{equipmentTypeLabel(eq.type)}</span>
               <span className="truncate text-gray-700">{eq.makeColor}</span>
               <span className={`truncate text-gray-600 ${HIDE_ON_MOBILE}`}>{eq.contractType}</span>

@@ -1,6 +1,8 @@
 import { prisma } from "./prisma"
 import type { Equipment, EquipmentType, Location } from "./equipment"
 
+export { EQUIPMENT_ADDED_DATE_TRACKING_STARTS_AT } from "./equipment"
+
 // Server-only: the fleet's master vehicle list lives in the Equipment table
 // now (see prisma/schema.prisma), not in a static array — equipment.ts stays
 // importable from client components, so the DB lookups live here instead.
@@ -42,14 +44,21 @@ export async function getEquipmentCreatedAt(serial: string): Promise<Date | null
   return row?.createdAt ?? null
 }
 
-export type EquipmentRecord = Equipment & { retiredAt: Date | null; retiredBy: string | null }
+export type EquipmentRecord = Equipment & {
+  createdAt: Date
+  notes: string | null
+  retiredAt: Date | null
+  retiredBy: string | null
+}
 
 // Every vehicle on file, active or retired — the Manage Vehicles page is the
-// only place that needs to see retired ones at all.
+// only place that needs to see retired ones (or createdAt/notes) at all.
 export async function getAllEquipmentIncludingRetired(): Promise<EquipmentRecord[]> {
   const rows = await prisma.equipment.findMany({ orderBy: { flNumber: "asc" } })
   return rows.map((row) => ({
     ...toEquipment(row),
+    createdAt: row.createdAt,
+    notes: row.notes,
     retiredAt: row.retiredAt,
     retiredBy: row.retiredBy,
   }))

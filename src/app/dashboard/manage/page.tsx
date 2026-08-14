@@ -32,7 +32,7 @@ export default async function ManageVehiclesPage({
   const retired = all.filter((eq) => eq.retiredAt).sort(compare)
 
   return (
-    <main className="mx-auto max-w-lg px-4 py-8 sm:max-w-2xl lg:max-w-5xl">
+    <main className="mx-auto max-w-lg px-4 py-8 sm:max-w-2xl lg:max-w-4xl">
       <Link
         href="/dashboard"
         className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-gray-600"
@@ -49,6 +49,8 @@ export default async function ManageVehiclesPage({
 
       <h1 className="text-xl font-bold text-gray-900 sm:text-2xl">Manage Vehicles</h1>
       <p className="mt-1 text-sm text-gray-500">Add, edit, or retire vehicles in the fleet.</p>
+
+      <div className="mt-3 border-t border-gray-100" />
 
       <div className="mt-6">
         <ActiveVehiclesTable

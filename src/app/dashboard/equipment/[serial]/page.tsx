@@ -11,7 +11,11 @@ import {
   REPAIR_REQUEST_QUESTION,
 } from "@/lib/questions"
 import { equipmentTypeLabel } from "@/lib/equipment"
-import { getEquipmentBySerial, getEquipmentCreatedAt } from "@/lib/equipmentLocations"
+import {
+  getEquipmentBySerial,
+  getEquipmentCreatedAt,
+  EQUIPMENT_ADDED_DATE_TRACKING_STARTS_AT,
+} from "@/lib/equipmentLocations"
 import { isCriticalInspection, type ActivityEntry, type Stage } from "@/lib/review"
 import { DASHBOARD_COOKIE, MANAGER_NAME_COOKIE, dashboardSessionValue } from "@/lib/auth"
 import {
@@ -88,7 +92,7 @@ export default async function EquipmentDetailPage({
         ).map(buildRow)
 
   return (
-    <main className="mx-auto max-w-lg px-4 py-8 lg:max-w-2xl">
+    <main className="mx-auto max-w-lg px-4 py-8 sm:max-w-2xl lg:max-w-4xl">
       <Link
         href="/dashboard"
         className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-gray-600"
@@ -129,7 +133,7 @@ export default async function EquipmentDetailPage({
                 savedManagerName={savedManagerName}
               />
             </p>
-            {addedAt && (
+            {addedAt && addedAt > EQUIPMENT_ADDED_DATE_TRACKING_STARTS_AT && (
               <p className="text-xs text-gray-400">
                 Added {addedAt.toISOString().slice(0, 10)}
               </p>

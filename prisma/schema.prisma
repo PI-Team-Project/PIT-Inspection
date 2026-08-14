@@ -43,6 +43,7 @@ model Equipment {
   makeColor    String
   contractType String
   location     String
+  notes        String?
   retiredAt    DateTime?
   retiredBy    String?
 }
