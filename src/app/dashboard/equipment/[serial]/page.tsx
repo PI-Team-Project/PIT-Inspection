@@ -247,7 +247,7 @@ export default async function EquipmentDetailPage({
                 className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
               />
 
-              <div className="mt-3 border-t border-gray-200 pt-3">
+              <div className="mt-2 border-t border-gray-200 pt-3">
                 <label className="mb-1 block text-sm font-medium text-gray-700">
                   Supervisor Confirmation
                 </label>
