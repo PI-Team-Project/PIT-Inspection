@@ -33,7 +33,11 @@ export default function RootLayout({
       className={`${inter.variable} ${geistMono.variable} h-full overflow-x-hidden antialiased`}
     >
       <body className="flex h-dvh flex-col overflow-hidden">
-        <div className="flex-1 overflow-y-auto">{children}</div>
+        {/* Setting only overflow-y (not overflow-x) makes the x-axis
+            compute to "auto" per spec, not "visible" — any content that's
+            even 1px too wide turns this into a horizontally pannable div
+            despite html's overflow-x-hidden, which only guards the root. */}
+        <div className="flex-1 overflow-x-hidden overflow-y-auto">{children}</div>
         <footer className="flex shrink-0 justify-center border-t border-gray-100 bg-white py-3">
           <Image
             src="/lx-pantos-logo.png"

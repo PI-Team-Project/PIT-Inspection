@@ -2,10 +2,10 @@ import Link from "next/link"
 
 export default function Home() {
   return (
-    <main className="relative mx-auto flex h-full w-full max-w-lg flex-col items-center justify-center overflow-hidden px-4 pt-20 pb-8 text-center">
+    <main className="relative mx-auto flex min-h-full w-full max-w-lg flex-col items-center justify-center px-4 pt-20 pb-8 text-center">
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-0 -z-10 flex select-none items-center justify-center"
+        className="pointer-events-none absolute inset-0 -z-10 flex select-none items-center justify-center overflow-hidden"
       >
         <span className="-rotate-[20deg] whitespace-nowrap text-4xl font-extrabold tracking-widest text-gray-900 opacity-[0.04]">
           WORK IN PROGRESS

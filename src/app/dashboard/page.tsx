@@ -662,7 +662,7 @@ function EquipmentCard({
   return (
     <Link
       href={`/dashboard/equipment/${equipment.serial}`}
-      className={`relative flex items-start gap-2 rounded-lg border bg-white p-4 transition-colors duration-100 active:bg-gray-50 ${
+      className={`relative flex items-start gap-1.5 rounded-lg border bg-white p-4 transition-colors duration-100 active:bg-gray-50 ${
         stage === "unresolved" ? "border-red-300" : "border-gray-300"
       }`}
     >
@@ -670,7 +670,9 @@ function EquipmentCard({
         <StatusDot stage={stage} size="lg" />
       </span>
       <div className="w-full">
-        <p className="pr-6 text-lg font-semibold text-gray-900 lg:text-base">
+        <p
+          className={`text-sm font-semibold text-gray-900 ${hasPhotos ? "pr-6" : ""}`}
+        >
           {equipment.makeColor} · {equipmentTypeLabel(equipment.type)} · {equipment.flNumber}
         </p>
 
