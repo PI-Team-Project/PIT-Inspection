@@ -591,7 +591,7 @@ function ShiftOverview({
             </div>
           )}
         </div>
-        <div className="rounded-lg border border-gray-300 bg-gray-50 p-3">
+        <div className="relative rounded-lg border border-gray-300 bg-gray-50 p-3 pb-6">
           <p className="pb-1.5 text-sm font-semibold text-gray-700">
             Not Yet Inspected ({notInspected.length}/{rows.length})
           </p>
@@ -612,6 +612,18 @@ function ShiftOverview({
                   {row.equipment.flNumber}
                 </a>
               ))}
+            </div>
+          )}
+          {notInspected.some((row) => row.stage === "unresolved" || row.stage === "pending-confirm") && (
+            <div className="absolute bottom-1.5 right-2 flex items-center gap-2 text-[10px] font-medium text-gray-400">
+              <span className="flex items-center gap-1">
+                <span className="h-1.5 w-1.5 rounded-full bg-red-400" />
+                needs inspection
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
+                needs attention
+              </span>
             </div>
           )}
         </div>
