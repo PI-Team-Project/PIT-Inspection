@@ -242,14 +242,14 @@ export default async function DashboardPage({
         />
       </div>
 
-      <details className="group mt-6">
-        <summary className="flex cursor-pointer items-center gap-1.5 text-sm font-semibold text-gray-700">
-          Vehicle Status
+      <details className="group mt-6 rounded-lg border border-gray-200">
+        <summary className="flex cursor-pointer items-center justify-between rounded-lg px-3 py-2.5 text-sm font-medium text-gray-700 transition-colors duration-100 hover:bg-gray-50 active:scale-[0.99] active:bg-gray-100">
+          <span>Vehicle Status</span>
           <svg
             xmlns="http://www.w3.org/2000/svg"
             viewBox="0 0 20 20"
             fill="currentColor"
-            className="h-4 w-4 text-gray-400 transition-transform duration-200 group-open:rotate-180"
+            className="h-4 w-4 shrink-0 text-gray-400 transition-transform duration-200 group-open:rotate-180"
           >
             <path
               fillRule="evenodd"
@@ -258,7 +258,7 @@ export default async function DashboardPage({
             />
           </svg>
         </summary>
-        <div className="mt-3 space-y-3">
+        <div className="space-y-3 border-t border-gray-200 p-3">
           <FleetOverview
             title="Forklift"
             subgroups={FORKLIFT_TYPES.map((type) => ({
@@ -413,7 +413,7 @@ function LocationOverview({ rows }: { rows: EquipmentRow[] }) {
   return (
     <details className="group rounded-lg border border-gray-200">
       <summary className="flex cursor-pointer items-center justify-between rounded-lg px-3 py-2.5 text-sm font-medium text-gray-700 transition-colors duration-100 hover:bg-gray-50 active:scale-[0.99] active:bg-gray-100">
-        <span>📍 See all vehicle locations here</span>
+        <span>📍 See all vehicle locations</span>
         <svg
           xmlns="http://www.w3.org/2000/svg"
           viewBox="0 0 20 20"
