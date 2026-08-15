@@ -34,6 +34,7 @@ import {
   badSince,
   retentionCutoff,
   daysPassedCount,
+  RETENTION_YEARS,
   type InspectionRow,
 } from "./inspectionRow"
 
@@ -81,8 +82,21 @@ export default async function DashboardPage({
     day: "numeric",
   }).format(new Date(`${today}T00:00:00Z`))
 
+  // No equipment's retention window (see RETENTION_YEARS) reaches back
+  // further than the longest one — anything older is guaranteed to be
+  // filtered out below regardless of type, so excluding it here changes
+  // nothing about the result. Without this, the query pulled every
+  // inspection ever recorded (photos included) on every dashboard load,
+  // getting slower every month as the table grows.
+  const maxRetentionYears = Math.max(...Object.values(RETENTION_YEARS))
+  const oldestPossibleCutoff = new Date(today)
+  oldestPossibleCutoff.setFullYear(oldestPossibleCutoff.getFullYear() - maxRetentionYears)
+
   const [allInspections, equipmentList, expiringRetired] = await Promise.all([
-    prisma.inspection.findMany({ orderBy: { createdAt: "desc" } }),
+    prisma.inspection.findMany({
+      where: { createdAt: { gte: oldestPossibleCutoff } },
+      orderBy: { createdAt: "desc" },
+    }),
     getActiveEquipmentList(),
     getRetiredEquipmentNearingExpiry(30),
   ])

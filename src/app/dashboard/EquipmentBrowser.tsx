@@ -33,10 +33,24 @@ function TableHeaderRow() {
   )
 }
 
-function TypeGroup({ title, rows }: { title: string; rows: Card[] }) {
+function TypeGroup({
+  title,
+  rows,
+  isOpen,
+  onToggle,
+}: {
+  title: string
+  rows: Card[]
+  isOpen: boolean
+  onToggle: (open: boolean) => void
+}) {
   if (rows.length === 0) return null
   return (
-    <details className="group">
+    <details
+      className="group"
+      open={isOpen}
+      onToggle={(e) => onToggle(e.currentTarget.open)}
+    >
       <summary className="flex cursor-pointer items-center justify-between px-3 py-2.5 text-sm font-semibold uppercase tracking-wide text-brand transition-colors duration-100 hover:bg-gray-50 active:bg-gray-100">
         <span>
           {title} ({rows.length})
@@ -100,9 +114,32 @@ function toggleSubtype(active: EquipmentType[], type: EquipmentType): EquipmentT
 export default function EquipmentBrowser({ cards }: { cards: Card[] }) {
   const [tab, setTab] = useState<TabValue>("all")
   const [activeSubtypes, setActiveSubtypes] = useState<EquipmentType[]>([])
+  // "Open All" / "Close All" bulk-toggle state for every type group, plus a
+  // per-group override for anyone who's manually opened/closed one on its
+  // own — otherwise a single manual toggle would get silently stomped by
+  // whatever the bulk state happens to be.
+  const [allOpen, setAllOpen] = useState(false)
+  const [openOverrides, setOpenOverrides] = useState<Record<string, boolean>>({})
 
   if (cards.length === 0) {
     return <p className="mt-3 text-gray-500">No equipment on file.</p>
+  }
+
+  function isGroupOpen(key: string) {
+    return openOverrides[key] ?? allOpen
+  }
+
+  function toggleGroup(key: string, open: boolean) {
+    setOpenOverrides((prev) => ({ ...prev, [key]: open }))
+  }
+
+  function handleViewAllClick() {
+    if (tab !== "all") {
+      setTab("all")
+      return
+    }
+    setAllOpen((prev) => !prev)
+    setOpenOverrides({})
   }
 
   const statusFiltered =
@@ -134,7 +171,13 @@ export default function EquipmentBrowser({ cards }: { cards: Card[] }) {
       <h2 className="mt-4 text-sm font-bold tracking-wide text-brand uppercase">Forklift</h2>
       <div className="mt-3 divide-y divide-gray-100 overflow-hidden rounded-lg border border-gray-200">
         {orderedForkliftTypes.map((type) => (
-          <TypeGroup key={type} title={equipmentTypeLabel(type)} rows={byType(typedCards, type)} />
+          <TypeGroup
+            key={type}
+            title={equipmentTypeLabel(type)}
+            rows={byType(typedCards, type)}
+            isOpen={isGroupOpen(type)}
+            onToggle={(open) => toggleGroup(type, open)}
+          />
         ))}
       </div>
     </div>
@@ -144,7 +187,12 @@ export default function EquipmentBrowser({ cards }: { cards: Card[] }) {
     <div key="pallet">
       <h2 className="mt-4 text-sm font-bold tracking-wide text-brand uppercase">Pallet Jacks</h2>
       <div className="mt-3 overflow-hidden rounded-lg border border-gray-200">
-        <TypeGroup title="Pallet Jacks" rows={palletCards} />
+        <TypeGroup
+          title="Pallet Jacks"
+          rows={palletCards}
+          isOpen={isGroupOpen("Pallet Jack")}
+          onToggle={(open) => toggleGroup("Pallet Jack", open)}
+        />
       </div>
     </div>
   )
@@ -163,12 +211,12 @@ export default function EquipmentBrowser({ cards }: { cards: Card[] }) {
       >
         <button
           type="button"
-          onClick={() => setTab("all")}
+          onClick={handleViewAllClick}
           className={`flex-1 rounded-md py-1.5 text-center transition-colors duration-100 active:scale-95 ${
             tab === "all" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500"
           }`}
         >
-          View All
+          {tab === "all" ? (allOpen ? "Close All" : "Open All") : "View All"}
         </button>
         <button
           type="button"
