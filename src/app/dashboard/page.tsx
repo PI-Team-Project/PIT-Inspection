@@ -691,25 +691,26 @@ function EquipmentCard({
             )}
           </p>
           {latest ? (
-            latest.inspection.date === today ? (
+            <>
               <p>
-                <span className="text-gray-400">Last Inspected:</span>{" "}
-                <span className="font-semibold text-gray-900">
-                  Today, {todayDisplay}
-                </span>{" "}
-                · {latest.inspection.shift} Shift · {latest.inspection.firstName}{" "}
-                {latest.inspection.lastName}
+                <span className="text-gray-400">Inspected:</span>{" "}
+                {latest.inspection.date === today ? (
+                  <span className="font-semibold text-gray-900">
+                    Today, {todayDisplay}
+                  </span>
+                ) : (
+                  latest.inspection.date
+                )}{" "}
+                · {latest.inspection.shift}
               </p>
-            ) : (
               <p>
-                <span className="text-gray-400">Last Inspected:</span>{" "}
-                {latest.inspection.date} · {latest.inspection.shift} ·{" "}
+                <span className="text-gray-400">By:</span>{" "}
                 {latest.inspection.firstName} {latest.inspection.lastName}
               </p>
-            )
+            </>
           ) : (
             <p>
-              <span className="text-gray-400">Last Inspected:</span> No inspection yet
+              <span className="text-gray-400">Inspected:</span> No inspection yet
             </p>
           )}
         </div>
