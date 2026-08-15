@@ -36,7 +36,7 @@ function TableHeaderRow() {
 function TypeGroup({ title, rows }: { title: string; rows: Card[] }) {
   if (rows.length === 0) return null
   return (
-    <details open className="group mt-4 rounded-lg border border-gray-200">
+    <details open className="group mt-3 rounded-lg border border-gray-200">
       <summary className="flex cursor-pointer items-center justify-between rounded-lg px-3 py-2.5 text-sm font-semibold uppercase tracking-wide text-brand transition-colors duration-100 active:bg-gray-50">
         <span>
           {title} ({rows.length})
@@ -131,7 +131,7 @@ export default function EquipmentBrowser({ cards }: { cards: Card[] }) {
 
   const forkliftBlock = FORKLIFT_TYPES.some((type) => byType(typedCards, type).length > 0) && (
     <div key="forklift">
-      <h2 className="mt-6 text-sm font-bold tracking-wide text-brand uppercase">Forklift</h2>
+      <h2 className="mt-4 text-sm font-bold tracking-wide text-brand uppercase">Forklift</h2>
       {orderedForkliftTypes.map((type) => (
         <TypeGroup key={type} title={equipmentTypeLabel(type)} rows={byType(typedCards, type)} />
       ))}
@@ -140,7 +140,7 @@ export default function EquipmentBrowser({ cards }: { cards: Card[] }) {
 
   const palletBlock = palletCards.length > 0 && (
     <div key="pallet">
-      <h2 className="mt-6 text-sm font-bold tracking-wide text-brand uppercase">Pallet Jacks</h2>
+      <h2 className="mt-4 text-sm font-bold tracking-wide text-brand uppercase">Pallet Jacks</h2>
       <TypeGroup title="Pallet Jacks" rows={palletCards} />
     </div>
   )

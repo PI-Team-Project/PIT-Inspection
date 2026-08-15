@@ -242,7 +242,9 @@ export default async function DashboardPage({
         />
       </div>
 
-      <details className="group mt-6 rounded-lg border border-gray-200">
+      <div className="my-3 border-t border-gray-200" />
+
+      <details className="group rounded-lg border border-gray-200">
         <summary className="flex cursor-pointer items-center justify-between rounded-lg px-3 py-2.5 text-sm font-medium text-gray-700 transition-colors duration-100 hover:bg-gray-50 active:scale-[0.99] active:bg-gray-100">
           <span>Vehicle Status</span>
           <svg
@@ -274,11 +276,11 @@ export default async function DashboardPage({
         </div>
       </details>
 
-      <div className="my-4 border-t border-gray-200" />
+      <div className="mt-2">
+        <LocationOverview rows={equipmentRows} />
+      </div>
 
-      <LocationOverview rows={equipmentRows} />
-
-      <div className="my-4 border-t border-gray-200" />
+      <div className="my-3 border-t border-gray-200" />
 
       <EquipmentBrowser
         cards={rows.map((row) => ({
