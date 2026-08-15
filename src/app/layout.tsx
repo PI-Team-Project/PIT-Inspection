@@ -36,8 +36,13 @@ export default function RootLayout({
         {/* Setting only overflow-y (not overflow-x) makes the x-axis
             compute to "auto" per spec, not "visible" — any content that's
             even 1px too wide turns this into a horizontally pannable div
-            despite html's overflow-x-hidden, which only guards the root. */}
-        <div className="flex-1 overflow-x-hidden overflow-y-auto">{children}</div>
+            despite html's overflow-x-hidden, which only guards the root.
+            overscroll-none kills the iOS rubber-band bounce past the top/
+            bottom edge — scrolling stops exactly where the content ends
+            instead of springing past it. */}
+        <div className="flex-1 overflow-x-hidden overflow-y-auto overscroll-none">
+          {children}
+        </div>
         <footer className="flex shrink-0 justify-center border-t border-gray-100 bg-white py-3">
           <Image
             src="/lx-pantos-logo.png"
