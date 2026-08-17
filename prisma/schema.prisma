@@ -24,6 +24,12 @@ model Inspection {
   equipmentSerial String
   answers         Json
   review          Json?
+
+  // Nearly every query either scans recent inspections fleet-wide
+  // (dashboard) or a single vehicle's history ordered by time (equipment
+  // detail, retention filtering) — both were unindexed table scans before.
+  @@index([createdAt])
+  @@index([equipmentSerial, createdAt])
 }
 
 // The fleet's master vehicle list — supersedes the old hardcoded
