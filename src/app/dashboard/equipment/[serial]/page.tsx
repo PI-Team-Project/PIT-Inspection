@@ -72,6 +72,7 @@ export default async function EquipmentDetailPage({
       where,
       orderBy: { createdAt: "desc" },
       take: RECENT_LOOKBACK,
+      include: { photos: true },
     }),
     prisma.inspection.count({ where }),
   ])
@@ -95,6 +96,7 @@ export default async function EquipmentDetailPage({
             orderBy: { createdAt: "desc" },
             skip: (page - 1) * PAGE_SIZE,
             take: PAGE_SIZE,
+            include: { photos: true },
           })
         ).map(buildRow)
 

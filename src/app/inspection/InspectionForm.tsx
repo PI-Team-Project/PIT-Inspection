@@ -1,8 +1,15 @@
 "use client"
 
-import { useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import NextImage from "next/image"
 import { submitInspection } from "./actions"
+import {
+  saveInspectionDraft,
+  loadInspectionDraft,
+  clearInspectionDraft,
+  isDraftMeaningful,
+  type InspectionDraft,
+} from "@/lib/inspectionDraft"
 import {
   needsAttention,
   REPAIR_REQUEST_ISSUE_ID,
@@ -45,6 +52,15 @@ function setInputFiles(input: HTMLInputElement | null, file: File | null) {
   input.files = dt.files
 }
 
+// Keyed by the `?error=` code actions.ts redirects back with on a rejected
+// or failed submission — see submitInspection in ./actions.ts.
+const SUBMIT_ERROR_MESSAGES: Record<string, string> = {
+  "missing-fields": "Some required fields were missing — please fill out the form again.",
+  "unknown-equipment": "That vehicle couldn't be found — please pick a vehicle again.",
+  "equipment-retired": "This vehicle was just retired — please choose a different vehicle.",
+  "submit-failed": "Something went wrong submitting your inspection. Please try again.",
+}
+
 const EQUIPMENT_CATEGORIES: EquipmentCategory[] = ["Forklift", "Pallet Jack"]
 const FORKLIFT_TYPES: EquipmentType[] = ["Sit Down", "Propane", "Standup"]
 
@@ -76,17 +92,43 @@ export default function InspectionForm({
   equipmentList,
   today,
   alreadyInspectedThisShift,
+  initialError,
 }: {
   questions: Question[]
   equipmentList: Equipment[]
   today: string
   alreadyInspectedThisShift: Record<string, { by: string; when: string }>
+  initialError?: string
 }) {
+  const [submitError, setSubmitError] = useState(
+    initialError ? (SUBMIT_ERROR_MESSAGES[initialError] ?? SUBMIT_ERROR_MESSAGES["submit-failed"]) : null
+  )
   const [step, setStep] = useState(0)
   const [values, setValues] = useState<Record<string, string>>({
     date: today,
   })
   const [duplicateWarningSerial, setDuplicateWarningSerial] = useState<string | null>(null)
+
+  // Offer to resume an autosaved draft instead of silently overwriting it —
+  // `pendingDraft` gates the autosave effect below until the user picks
+  // Resume or Start Over, so landing on a stale draft doesn't immediately
+  // clobber it with the fresh blank state.
+  const [loadedDraft, setLoadedDraft] = useState<InspectionDraft | null>(null)
+  const [draftChecked, setDraftChecked] = useState(false)
+
+  // A lazy useState initializer would avoid the effect entirely, but this
+  // component is server-rendered too (it's "use client", not client-only),
+  // and localStorage doesn't exist during that pass — reading it has to
+  // stay in an effect so the deterministic SSR output always matches the
+  // client's first render, and the draft check only lands in a later,
+  // separate commit.
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setLoadedDraft(loadInspectionDraft())
+    setDraftChecked(true)
+  }, [])
+
+  const pendingDraft = loadedDraft && isDraftMeaningful(loadedDraft) ? loadedDraft : null
 
   const steps: StepDef[] =
     values.inspectionType === "Repair Request"
@@ -112,6 +154,26 @@ export default function InspectionForm({
     Record<string, (string | null)[]>
   >({})
   const [photoNotes, setPhotoNotes] = useState<Record<string, string[]>>({})
+
+  // Skipped while a draft is awaiting Resume/Start Over so the fresh blank
+  // state doesn't overwrite the very draft being offered.
+  useEffect(() => {
+    if (!draftChecked || pendingDraft) return
+    saveInspectionDraft({ values, step, photoNotes, savedAt: new Date().toISOString() })
+  }, [values, step, photoNotes, draftChecked, pendingDraft])
+
+  function resumeDraft() {
+    if (!pendingDraft) return
+    setValues(pendingDraft.values)
+    setStep(pendingDraft.step)
+    setPhotoNotes(pendingDraft.photoNotes)
+    setLoadedDraft(null)
+  }
+
+  function discardDraft() {
+    clearInspectionDraft()
+    setLoadedDraft(null)
+  }
 
   const total = steps.length
   const isLast = step === total - 1
@@ -191,8 +253,59 @@ export default function InspectionForm({
     setStep((s) => Math.max(s - 1, 0))
   }
 
+  const errorBanner = submitError && (
+    <div className="mx-4 mt-4 flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-800">
+      <span className="flex-1">{submitError}</span>
+      <button
+        type="button"
+        onClick={() => setSubmitError(null)}
+        aria-label="Dismiss"
+        className="shrink-0 text-lg leading-none text-red-400 active:scale-90"
+      >
+        ×
+      </button>
+    </div>
+  )
+
+  if (pendingDraft) {
+    const savedAtLabel = new Date(pendingDraft.savedAt).toLocaleTimeString([], {
+      hour: "numeric",
+      minute: "2-digit",
+    })
+    return (
+      <div className="flex flex-1 flex-col items-center justify-center px-4 py-24 text-center">
+        {errorBanner}
+        <div className="text-4xl">📝</div>
+        <h1 className="mt-4 text-lg font-bold text-gray-900">
+          Resume your unfinished inspection?
+        </h1>
+        <p className="mt-2 max-w-xs text-sm text-gray-500">
+          You have answers saved from {savedAtLabel} that didn&apos;t get
+          submitted. Any photos will need to be re-attached.
+        </p>
+        <div className="mt-6 flex w-full max-w-xs flex-col gap-3">
+          <button
+            type="button"
+            onClick={resumeDraft}
+            className="rounded-lg bg-brand px-6 py-3 font-semibold text-white transition-transform duration-100 active:scale-95 active:bg-brand-dark"
+          >
+            Resume
+          </button>
+          <button
+            type="button"
+            onClick={discardDraft}
+            className="rounded-lg border border-gray-300 px-6 py-3 font-semibold text-gray-600 transition-transform duration-100 active:scale-95 active:bg-gray-50"
+          >
+            Start Over
+          </button>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <form action={submitInspection} className="flex flex-1 flex-col">
+      {errorBanner}
       <div className="sticky top-0 z-10 bg-white px-4 pt-4 pb-2">
         <div className="mb-1 flex items-center justify-between text-xs text-gray-500">
           <span>

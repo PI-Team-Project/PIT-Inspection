@@ -11,6 +11,7 @@ import {
   flaggedIssueIds,
   type Stage,
 } from "@/lib/review"
+import { getShiftWindowForDate } from "@/lib/shifts"
 import type { EquipmentType } from "@/lib/equipment"
 
 export type Answers = Record<
@@ -26,10 +27,35 @@ export type Answers = Record<
 
 export type InspectionRow = ReturnType<typeof buildRow>
 
-export function buildRow(
-  inspection: Awaited<ReturnType<typeof prisma.inspection.findMany>>[number]
-) {
-  const answers = inspection.answers as Answers
+// Photos live in their own table now — callers that need them (equipment
+// detail) `include: { photos: true }`, callers that only need a yes/no flag
+// (dashboard) `include: { _count: { select: { photos: true } } }` instead of
+// paying for the actual bytes. Both shapes flow through the same row here.
+type RawInspection = Awaited<ReturnType<typeof prisma.inspection.findMany>>[number] & {
+  photos?: { questionId: string; order: number; dataUri: string; note: string | null }[]
+  _count?: { photos: number }
+}
+
+export function buildRow(inspection: RawInspection) {
+  const answers = { ...(inspection.answers as Answers) }
+  if (inspection.photos) {
+    const byQuestion = new Map<string, typeof inspection.photos>()
+    for (const photo of inspection.photos) {
+      const list = byQuestion.get(photo.questionId)
+      if (list) list.push(photo)
+      else byQuestion.set(photo.questionId, [photo])
+    }
+    for (const [questionId, list] of byQuestion) {
+      const entry = answers[questionId]
+      if (!entry) continue
+      list.sort((a, b) => a.order - b.order)
+      answers[questionId] = {
+        ...entry,
+        photos: list.map((p) => p.dataUri),
+        ...(list.some((p) => p.note) ? { photoNotes: list.map((p) => p.note ?? "") } : {}),
+      }
+    }
+  }
   const review = parseReview(inspection.review)
   const flagged = flaggedIssueIds(inspection, answers).map(
     (id) => (id === REPAIR_REQUEST_ISSUE_ID ? REPAIR_REQUEST_QUESTION : QUESTIONS_BY_ID[id])
@@ -80,4 +106,19 @@ export function daysPassedCount(since: string, today: string): number {
   return Math.round(
     (new Date(today).getTime() - new Date(since).getTime()) / (1000 * 60 * 60 * 24)
   )
+}
+
+// The stage shown in a single weekly-report cell — whichever inspection (if
+// any) fell inside that specific day+shift window. `history` is already
+// sorted newest-first, so the first match is the one that counts.
+export function weeklyCellStage(
+  history: InspectionRow[],
+  dateKey: string,
+  shiftLabel: "Day" | "Night"
+): Stage | "none" {
+  const window = getShiftWindowForDate(dateKey, shiftLabel)
+  const match = history.find(
+    (row) => row.inspection.createdAt >= window.start && row.inspection.createdAt < window.end
+  )
+  return match?.stage ?? "none"
 }

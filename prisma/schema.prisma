@@ -24,12 +24,30 @@ model Inspection {
   equipmentSerial String
   answers         Json
   review          Json?
+  photos          Photo[]
 
   // Nearly every query either scans recent inspections fleet-wide
   // (dashboard) or a single vehicle's history ordered by time (equipment
   // detail, retention filtering) — both were unindexed table scans before.
   @@index([createdAt])
   @@index([equipmentSerial, createdAt])
+}
+
+// Split out from Inspection.answers so the dashboard's fleet-wide query
+// (which never renders individual photos, just a hasPhotos flag) doesn't
+// have to pull every base64 photo into memory on every load — only the
+// equipment detail page, which actually shows them, joins this in.
+model Photo {
+  id           String     @id @default(cuid())
+  inspectionId String
+  inspection   Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+  questionId   String
+  order        Int
+  dataUri      String
+  note         String?
+  createdAt    DateTime   @default(now())
+
+  @@index([inspectionId])
 }
 
 // The fleet's master vehicle list — supersedes the old hardcoded

@@ -6,8 +6,11 @@ import { revalidatePath } from "next/cache"
 import {
   DASHBOARD_COOKIE,
   MANAGER_NAME_COOKIE,
+  PIN_ATTEMPTS_COOKIE,
   dashboardSessionValue,
   isValidPin,
+  getPinLockout,
+  recordFailedPinAttempt,
 } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { LOCATIONS } from "@/lib/equipment"
@@ -41,12 +44,31 @@ export async function shiftHasData(dateKey: string, label: "Day" | "Night"): Pro
 
 export async function unlockDashboard(formData: FormData) {
   const pin = String(formData.get("pin") ?? "")
+  const cookieStore = await cookies()
+
+  const existingLockout = getPinLockout(cookieStore.get(PIN_ATTEMPTS_COOKIE)?.value)
+  if (existingLockout) {
+    const minutes = Math.ceil((existingLockout.lockedUntil - Date.now()) / 60000)
+    redirect(`/dashboard?error=locked&minutes=${minutes}`)
+  }
 
   if (!isValidPin(pin)) {
+    const { cookieValue, lockedUntil } = recordFailedPinAttempt(
+      cookieStore.get(PIN_ATTEMPTS_COOKIE)?.value
+    )
+    cookieStore.set(PIN_ATTEMPTS_COOKIE, cookieValue, {
+      httpOnly: true,
+      sameSite: "lax",
+      maxAge: 60 * 60,
+    })
+    if (lockedUntil) {
+      const minutes = Math.ceil((lockedUntil - Date.now()) / 60000)
+      redirect(`/dashboard?error=locked&minutes=${minutes}`)
+    }
     redirect("/dashboard?error=1")
   }
 
-  const cookieStore = await cookies()
+  cookieStore.delete(PIN_ATTEMPTS_COOKIE)
   cookieStore.set(DASHBOARD_COOKIE, dashboardSessionValue(), {
     httpOnly: true,
     sameSite: "lax",

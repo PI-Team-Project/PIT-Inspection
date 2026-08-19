@@ -138,6 +138,18 @@ export function shiftDateKeyByDays(dateKey: string, deltaDays: number): string {
   return `${dt.getUTCFullYear()}-${String(dt.getUTCMonth() + 1).padStart(2, "0")}-${String(dt.getUTCDate()).padStart(2, "0")}`
 }
 
+// The Monday (Eastern-calendar) of the Mon-Sun week containing dateKey —
+// used to anchor the dashboard's weekly report to a fixed week grid
+// regardless of which day it's viewed on.
+export function mondayOfWeek(dateKey: string): string {
+  const [y, m, d] = dateKey.split("-").map(Number)
+  const dt = new Date(Date.UTC(y, m - 1, d))
+  const day = dt.getUTCDay() // 0 = Sun .. 6 = Sat
+  const diff = day === 0 ? -6 : 1 - day
+  dt.setUTCDate(dt.getUTCDate() + diff)
+  return `${dt.getUTCFullYear()}-${String(dt.getUTCMonth() + 1).padStart(2, "0")}-${String(dt.getUTCDate()).padStart(2, "0")}`
+}
+
 // The named shift for a specific Eastern calendar date — used when a
 // supervisor navigates to a past date instead of "whatever's most recent."
 export function getShiftWindowForDate(dateKey: string, label: "Day" | "Night"): ShiftWindow {

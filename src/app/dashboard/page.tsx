@@ -12,11 +12,14 @@ import {
   type EquipmentType,
 } from "@/lib/equipment"
 import { getActiveEquipmentList, getRetiredEquipmentNearingExpiry } from "@/lib/equipmentLocations"
+import LiveClock from "./LiveClock"
 import { isCriticalInspection, type Stage } from "@/lib/review"
 import {
   getCurrentShiftWindow,
   getMostRecentShiftWindows,
   getShiftWindowForDate,
+  mondayOfWeek,
+  shiftDateKeyByDays,
   easternDateKey,
   FLEET_TIME_ZONE,
 } from "@/lib/shifts"
@@ -29,11 +32,13 @@ import EquipmentSearch from "./EquipmentSearch"
 import EquipmentBrowser from "./EquipmentBrowser"
 import InspectedChip from "./InspectedChip"
 import ShiftDateNav from "./ShiftDateNav"
+import WeeklyReport from "./WeeklyReport"
 import {
   buildRow,
   badSince,
   retentionCutoff,
   daysPassedCount,
+  weeklyCellStage,
   RETENTION_YEARS,
   type InspectionRow,
 } from "./inspectionRow"
@@ -58,6 +63,7 @@ export default async function DashboardPage({
 }: {
   searchParams: Promise<{
     error?: string
+    minutes?: string
     filter?: string
     shift?: string
     date?: string
@@ -68,7 +74,12 @@ export default async function DashboardPage({
   const authed = cookieStore.get(DASHBOARD_COOKIE)?.value === dashboardSessionValue()
 
   if (!authed) {
-    return <PinForm error={params.error === "1"} />
+    return (
+      <PinForm
+        error={params.error === "1"}
+        lockedMinutes={params.error === "locked" ? Number(params.minutes) || 1 : undefined}
+      />
+    )
   }
 
   const filter = params.filter
@@ -96,6 +107,10 @@ export default async function DashboardPage({
     prisma.inspection.findMany({
       where: { createdAt: { gte: oldestPossibleCutoff } },
       orderBy: { createdAt: "desc" },
+      // Never needs actual photo bytes here, only whether any exist
+      // (EquipmentCard's hasPhotos) — a count join costs nothing close to
+      // what pulling every base64 photo in the retention window would.
+      include: { _count: { select: { photos: true } } },
     }),
     getActiveEquipmentList(),
     getRetiredEquipmentNearingExpiry(30),
@@ -155,6 +170,20 @@ export default async function DashboardPage({
       ? requestedWindow
       : recentShifts[selectedShiftLabel as "Day" | "Night"]
   const isViewingLive = shiftWindow.start.getTime() === currentShift.start.getTime()
+
+  const todayKey = easternDateKey(now)
+  const weekDays = Array.from({ length: 7 }, (_, i) =>
+    shiftDateKeyByDays(mondayOfWeek(todayKey), i)
+  )
+  const weeklyRows = equipmentRows.map((row) => ({
+    serial: row.equipment.serial,
+    flNumber: row.equipment.flNumber,
+    cells: weekDays.map((dateKey) => ({
+      day: weeklyCellStage(row.history, dateKey, "Day"),
+      night: weeklyCellStage(row.history, dateKey, "Night"),
+    })),
+  }))
+
   const inspectedThisShift = (row: EquipmentRow) => {
     // Unresolved (red) means out of service until fixed — being inspected
     // this shift doesn't make it ready to use, so it never counts as
@@ -211,9 +240,7 @@ export default async function DashboardPage({
 
       <div className="mt-4 flex items-center justify-between gap-3">
         <div className="flex items-baseline gap-1.5">
-          <span className="font-mono text-2xl font-semibold tracking-wide text-gray-900 tabular-nums">
-            {timeLabel}
-          </span>
+          <LiveClock timeZone={FLEET_TIME_ZONE} initialLabel={timeLabel} />
           <span className="text-xs font-medium text-gray-400">Eastern Time — Holland, MI</span>
         </div>
         <div className="flex w-fit flex-col items-stretch gap-0 text-sm font-medium">
@@ -244,12 +271,16 @@ export default async function DashboardPage({
       </div>
 
       <div className="mt-4">
+        <WeeklyReport weekDays={weekDays} rows={weeklyRows} todayKey={todayKey} />
+      </div>
+
+      <div className="mt-4">
         <ShiftOverview
           shiftWindow={shiftWindow}
           selectedShiftLabel={selectedShiftLabel}
           currentShiftLabel={currentShift.label}
           dateParam={dateParam}
-          todayKey={easternDateKey(now)}
+          todayKey={todayKey}
           isViewingLive={isViewingLive}
           rows={equipmentRows}
           inspectedThisShift={inspectedThisShift}
@@ -260,7 +291,7 @@ export default async function DashboardPage({
 
       <details className="group rounded-lg border border-gray-200">
         <summary className="flex cursor-pointer items-center justify-between rounded-lg px-3 py-2.5 text-sm font-medium text-gray-700 transition-colors duration-100 hover:bg-gray-50 active:scale-[0.99] active:bg-gray-100">
-          <span>Vehicle Status</span>
+          <span>View Vehicle Status</span>
           <svg
             xmlns="http://www.w3.org/2000/svg"
             viewBox="0 0 20 20"
@@ -429,7 +460,7 @@ function LocationOverview({ rows }: { rows: EquipmentRow[] }) {
   return (
     <details className="group rounded-lg border border-gray-200">
       <summary className="flex cursor-pointer items-center justify-between rounded-lg px-3 py-2.5 text-sm font-medium text-gray-700 transition-colors duration-100 hover:bg-gray-50 active:scale-[0.99] active:bg-gray-100">
-        <span>📍 See all vehicle locations</span>
+        <span>Vehicle Per Location</span>
         <svg
           xmlns="http://www.w3.org/2000/svg"
           viewBox="0 0 20 20"
@@ -670,9 +701,7 @@ function EquipmentCard({
   today: string
   todayDisplay: string
 }) {
-  const hasPhotos = latest
-    ? Object.values(latest.answers).some((a) => (a.photos?.length ?? 0) > 0)
-    : false
+  const hasPhotos = (latest?.inspection._count?.photos ?? 0) > 0
   const daysPassed = since ? daysPassedCount(since, today) : 0
 
   return (

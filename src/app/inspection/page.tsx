@@ -9,7 +9,12 @@ import { getCurrentShiftWindow, FLEET_TIME_ZONE } from "@/lib/shifts"
 // or new corrections would never show up until the next deploy.
 export const dynamic = "force-dynamic"
 
-export default async function InspectionPage() {
+export default async function InspectionPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string }>
+}) {
+  const { error } = await searchParams
   const today = new Date().toISOString().slice(0, 10)
   const now = new Date()
   const shiftWindow = getCurrentShiftWindow(now)
@@ -49,6 +54,7 @@ export default async function InspectionPage() {
         equipmentList={equipmentList}
         today={today}
         alreadyInspectedThisShift={alreadyInspectedThisShift}
+        initialError={error}
       />
     </div>
   )

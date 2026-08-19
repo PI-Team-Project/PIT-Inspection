@@ -3,9 +3,17 @@
 import { useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
+import { clearInspectionDraft } from "@/lib/inspectionDraft"
 
 export default function InspectionSuccessPage() {
   const router = useRouter()
+
+  // Only reached after a real successful submission (the server action
+  // redirects here) — safe to drop the autosaved draft now, not any
+  // earlier, so a failed/interrupted submit still leaves it recoverable.
+  useEffect(() => {
+    clearInspectionDraft()
+  }, [])
 
   useEffect(() => {
     const timer = setTimeout(() => router.push("/"), 2500)
