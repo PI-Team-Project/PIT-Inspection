@@ -44,12 +44,14 @@ export default function Home() {
         </Link>
       </div>
 
-      <div className="mt-20 flex aspect-square w-full max-w-[160px] items-center justify-center rounded-lg border-2 border-dashed border-gray-300 text-center text-sm text-gray-400">
-        <span>
-          QR Code
-          <br />
-          (coming soon)
-        </span>
+      <div className="mt-20 flex flex-col items-center gap-2">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/qr-inspection.svg"
+          alt="QR code linking to the inspection form"
+          className="aspect-square w-full max-w-[160px] rounded-lg border border-gray-200 p-2"
+        />
+        <p className="text-xs text-gray-400">Scan to start an inspection</p>
       </div>
     </main>
   )
