@@ -52,7 +52,7 @@ export default function WeeklyReport({
   return (
     <div className="rounded-lg border border-gray-200 shadow-sm">
       <div className="flex items-center justify-between border-b border-gray-200 px-3 py-2.5">
-        <div className="flex items-center gap-1">
+        <div className="flex flex-1 items-center justify-center gap-1">
           <Link
             href={prevWeekHref}
             aria-label="Previous week"

@@ -611,7 +611,7 @@ function ShiftOverview({
 
   return (
     <div>
-      <p className="mb-2 text-sm font-semibold text-gray-900">Shift Report</p>
+      <p className="mb-2 text-center text-sm font-semibold text-gray-900">Shift Report</p>
       <div className="mb-2 flex gap-1.5 rounded-lg border border-gray-200 bg-gray-50 p-1 text-sm font-medium">
         {(["Day", "Night"] as const).map((label) => {
           const selected = selectedShiftLabel === label
