@@ -67,7 +67,7 @@ export default async function DashboardPage({
     filter?: string
     shift?: string
     date?: string
-    weekOffset?: string
+    weekDate?: string
   }>
 }) {
   const params = await searchParams
@@ -173,14 +173,17 @@ export default async function DashboardPage({
   const isViewingLive = shiftWindow.start.getTime() === currentShift.start.getTime()
 
   const todayKey = easternDateKey(now)
-  // Negative = past weeks, clamped at 0 so the grid can't page into a future
-  // week that has no data yet — same "don't render junk" guard the date nav
-  // above already uses for out-of-range dates.
-  const weekOffset = Math.min(0, Math.trunc(Number(params.weekOffset)) || 0)
-  const weekAnchorKey = shiftDateKeyByDays(todayKey, weekOffset * 7)
-  const weekDays = Array.from({ length: 7 }, (_, i) =>
-    shiftDateKeyByDays(mondayOfWeek(weekAnchorKey), i)
-  )
+  // Any date the requested week's Monday falls on — a calendar pick can
+  // land on any day, prev/next just walk it ±7. Clamped so the grid can't
+  // page into a future week that has no data yet, same guard the shift
+  // date nav above already uses for out-of-range dates.
+  const requestedWeekDate =
+    params.weekDate && /^\d{4}-\d{2}-\d{2}$/.test(params.weekDate) ? params.weekDate : todayKey
+  const weekMondayKey =
+    mondayOfWeek(requestedWeekDate) > mondayOfWeek(todayKey)
+      ? mondayOfWeek(todayKey)
+      : mondayOfWeek(requestedWeekDate)
+  const weekDays = Array.from({ length: 7 }, (_, i) => shiftDateKeyByDays(weekMondayKey, i))
   const weeklyRows = equipmentRows.map((row) => ({
     serial: row.equipment.serial,
     flNumber: row.equipment.flNumber,
@@ -190,8 +193,10 @@ export default async function DashboardPage({
     })),
   }))
   const weekNavBase = params.filter ? `/dashboard?filter=${params.filter}&` : "/dashboard?"
-  const prevWeekHref = `${weekNavBase}weekOffset=${weekOffset - 1}`
-  const nextWeekHref = weekOffset < 0 ? `${weekNavBase}weekOffset=${weekOffset + 1}` : null
+  const prevWeekHref = `${weekNavBase}weekDate=${shiftDateKeyByDays(weekMondayKey, -7)}`
+  const nextWeekMondayKey = shiftDateKeyByDays(weekMondayKey, 7)
+  const nextWeekHref =
+    nextWeekMondayKey <= mondayOfWeek(todayKey) ? `${weekNavBase}weekDate=${nextWeekMondayKey}` : null
 
   const inspectedThisShift = (row: EquipmentRow) => {
     // Unresolved (red) means out of service until fixed — being inspected
@@ -280,16 +285,6 @@ export default async function DashboardPage({
       </div>
 
       <div className="mt-4">
-        <WeeklyReport
-          weekDays={weekDays}
-          rows={weeklyRows}
-          todayKey={todayKey}
-          prevWeekHref={prevWeekHref}
-          nextWeekHref={nextWeekHref}
-        />
-      </div>
-
-      <div className="mt-4">
         <ShiftOverview
           shiftWindow={shiftWindow}
           selectedShiftLabel={selectedShiftLabel}
@@ -299,6 +294,18 @@ export default async function DashboardPage({
           isViewingLive={isViewingLive}
           rows={equipmentRows}
           inspectedThisShift={inspectedThisShift}
+        />
+      </div>
+
+      <div className="mt-4">
+        <WeeklyReport
+          weekDays={weekDays}
+          rows={weeklyRows}
+          todayKey={todayKey}
+          weekMondayKey={weekMondayKey}
+          prevWeekHref={prevWeekHref}
+          nextWeekHref={nextWeekHref}
+          weekNavBase={weekNavBase}
         />
       </div>
 
