@@ -67,7 +67,6 @@ export default async function DashboardPage({
     filter?: string
     shift?: string
     date?: string
-    weekDate?: string
   }>
 }) {
   const params = await searchParams
@@ -173,16 +172,13 @@ export default async function DashboardPage({
   const isViewingLive = shiftWindow.start.getTime() === currentShift.start.getTime()
 
   const todayKey = easternDateKey(now)
-  // Any date the requested week's Monday falls on — a calendar pick can
-  // land on any day, prev/next just walk it ±7. Clamped so the grid can't
-  // page into a future week that has no data yet, same guard the shift
-  // date nav above already uses for out-of-range dates.
-  const requestedWeekDate =
-    params.weekDate && /^\d{4}-\d{2}-\d{2}$/.test(params.weekDate) ? params.weekDate : todayKey
-  const weekMondayKey =
-    mondayOfWeek(requestedWeekDate) > mondayOfWeek(todayKey)
-      ? mondayOfWeek(todayKey)
-      : mondayOfWeek(requestedWeekDate)
+  // One shared date drives both sections now — there's no separate weekly
+  // calendar. Whatever day the Day/Night shift nav above is currently
+  // showing (live or a past date/shift picked there) is the day the
+  // Weekly Report anchors its week to, so paging the shift view across a
+  // week boundary (or picking a date on its calendar) moves both at once.
+  const viewedDateKey = easternDateKey(shiftWindow.start)
+  const weekMondayKey = mondayOfWeek(viewedDateKey)
   const weekDays = Array.from({ length: 7 }, (_, i) => shiftDateKeyByDays(weekMondayKey, i))
   const weeklyRows = equipmentRows.map((row) => ({
     serial: row.equipment.serial,
@@ -192,11 +188,14 @@ export default async function DashboardPage({
       night: weeklyCellStage(row.history, dateKey, "Night"),
     })),
   }))
-  const weekNavBase = params.filter ? `/dashboard?filter=${params.filter}&` : "/dashboard?"
-  const prevWeekHref = `${weekNavBase}weekDate=${shiftDateKeyByDays(weekMondayKey, -7)}`
-  const nextWeekMondayKey = shiftDateKeyByDays(weekMondayKey, 7)
+  // Stepping a week here just moves the same shared date ±7 days, keeping
+  // whatever shift (Day/Night) is currently selected — same param the
+  // shift nav's own back-arrow/calendar already write to.
+  const shiftParam = selectedShiftLabel.toLowerCase()
+  const prevWeekHref = `/dashboard?shift=${shiftParam}&date=${shiftDateKeyByDays(viewedDateKey, -7)}`
+  const nextWeekDateKey = shiftDateKeyByDays(viewedDateKey, 7)
   const nextWeekHref =
-    nextWeekMondayKey <= mondayOfWeek(todayKey) ? `${weekNavBase}weekDate=${nextWeekMondayKey}` : null
+    nextWeekDateKey <= todayKey ? `/dashboard?shift=${shiftParam}&date=${nextWeekDateKey}` : null
 
   const inspectedThisShift = (row: EquipmentRow) => {
     // Unresolved (red) means out of service until fixed — being inspected
@@ -302,10 +301,8 @@ export default async function DashboardPage({
           weekDays={weekDays}
           rows={weeklyRows}
           todayKey={todayKey}
-          weekMondayKey={weekMondayKey}
           prevWeekHref={prevWeekHref}
           nextWeekHref={nextWeekHref}
-          weekNavBase={weekNavBase}
         />
       </div>
 
@@ -614,6 +611,7 @@ function ShiftOverview({
 
   return (
     <div>
+      <p className="mb-2 text-sm font-semibold text-gray-700">Shift Report</p>
       <div className="mb-2 flex gap-1.5 rounded-lg border border-gray-200 bg-gray-50 p-1 text-sm font-medium">
         {(["Day", "Night"] as const).map((label) => {
           const selected = selectedShiftLabel === label

@@ -1,7 +1,6 @@
 import { Fragment } from "react"
 import Link from "next/link"
 import type { Stage } from "@/lib/review"
-import WeekDatePicker from "./WeekDatePicker"
 
 type WeeklyRow = {
   serial: string
@@ -31,18 +30,14 @@ export default function WeeklyReport({
   weekDays,
   rows,
   todayKey,
-  weekMondayKey,
   prevWeekHref,
   nextWeekHref,
-  weekNavBase,
 }: {
   weekDays: string[]
   rows: WeeklyRow[]
   todayKey: string
-  weekMondayKey: string
   prevWeekHref: string
   nextWeekHref: string | null
-  weekNavBase: string
 }) {
   if (rows.length === 0) return null
 
@@ -82,7 +77,6 @@ export default function WeeklyReport({
               ›
             </span>
           )}
-          <WeekDatePicker weekMondayKey={weekMondayKey} todayKey={todayKey} hrefBase={weekNavBase} />
         </div>
         <div className="flex items-center gap-2 text-[10px] font-medium text-gray-400">
           <span className="flex items-center gap-1">
