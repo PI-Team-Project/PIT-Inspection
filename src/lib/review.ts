@@ -1,4 +1,4 @@
-import { QUESTIONS, REPAIR_REQUEST_ISSUE_ID, needsAttention } from "./questions"
+import { QUESTIONS, REPAIR_REQUEST_ISSUE_ID, needsAttention, isSafetyCriticalQuestion } from "./questions"
 
 export type IssueStatusValue = "in_review" | "complete"
 
@@ -61,11 +61,23 @@ export function parseReview(value: unknown): Review {
   }
 }
 
-// RED is driven by the inspection's type, not by individual answers: a
-// "Repair Request" submission is inherently critical; a "Daily" submission
-// tops out at YELLOW (usable, needs attention) no matter what's flagged.
+// A "Repair Request" submission is inherently critical (RED) regardless of
+// what it says. A "Daily" submission tops out at YELLOW (usable, needs
+// attention) — UNLESS the specific flagged question is one of the
+// safety-critical ones (see isCriticalFlag below), which escalates it too.
 export function isCriticalInspection(inspection: { type: string }): boolean {
   return inspection.type === "Repair Request"
+}
+
+// Whether one flagged question should count toward Unresolved (red)
+// severity: the whole inspection already is (Repair Request), or this
+// specific question is unsafe-if-bad regardless of inspection type.
+export function isCriticalFlag(inspection: { type: string }, questionId: string): boolean {
+  return isCriticalInspection(inspection) || isSafetyCriticalQuestion(questionId)
+}
+
+export function criticalFlaggedIds(inspection: { type: string }, flaggedIds: string[]): string[] {
+  return flaggedIds.filter((id) => isCriticalFlag(inspection, id))
 }
 
 // The set of issue ids "flagged" on this inspection — the checklist

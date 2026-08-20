@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
+import { useFormStatus } from "react-dom"
 import NextImage from "next/image"
 import { submitInspection } from "./actions"
 import {
@@ -59,6 +60,23 @@ const SUBMIT_ERROR_MESSAGES: Record<string, string> = {
   "unknown-equipment": "That vehicle couldn't be found — please pick a vehicle again.",
   "equipment-retired": "This vehicle was just retired — please choose a different vehicle.",
   "submit-failed": "Something went wrong submitting your inspection. Please try again.",
+}
+
+// useFormStatus only reports the enclosing <form>'s pending state when
+// called from a component rendered *inside* it — reading it in the same
+// component that renders the <form> tag itself always sees pending=false,
+// which is why this is split out rather than inlined at the call site.
+function SubmitButton({ disabled }: { disabled: boolean }) {
+  const { pending } = useFormStatus()
+  return (
+    <button
+      type="submit"
+      disabled={disabled || pending}
+      className="flex-1 rounded-lg bg-brand px-4 py-4 text-lg font-semibold text-white transition-transform duration-100 active:scale-95 active:bg-brand-dark disabled:cursor-not-allowed disabled:bg-gray-300 disabled:active:scale-100"
+    >
+      {pending ? "Submitting…" : "Submit Inspection"}
+    </button>
+  )
 }
 
 const EQUIPMENT_CATEGORIES: EquipmentCategory[] = ["Forklift", "Pallet Jack"]
@@ -230,7 +248,15 @@ export default function InspectionForm({
     }
     const v = values[s.question.id]
     if (!v) return false
-    if (v.startsWith("Other") && !values[`${s.question.id}_specify`]?.trim()) return false
+    const isOther = v.startsWith("Other")
+    if (isOther && !values[`${s.question.id}_specify`]?.trim()) return false
+    // A flagged item with no documentation defeats the point of flagging it —
+    // photos stay optional, but a note is required, same principle as the
+    // Repair Request flow already requiring at least one photo. "Other"
+    // already requires its own free-text explanation via Please Specify, so
+    // that alone satisfies it — the note is only additionally required for
+    // every other bad answer (Poor, Not working condition, etc.).
+    if (needsAttention(v) && !isOther && !values[`${s.question.id}_note`]?.trim()) return false
     return true
   }
 
@@ -949,6 +975,8 @@ export default function InspectionForm({
                     name={`${q.id}_note`}
                     rows={3}
                     placeholder="Describe in as much detail as possible"
+                    value={values[`${q.id}_note`] ?? ""}
+                    onChange={(e) => set(`${q.id}_note`, e.target.value)}
                     className="w-full rounded-lg border border-gray-300 px-4 py-3 text-base"
                   />
                 </div>
@@ -970,13 +998,7 @@ export default function InspectionForm({
             </button>
           )}
           {isLast ? (
-            <button
-              type="submit"
-              disabled={!canAdvance}
-              className="flex-1 rounded-lg bg-brand px-4 py-4 text-lg font-semibold text-white transition-transform duration-100 active:scale-95 active:bg-brand-dark disabled:cursor-not-allowed disabled:bg-gray-300 disabled:active:scale-100"
-            >
-              Submit Inspection
-            </button>
+            <SubmitButton disabled={!canAdvance} />
           ) : (
             showContinue && (
               <button

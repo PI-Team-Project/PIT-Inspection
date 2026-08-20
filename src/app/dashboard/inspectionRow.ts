@@ -7,7 +7,7 @@ import {
 import {
   parseReview,
   getStage,
-  isCriticalInspection,
+  criticalFlaggedIds,
   flaggedIssueIds,
   type Stage,
 } from "@/lib/review"
@@ -57,10 +57,11 @@ export function buildRow(inspection: RawInspection) {
     }
   }
   const review = parseReview(inspection.review)
-  const flagged = flaggedIssueIds(inspection, answers).map(
-    (id) => (id === REPAIR_REQUEST_ISSUE_ID ? REPAIR_REQUEST_QUESTION : QUESTIONS_BY_ID[id])
-  )
-  const critical = isCriticalInspection(inspection) ? flagged : []
+  const flaggedIds = flaggedIssueIds(inspection, answers)
+  const toQuestion = (id: string) =>
+    id === REPAIR_REQUEST_ISSUE_ID ? REPAIR_REQUEST_QUESTION : QUESTIONS_BY_ID[id]
+  const flagged = flaggedIds.map(toQuestion)
+  const critical = criticalFlaggedIds(inspection, flaggedIds).map(toQuestion)
   const unresolved = critical.filter((q) => review.issueStatus[q.id] !== "complete")
   const allFlaggedComplete = flagged.every((q) => review.issueStatus[q.id] === "complete")
   const stage = getStage(

@@ -90,6 +90,21 @@ export const REPAIR_REQUEST_QUESTION: Question = {
   options: [],
 }
 
+// These conditions make the vehicle unsafe to operate outright — flagging
+// any of them escalates a Daily inspection straight to the same Unresolved
+// (red) severity as a Repair Request, instead of the usual Attention
+// (amber) tier every other checklist question gets.
+export const SAFETY_CRITICAL_QUESTION_IDS: readonly string[] = [
+  "horn",
+  "fluidLeaks",
+  "forwardBackward",
+  "liftLowering",
+]
+
+export function isSafetyCriticalQuestion(id: string): boolean {
+  return SAFETY_CRITICAL_QUESTION_IDS.includes(id)
+}
+
 export const REPAIR_REQUEST_PHOTO_SLOTS = 6
 
 export const CHECKLIST_PHOTO_SLOTS = 4

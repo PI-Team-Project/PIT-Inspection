@@ -16,7 +16,7 @@ import {
   getEquipmentCreatedAt,
   EQUIPMENT_ADDED_DATE_TRACKING_STARTS_AT,
 } from "@/lib/equipmentLocations"
-import { isCriticalInspection, type ActivityEntry, type Stage } from "@/lib/review"
+import { isCriticalInspection, isCriticalFlag, type ActivityEntry, type Stage } from "@/lib/review"
 import { FLEET_TIME_ZONE } from "@/lib/shifts"
 import { DASHBOARD_COOKIE, MANAGER_NAME_COOKIE, dashboardSessionValue } from "@/lib/auth"
 import {
@@ -29,6 +29,7 @@ import {
 import StatusDot from "../../StatusDot"
 import PhotoGallery from "../../PhotoGallery"
 import LocationChangeControl from "../../LocationChangeControl"
+import SignConfirmButton from "../../SignConfirmButton"
 import { saveActivity } from "../../actions"
 
 const PAGE_SIZE = 20
@@ -189,7 +190,7 @@ export default async function EquipmentDetailPage({
                 if (!answer) return null
                 const isRepairRequest = q.id === REPAIR_REQUEST_ISSUE_ID
                 const bad = needsAttention(answer.value)
-                const critical = isCriticalInspection(latest.inspection) && bad
+                const critical = bad && isCriticalFlag(latest.inspection, q.id)
                 const status = latest.review.issueStatus[q.id]
                 const fixed = bad && status === "complete"
                 const textColor = fixed
@@ -278,12 +279,7 @@ export default async function EquipmentDetailPage({
                     </p>
                   </div>
                 </div>
-                <button
-                  type="submit"
-                  className="mt-2 flex w-full items-center justify-center gap-2 rounded-lg bg-brand py-3 text-base font-semibold text-white transition-transform duration-100 active:scale-95 active:bg-brand-dark"
-                >
-                  ✓ Sign & Confirm
-                </button>
+                <SignConfirmButton />
               </div>
             </div>
 

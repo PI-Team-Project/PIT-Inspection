@@ -16,14 +16,28 @@ const CELL_COLOR: Record<Stage | "none", string> = {
   none: "bg-white",
 }
 
+// Color alone shouldn't carry the meaning here — a glyph on top means the
+// grid still reads correctly for colorblind viewers, not just at a glance.
+const CELL_GLYPH: Record<Stage | "none", string> = {
+  unresolved: "!",
+  "pending-confirm": "?",
+  confirmed: "✓",
+  clean: "✓",
+  none: "",
+}
+
 export default function WeeklyReport({
   weekDays,
   rows,
   todayKey,
+  prevWeekHref,
+  nextWeekHref,
 }: {
   weekDays: string[]
   rows: WeeklyRow[]
   todayKey: string
+  prevWeekHref: string
+  nextWeekHref: string | null
 }) {
   if (rows.length === 0) return null
 
@@ -38,7 +52,32 @@ export default function WeeklyReport({
   return (
     <div className="rounded-lg border border-gray-200 shadow-sm">
       <div className="flex items-center justify-between border-b border-gray-200 px-3 py-2.5">
-        <p className="text-sm font-semibold text-gray-700">Weekly Report</p>
+        <div className="flex items-center gap-1">
+          <Link
+            href={prevWeekHref}
+            aria-label="Previous week"
+            className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-gray-400 transition-colors duration-100 hover:bg-gray-100 hover:text-gray-600 active:scale-90"
+          >
+            ‹
+          </Link>
+          <p className="text-sm font-semibold text-gray-700">Weekly Report</p>
+          {nextWeekHref ? (
+            <Link
+              href={nextWeekHref}
+              aria-label="Next week"
+              className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-gray-400 transition-colors duration-100 hover:bg-gray-100 hover:text-gray-600 active:scale-90"
+            >
+              ›
+            </Link>
+          ) : (
+            <span
+              aria-hidden="true"
+              className="flex h-6 w-6 shrink-0 items-center justify-center text-gray-200"
+            >
+              ›
+            </span>
+          )}
+        </div>
         <div className="flex items-center gap-2 text-[10px] font-medium text-gray-400">
           <span className="flex items-center gap-1">
             <span className="h-2 w-2 rounded-sm bg-green-500" />
@@ -103,11 +142,15 @@ export default function WeeklyReport({
                 {row.cells.map((cell, i) => (
                   <Fragment key={i}>
                     <td
-                      className={`h-7 w-6 border-l border-t border-gray-200 sm:h-8 sm:w-8 ${CELL_COLOR[cell.day]}`}
-                    />
+                      className={`h-7 w-6 border-l border-t border-gray-200 text-center text-[10px] leading-none font-bold text-white sm:h-8 sm:w-8 sm:text-xs ${CELL_COLOR[cell.day]}`}
+                    >
+                      {CELL_GLYPH[cell.day]}
+                    </td>
                     <td
-                      className={`h-7 w-6 border-t border-gray-200 sm:h-8 sm:w-8 ${CELL_COLOR[cell.night]}`}
-                    />
+                      className={`h-7 w-6 border-t border-gray-200 text-center text-[10px] leading-none font-bold text-white sm:h-8 sm:w-8 sm:text-xs ${CELL_COLOR[cell.night]}`}
+                    >
+                      {CELL_GLYPH[cell.night]}
+                    </td>
                   </Fragment>
                 ))}
               </tr>
