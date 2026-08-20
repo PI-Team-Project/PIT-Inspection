@@ -1,3 +1,4 @@
+import type { ReactNode } from "react"
 import Link from "next/link"
 import { cookies } from "next/headers"
 import { prisma } from "@/lib/prisma"
@@ -245,35 +246,23 @@ export default async function DashboardPage({
       <div className="mt-3 border-t border-gray-100" />
 
       <div className="mt-4 flex items-center justify-between gap-3">
-        <div className="flex items-baseline gap-1.5">
+        <div className="flex items-baseline gap-3">
           <LiveClock timeZone={FLEET_TIME_ZONE} initialLabel={timeLabel} />
           <span className="text-xs font-medium text-gray-400">Eastern Time — Holland, MI</span>
         </div>
-        <div className="flex w-fit flex-col items-stretch gap-0 text-sm font-medium">
+        {noInspectionCount > 0 && (
           <Link
-            href={filter === "working" ? "/dashboard" : "/dashboard?filter=working"}
+            href={filter === "not-inspected" ? "/dashboard" : "/dashboard?filter=not-inspected"}
             scroll={false}
-            className={`flex items-center gap-1.5 rounded-full px-2 py-1 transition-colors duration-100 active:scale-95 ${
-              filter === "working" ? "bg-green-100 text-green-800" : "text-gray-700"
+            className={`flex items-center gap-1.5 rounded-full px-2 py-1 text-sm font-medium transition-colors duration-100 active:scale-95 ${
+              filter === "not-inspected" ? "bg-gray-200 text-gray-800" : "text-gray-500"
             }`}
           >
-            <span className="h-2.5 w-2.5 rounded-full bg-green-500 shadow-[0_0_3px_0.5px_rgba(34,197,94,0.9),0_0_6px_1px_rgba(34,197,94,0.5)]" />
-            {workingCount}/{equipmentList.length}
+            <span className="h-2.5 w-2.5 rounded-full bg-gray-300" />
+            {noInspectionCount}/{equipmentList.length}
+            <span className="hidden sm:inline">&nbsp;never inspected</span>
           </Link>
-          {noInspectionCount > 0 && (
-            <Link
-              href={filter === "not-inspected" ? "/dashboard" : "/dashboard?filter=not-inspected"}
-              scroll={false}
-              className={`flex items-center gap-1.5 rounded-full px-2 py-1 transition-colors duration-100 active:scale-95 ${
-                filter === "not-inspected" ? "bg-gray-200 text-gray-800" : "text-gray-500"
-              }`}
-            >
-              <span className="h-2.5 w-2.5 rounded-full bg-gray-300" />
-              {noInspectionCount}/{equipmentList.length}
-              <span className="hidden sm:inline">&nbsp;never inspected</span>
-            </Link>
-          )}
-        </div>
+        )}
       </div>
 
       <div className="mt-4">
@@ -286,6 +275,18 @@ export default async function DashboardPage({
           isViewingLive={isViewingLive}
           rows={equipmentRows}
           inspectedThisShift={inspectedThisShift}
+          statusChip={
+            <Link
+              href={filter === "working" ? "/dashboard" : "/dashboard?filter=working"}
+              scroll={false}
+              className={`flex items-center gap-1.5 rounded-full px-2 py-1 text-sm font-medium transition-colors duration-100 active:scale-95 ${
+                filter === "working" ? "bg-green-100 text-green-800" : "text-gray-700"
+              }`}
+            >
+              <span className="h-2.5 w-2.5 rounded-full bg-green-500 shadow-[0_0_3px_0.5px_rgba(34,197,94,0.9),0_0_6px_1px_rgba(34,197,94,0.5)]" />
+              {workingCount}/{equipmentList.length}
+            </Link>
+          }
         />
       </div>
 
@@ -379,6 +380,7 @@ function ShiftOverview({
   isViewingLive,
   rows,
   inspectedThisShift,
+  statusChip,
 }: {
   shiftWindow: { label: string; start: Date; end: Date }
   selectedShiftLabel: string
@@ -388,6 +390,7 @@ function ShiftOverview({
   isViewingLive: boolean
   rows: EquipmentRow[]
   inspectedThisShift: (row: EquipmentRow) => boolean
+  statusChip: ReactNode
 }) {
   const inspected = rows.filter(inspectedThisShift)
   // Unresolved (red) ones sort first in `rows` overall (most urgent), but
@@ -412,6 +415,7 @@ function ShiftOverview({
         label={shiftWindow.label as "Day" | "Night"}
         dateLabel={dateLabel}
         isViewingLive={isViewingLive}
+        statusChip={statusChip}
       />
       <div className="mb-2 flex gap-1.5 rounded-lg border border-gray-200 bg-gray-50 p-1 text-sm font-medium">
         {(["Day", "Night"] as const).map((label) => {
@@ -434,7 +438,7 @@ function ShiftOverview({
           )
         })}
       </div>
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+      <div className="grid grid-cols-2 gap-2">
         <div className="rounded-lg border border-green-200 bg-green-50 p-3 shadow-sm">
           <p className="pb-1.5 text-sm font-semibold text-green-800">
             Inspected ({inspected.length}/{rows.length})

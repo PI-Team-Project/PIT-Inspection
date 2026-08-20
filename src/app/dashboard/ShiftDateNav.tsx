@@ -1,6 +1,6 @@
 "use client"
 
-import { useRef, useState } from "react"
+import { useRef, useState, type ReactNode } from "react"
 import { useRouter } from "next/navigation"
 import { shiftDateKeyByDays } from "@/lib/shifts"
 import { shiftHasData } from "./actions"
@@ -11,12 +11,14 @@ export default function ShiftDateNav({
   label,
   dateLabel,
   isViewingLive,
+  statusChip,
 }: {
   dateKey: string
   todayKey: string
   label: "Day" | "Night"
   dateLabel: string
   isViewingLive: boolean
+  statusChip: ReactNode
 }) {
   const router = useRouter()
   const dateInputRef = useRef<HTMLInputElement>(null)
@@ -53,41 +55,48 @@ export default function ShiftDateNav({
   return (
     <div className="mb-2">
       {/* Same size/spacing/arrow convention as WeeklyReport's header — one
-          shared visual language for both date-nav rows on this page. */}
-      <div className="flex items-center justify-center gap-4">
-        <button
-          type="button"
-          onClick={handleBack}
-          disabled={checking}
-          aria-label="Go back one day"
-          className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-gray-400 transition-colors duration-100 hover:bg-gray-100 hover:text-gray-600 active:scale-90"
-        >
-          ‹
-        </button>
-        <p className="text-sm font-semibold text-gray-700">
-          Shift Report · {dateLabel}
-          {!isViewingLive && <span className="ml-1 text-gray-400">(Past)</span>}
-        </p>
-        {isViewingLive ? (
-          <span
-            aria-hidden="true"
-            className="flex h-6 w-6 shrink-0 items-center justify-center text-gray-200"
-          >
-            ›
-          </span>
-        ) : (
+          shared visual language for both date-nav rows on this page. The
+          outer 3-column grid keeps the title truly centered regardless of
+          the status chip's width, instead of the chip's width dragging it
+          off-center. */}
+      <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
+        <div />
+        <div className="flex items-center justify-center gap-4">
           <button
             type="button"
-            onClick={handleForward}
+            onClick={handleBack}
             disabled={checking}
-            aria-label="Go forward one day"
+            aria-label="Go back one day"
             className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-gray-400 transition-colors duration-100 hover:bg-gray-100 hover:text-gray-600 active:scale-90"
           >
-            ›
+            ‹
           </button>
-        )}
+          <p className="text-sm font-semibold text-gray-700 whitespace-nowrap">
+            Shift Report · {dateLabel}
+            {!isViewingLive && <span className="ml-1 text-gray-400">(Past)</span>}
+          </p>
+          {isViewingLive ? (
+            <span
+              aria-hidden="true"
+              className="flex h-6 w-6 shrink-0 items-center justify-center text-gray-200"
+            >
+              ›
+            </span>
+          ) : (
+            <button
+              type="button"
+              onClick={handleForward}
+              disabled={checking}
+              aria-label="Go forward one day"
+              className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-gray-400 transition-colors duration-100 hover:bg-gray-100 hover:text-gray-600 active:scale-90"
+            >
+              ›
+            </button>
+          )}
+        </div>
+        <div className="flex justify-end">{statusChip}</div>
       </div>
-      <div className="mt-1.5 flex justify-end">
+      <div className="mt-1.5 flex justify-center">
         <span className="relative flex h-6 w-6 shrink-0 items-center justify-center">
           <button
             type="button"
