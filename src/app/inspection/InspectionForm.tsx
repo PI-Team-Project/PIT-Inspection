@@ -66,13 +66,24 @@ const SUBMIT_ERROR_MESSAGES: Record<string, string> = {
 // called from a component rendered *inside* it — reading it in the same
 // component that renders the <form> tag itself always sees pending=false,
 // which is why this is split out rather than inlined at the call site.
-function SubmitButton({ disabled }: { disabled: boolean }) {
+function SubmitButton({ blocked, onBlocked }: { blocked: boolean; onBlocked: () => void }) {
   const { pending } = useFormStatus()
   return (
     <button
       type="submit"
-      disabled={disabled || pending}
-      className="flex-1 rounded-lg bg-brand px-4 py-4 text-lg font-semibold text-white transition-transform duration-100 active:scale-95 active:bg-brand-dark disabled:cursor-not-allowed disabled:bg-gray-300 disabled:active:scale-100"
+      disabled={pending}
+      aria-disabled={blocked}
+      onClick={(e) => {
+        if (blocked) {
+          e.preventDefault()
+          onBlocked()
+        }
+      }}
+      className={`flex-1 rounded-lg px-4 py-4 text-lg font-semibold text-white transition-transform duration-100 active:scale-95 ${
+        blocked || pending
+          ? "cursor-not-allowed bg-gray-300 active:scale-100"
+          : "bg-brand active:bg-brand-dark"
+      }`}
     >
       {pending ? "Submitting…" : "Submit Inspection"}
     </button>
@@ -109,13 +120,13 @@ export default function InspectionForm({
   questions,
   equipmentList,
   today,
-  alreadyInspectedThisShift,
+  recentlyInspected,
   initialError,
 }: {
   questions: Question[]
   equipmentList: Equipment[]
   today: string
-  alreadyInspectedThisShift: Record<string, { by: string; when: string }>
+  recentlyInspected: Record<string, { by: string; when: string }>
   initialError?: string
 }) {
   const [submitError, setSubmitError] = useState(
@@ -126,6 +137,10 @@ export default function InspectionForm({
     date: today,
   })
   const [duplicateWarningSerial, setDuplicateWarningSerial] = useState<string | null>(null)
+  // Tapping a greyed-out Continue/Submit does nothing by default — no native
+  // feedback tells you *why*. This flips on to highlight whichever required
+  // field is actually missing, and clears whenever the step changes.
+  const [missingFieldNudge, setMissingFieldNudge] = useState(false)
 
   // Offer to resume an autosaved draft instead of silently overwriting it —
   // `pendingDraft` gates the autosave effect below until the user picks
@@ -183,6 +198,7 @@ export default function InspectionForm({
   function resumeDraft() {
     if (!pendingDraft) return
     setValues(pendingDraft.values)
+    setMissingFieldNudge(false)
     setStep(pendingDraft.step)
     setPhotoNotes(pendingDraft.photoNotes)
     setLoadedDraft(null)
@@ -203,6 +219,7 @@ export default function InspectionForm({
   }
 
   function advance() {
+    setMissingFieldNudge(false)
     setStep((s) => Math.min(s + 1, total - 1))
   }
 
@@ -261,6 +278,20 @@ export default function InspectionForm({
   }
 
   const canAdvance = stepIsAnswered(current)
+  const currentAnswer = current.kind === "question" ? values[current.question.id] : undefined
+  const currentQuestionId = current.kind === "question" ? current.question.id : undefined
+  const noteMissing =
+    missingFieldNudge &&
+    current.kind === "question" &&
+    Boolean(currentAnswer) &&
+    needsAttention(currentAnswer ?? "") &&
+    !currentAnswer?.startsWith("Other") &&
+    !values[`${current.question.id}_note`]?.trim()
+  const specifyMissing =
+    missingFieldNudge &&
+    current.kind === "question" &&
+    Boolean(currentAnswer?.startsWith("Other")) &&
+    !values[`${current.question.id}_specify`]?.trim()
   const showContinue =
     !isLast &&
     (current.kind === "date" ||
@@ -271,11 +302,15 @@ export default function InspectionForm({
         needsAttention(values[current.question.id])))
 
   function handleNext() {
-    if (!canAdvance) return
+    if (!canAdvance) {
+      setMissingFieldNudge(true)
+      return
+    }
     advance()
   }
 
   function handleBack() {
+    setMissingFieldNudge(false)
     setStep((s) => Math.max(s - 1, 0))
   }
 
@@ -711,7 +746,7 @@ export default function InspectionForm({
                           key={eq.serial}
                           type="button"
                           onClick={() => {
-                            if (alreadyInspectedThisShift[eq.serial]) {
+                            if (recentlyInspected[eq.serial]) {
                               setDuplicateWarningSerial(eq.serial)
                             } else {
                               selectAndAdvance("equipmentSerial", eq.serial)
@@ -740,12 +775,12 @@ export default function InspectionForm({
                 )
               })()}
 
-              {duplicateWarningSerial && alreadyInspectedThisShift[duplicateWarningSerial] && (
+              {duplicateWarningSerial && recentlyInspected[duplicateWarningSerial] && (
                 <div className="mt-3 rounded-lg border border-amber-300 bg-amber-50 p-3">
                   <p className="text-sm text-amber-800">
                     ⚠ It&apos;s been inspected by{" "}
-                    <strong>{alreadyInspectedThisShift[duplicateWarningSerial].by}</strong> for{" "}
-                    {alreadyInspectedThisShift[duplicateWarningSerial].when}. Submit another
+                    <strong>{recentlyInspected[duplicateWarningSerial].by}</strong> for{" "}
+                    {recentlyInspected[duplicateWarningSerial].when}. Submit another
                     inspection anyway?
                   </p>
                   <div className="mt-2 flex gap-2">
@@ -943,7 +978,11 @@ export default function InspectionForm({
                 value={values[`${q.id}_specify`] ?? ""}
                 onChange={(e) => set(`${q.id}_specify`, e.target.value)}
                 placeholder="Please specify"
-                className="mt-2 w-full rounded-lg border border-gray-300 px-4 py-3 text-base"
+                className={`mt-2 w-full rounded-lg border px-4 py-3 text-base ${
+                  specifyMissing && q.id === currentQuestionId
+                    ? "border-red-400 placeholder:text-red-800"
+                    : "border-gray-300"
+                }`}
               />
             )}
             {Boolean(values[q.id]) && needsAttention(values[q.id]) && (
@@ -977,7 +1016,11 @@ export default function InspectionForm({
                     placeholder="Describe in as much detail as possible"
                     value={values[`${q.id}_note`] ?? ""}
                     onChange={(e) => set(`${q.id}_note`, e.target.value)}
-                    className="w-full rounded-lg border border-gray-300 px-4 py-3 text-base"
+                    className={`w-full rounded-lg border px-4 py-3 text-base ${
+                      noteMissing && q.id === currentQuestionId
+                        ? "border-red-400 placeholder:text-red-800"
+                        : "border-gray-300"
+                    }`}
                   />
                 </div>
               </div>
@@ -998,14 +1041,18 @@ export default function InspectionForm({
             </button>
           )}
           {isLast ? (
-            <SubmitButton disabled={!canAdvance} />
+            <SubmitButton blocked={!canAdvance} onBlocked={() => setMissingFieldNudge(true)} />
           ) : (
             showContinue && (
               <button
                 type="button"
                 onClick={handleNext}
-                disabled={!canAdvance}
-                className="flex-1 rounded-lg bg-brand px-4 py-4 text-lg font-semibold text-white transition-transform duration-100 active:scale-95 active:bg-brand-dark disabled:cursor-not-allowed disabled:bg-gray-300 disabled:active:scale-100"
+                aria-disabled={!canAdvance}
+                className={`flex-1 rounded-lg px-4 py-4 text-lg font-semibold text-white transition-transform duration-100 active:scale-95 ${
+                  canAdvance
+                    ? "bg-brand active:bg-brand-dark"
+                    : "cursor-not-allowed bg-gray-300 active:scale-100"
+                }`}
               >
                 Continue
               </button>

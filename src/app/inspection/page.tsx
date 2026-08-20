@@ -2,7 +2,12 @@ import InspectionForm from "./InspectionForm"
 import { QUESTIONS } from "@/lib/questions"
 import { getActiveEquipmentList } from "@/lib/equipmentLocations"
 import { prisma } from "@/lib/prisma"
-import { getCurrentShiftWindow, FLEET_TIME_ZONE } from "@/lib/shifts"
+import {
+  getCurrentShiftWindow,
+  getMostRecentShiftWindows,
+  getShiftForDate,
+  FLEET_TIME_ZONE,
+} from "@/lib/shifts"
 
 // Location overrides change at runtime (someone reports a correction), so
 // this can't be statically prerendered — it has to re-fetch on every visit
@@ -18,11 +23,18 @@ export default async function InspectionPage({
   const today = new Date().toISOString().slice(0, 10)
   const now = new Date()
   const shiftWindow = getCurrentShiftWindow(now)
+  // Checking only the current shift missed the exact case this warning
+  // exists for: someone inspects at 4:59pm (Day), someone else at 5:01pm
+  // (Night) — different shift windows, same vehicle, no warning. Widening
+  // to current + immediately-preceding shift (~24h) catches that boundary
+  // without unbounded lookback.
+  const { Day, Night } = getMostRecentShiftWindows(now)
+  const lookbackStart = shiftWindow.label === "Day" ? Night.start : Day.start
 
-  const [equipmentList, thisShiftInspections] = await Promise.all([
+  const [equipmentList, recentInspections] = await Promise.all([
     getActiveEquipmentList(),
     prisma.inspection.findMany({
-      where: { createdAt: { gte: shiftWindow.start, lt: shiftWindow.end } },
+      where: { createdAt: { gte: lookbackStart, lt: shiftWindow.end } },
       orderBy: { createdAt: "desc" },
       select: { equipmentSerial: true, firstName: true, lastName: true, createdAt: true },
     }),
@@ -30,10 +42,10 @@ export default async function InspectionPage({
 
   // There's no login, so this is a heads-up rather than a hard block —
   // lets a second inspector notice someone already covered this vehicle
-  // this shift instead of silently duplicating the work.
-  const alreadyInspectedThisShift: Record<string, { by: string; when: string }> = {}
-  for (const insp of thisShiftInspections) {
-    if (alreadyInspectedThisShift[insp.equipmentSerial]) continue
+  // recently instead of silently duplicating the work.
+  const recentlyInspected: Record<string, { by: string; when: string }> = {}
+  for (const insp of recentInspections) {
+    if (recentlyInspected[insp.equipmentSerial]) continue
     const dateTime = new Intl.DateTimeFormat("en-US", {
       timeZone: FLEET_TIME_ZONE,
       month: "short",
@@ -41,9 +53,9 @@ export default async function InspectionPage({
       hour: "numeric",
       minute: "2-digit",
     }).format(insp.createdAt)
-    alreadyInspectedThisShift[insp.equipmentSerial] = {
+    recentlyInspected[insp.equipmentSerial] = {
       by: `${insp.firstName} ${insp.lastName}`.trim() || "Unknown",
-      when: `${shiftWindow.label} Shift, ${dateTime}`,
+      when: `${getShiftForDate(insp.createdAt)} Shift, ${dateTime}`,
     }
   }
 
@@ -53,7 +65,7 @@ export default async function InspectionPage({
         questions={QUESTIONS}
         equipmentList={equipmentList}
         today={today}
-        alreadyInspectedThisShift={alreadyInspectedThisShift}
+        recentlyInspected={recentlyInspected}
         initialError={error}
       />
     </div>
