@@ -1,12 +1,13 @@
 "use client"
 
 import { useState, type ReactNode } from "react"
-import { equipmentTypeLabel, type EquipmentType } from "@/lib/equipment"
+import { equipmentTypeLabel, LOCATIONS, type EquipmentType, type Location } from "@/lib/equipment"
 import type { Stage } from "@/lib/review"
 
 type Card = {
   serial: string
   type: EquipmentType
+  location: Location
   stage: Stage | "none"
   escalated: boolean
   node: ReactNode
@@ -103,6 +104,11 @@ function byType(cards: Card[], type: EquipmentType) {
   return cards.filter((c) => c.type === type)
 }
 
+function byLocation(cards: Card[], location: Location) {
+  return cards.filter((c) => c.location === location)
+}
+
+type GroupBy = "type" | "location"
 type TabValue = "all" | "forklift" | "Pallet Jack" | "red" | "yellow"
 
 // Empty means no filter applied (show every subtype). Clicking a subtype
@@ -112,9 +118,11 @@ function toggleSubtype(active: EquipmentType[], type: EquipmentType): EquipmentT
 }
 
 export default function EquipmentBrowser({ cards }: { cards: Card[] }) {
+  const [groupBy, setGroupBy] = useState<GroupBy>("type")
   const [tab, setTab] = useState<TabValue>("all")
   const [activeSubtypes, setActiveSubtypes] = useState<EquipmentType[]>([])
-  // "Open All" / "Close All" bulk-toggle state for every type group, plus a
+  const [activeLocation, setActiveLocation] = useState<Location | null>(null)
+  // "Open All" / "Close All" bulk-toggle state for every group, plus a
   // per-group override for anyone who's manually opened/closed one on its
   // own — otherwise a single manual toggle would get silently stomped by
   // whatever the bulk state happens to be.
@@ -131,6 +139,16 @@ export default function EquipmentBrowser({ cards }: { cards: Card[] }) {
 
   function toggleGroup(key: string, open: boolean) {
     setOpenOverrides((prev) => ({ ...prev, [key]: open }))
+  }
+
+  // Switching axis resets the other axis's own filters — a subtype filter
+  // or a single active location are meaningless once you're grouping by
+  // the other one.
+  function handleGroupByChange(next: GroupBy) {
+    setGroupBy(next)
+    setTab("all")
+    setActiveSubtypes([])
+    setActiveLocation(null)
   }
 
   function handleViewAllClick() {
@@ -150,15 +168,145 @@ export default function EquipmentBrowser({ cards }: { cards: Card[] }) {
         : cards
 
   const typedCards =
-    tab === "forklift"
-      ? activeSubtypes.length > 0
-        ? statusFiltered.filter((c) => activeSubtypes.includes(c.type))
+    groupBy === "location"
+      ? activeLocation
+        ? statusFiltered.filter((c) => c.location === activeLocation)
         : statusFiltered
-      : tab === "Pallet Jack"
-        ? statusFiltered.filter((c) => c.type === "Pallet Jack")
-        : statusFiltered
+      : tab === "forklift"
+        ? activeSubtypes.length > 0
+          ? statusFiltered.filter((c) => activeSubtypes.includes(c.type))
+          : statusFiltered
+        : tab === "Pallet Jack"
+          ? statusFiltered.filter((c) => c.type === "Pallet Jack")
+          : statusFiltered
 
   const unfiltered = tab === "all"
+
+  const groupByToggle = (
+    <div className="mb-2 flex gap-1.5 rounded-lg border border-gray-200 bg-gray-50 p-1 text-sm font-medium">
+      <button
+        type="button"
+        onClick={() => handleGroupByChange("type")}
+        className={`flex-1 rounded-md py-1.5 text-center transition-colors duration-100 active:scale-95 ${
+          groupBy === "type" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500"
+        }`}
+      >
+        Group by Type
+      </button>
+      <button
+        type="button"
+        onClick={() => handleGroupByChange("location")}
+        className={`flex-1 rounded-md py-1.5 text-center transition-colors duration-100 active:scale-95 ${
+          groupBy === "location" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500"
+        }`}
+      >
+        Group by Location
+      </button>
+    </div>
+  )
+
+  const statusDots = (
+    <>
+      <button
+        type="button"
+        onClick={() => setTab("red")}
+        aria-label="Show only unresolved (red)"
+        className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${
+          tab === "red" ? "ring-2 ring-red-500" : ""
+        }`}
+      >
+        <span className="h-3.5 w-3.5 rounded-full bg-red-500" />
+      </button>
+      <button
+        type="button"
+        onClick={() => setTab("yellow")}
+        aria-label="Show only needs attention (yellow)"
+        className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${
+          tab === "yellow" ? "ring-2 ring-yellow-500" : ""
+        }`}
+      >
+        <span className="h-3.5 w-3.5 rounded-full bg-yellow-400" />
+      </button>
+    </>
+  )
+
+  if (groupBy === "location") {
+    const locationsWithCards = LOCATIONS.filter(
+      (location) => byLocation(statusFiltered, location).length > 0
+    )
+    const locationGroups = LOCATIONS.map((location) => ({
+      location,
+      rows: byLocation(typedCards, location),
+    })).filter((g) => g.rows.length > 0)
+    const orderedLocationGroups = unfiltered
+      ? [...locationGroups].sort((a, b) => worstUrgency(a.rows) - worstUrgency(b.rows))
+      : locationGroups
+
+    return (
+      <>
+        {groupByToggle}
+        <div className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-gray-50 p-1 text-sm font-medium">
+          <button
+            type="button"
+            onClick={handleViewAllClick}
+            className={`flex-1 rounded-md py-1.5 text-center transition-colors duration-100 active:scale-95 ${
+              tab === "all" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500"
+            }`}
+          >
+            {tab === "all" ? (allOpen ? "Close All" : "Open All") : "View All"}
+          </button>
+          {statusDots}
+        </div>
+
+        <div className="slide-down mt-1 flex gap-1 overflow-x-auto rounded-lg border border-gray-200 bg-gray-100/70 p-1.5 text-xs font-medium">
+          <button
+            type="button"
+            onClick={() => setActiveLocation(null)}
+            className={`shrink-0 rounded-md px-2.5 py-1 text-center transition-colors duration-100 active:scale-95 ${
+              activeLocation === null
+                ? "bg-brand/10 text-brand shadow-sm ring-1 ring-brand/30"
+                : "text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            All
+          </button>
+          {locationsWithCards.map((location) => (
+            <button
+              type="button"
+              key={location}
+              onClick={() => setActiveLocation(location)}
+              className={`shrink-0 rounded-md px-2.5 py-1 text-center whitespace-nowrap transition-colors duration-100 active:scale-95 ${
+                activeLocation === location
+                  ? "bg-brand/10 text-brand shadow-sm ring-1 ring-brand/30"
+                  : "text-gray-500 hover:text-gray-700"
+              }`}
+            >
+              {location}
+            </button>
+          ))}
+        </div>
+
+        {typedCards.length === 0 && (
+          <p className="mt-3 text-gray-500">No matching equipment.</p>
+        )}
+
+        {orderedLocationGroups.length > 0 && (
+          <div className="mt-3 divide-y divide-gray-100 overflow-hidden rounded-lg border border-gray-200">
+            {orderedLocationGroups.map((g) => (
+              <TypeGroup
+                key={g.location}
+                title={g.location}
+                rows={g.rows}
+                isOpen={isGroupOpen(g.location)}
+                onToggle={(open) => toggleGroup(g.location, open)}
+              />
+            ))}
+          </div>
+        )}
+      </>
+    )
+  }
+
   const orderedForkliftTypes = unfiltered
     ? [...FORKLIFT_TYPES].sort(
         (a, b) => worstUrgency(byType(typedCards, a)) - worstUrgency(byType(typedCards, b))
@@ -204,6 +352,7 @@ export default function EquipmentBrowser({ cards }: { cards: Card[] }) {
 
   return (
     <>
+      {groupByToggle}
       <div
         className={`flex items-center gap-1.5 rounded-t-lg border border-gray-200 bg-gray-50 p-1 text-sm font-medium ${
           tab === "forklift" ? "" : "rounded-b-lg"
@@ -236,26 +385,7 @@ export default function EquipmentBrowser({ cards }: { cards: Card[] }) {
         >
           Pallet Jacks
         </button>
-        <button
-          type="button"
-          onClick={() => setTab("red")}
-          aria-label="Show only unresolved (red)"
-          className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${
-            tab === "red" ? "ring-2 ring-red-500" : ""
-          }`}
-        >
-          <span className="h-3.5 w-3.5 rounded-full bg-red-500" />
-        </button>
-        <button
-          type="button"
-          onClick={() => setTab("yellow")}
-          aria-label="Show only needs attention (yellow)"
-          className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${
-            tab === "yellow" ? "ring-2 ring-yellow-500" : ""
-          }`}
-        >
-          <span className="h-3.5 w-3.5 rounded-full bg-yellow-400" />
-        </button>
+        {statusDots}
       </div>
 
       {tab === "forklift" && (

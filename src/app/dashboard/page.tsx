@@ -1,16 +1,8 @@
-import { Fragment } from "react"
 import Link from "next/link"
 import { cookies } from "next/headers"
 import { prisma } from "@/lib/prisma"
 import { type Question } from "@/lib/questions"
-import {
-  equipmentCategory,
-  equipmentTypeLabel,
-  isUnderRepair,
-  LOCATIONS,
-  type Equipment,
-  type EquipmentType,
-} from "@/lib/equipment"
+import { equipmentTypeLabel, isUnderRepair, type Equipment } from "@/lib/equipment"
 import { getActiveEquipmentList, getRetiredEquipmentNearingExpiry } from "@/lib/equipmentLocations"
 import LiveClock from "./LiveClock"
 import { type Stage } from "@/lib/review"
@@ -27,7 +19,6 @@ import { DASHBOARD_COOKIE, dashboardSessionValue } from "@/lib/auth"
 import PinForm from "./PinForm"
 import HomeLink from "./HomeLink"
 import StatusDot from "./StatusDot"
-import LocationVehiclesButton from "./LocationVehiclesButton"
 import EquipmentSearch from "./EquipmentSearch"
 import EquipmentBrowser from "./EquipmentBrowser"
 import InspectedChip from "./InspectedChip"
@@ -42,8 +33,6 @@ import {
   RETENTION_YEARS,
   type InspectionRow,
 } from "./inspectionRow"
-
-const FORKLIFT_TYPES: EquipmentType[] = ["Sit Down", "Propane", "Standup"]
 
 const URGENCY_RANK: Record<Stage | "none", number> = {
   unresolved: 0,
@@ -67,6 +56,7 @@ export default async function DashboardPage({
     filter?: string
     shift?: string
     date?: string
+    weeklyGroup?: string
   }>
 }) {
   const params = await searchParams
@@ -183,19 +173,28 @@ export default async function DashboardPage({
   const weeklyRows = equipmentRows.map((row) => ({
     serial: row.equipment.serial,
     flNumber: row.equipment.flNumber,
+    location: row.equipment.location,
+    type: row.equipment.type,
     cells: weekDays.map((dateKey) => ({
       day: weeklyCellStage(row.history, dateKey, "Day"),
       night: weeklyCellStage(row.history, dateKey, "Night"),
     })),
   }))
   // Stepping a week here just moves the same shared date ±7 days, keeping
-  // whatever shift (Day/Night) is currently selected — same param the
-  // shift nav's own back-arrow/calendar already write to.
+  // whatever shift (Day/Night) is currently selected and the grouping
+  // choice — same params the shift nav's own back-arrow/calendar already
+  // write to.
   const shiftParam = selectedShiftLabel.toLowerCase()
-  const prevWeekHref = `/dashboard?shift=${shiftParam}&date=${shiftDateKeyByDays(viewedDateKey, -7)}`
+  const weeklyGroupBy = params.weeklyGroup === "type" ? "type" : "location"
+  const weeklyGroupSuffix = `&weeklyGroup=${weeklyGroupBy}`
+  const prevWeekHref = `/dashboard?shift=${shiftParam}&date=${shiftDateKeyByDays(viewedDateKey, -7)}${weeklyGroupSuffix}`
   const nextWeekDateKey = shiftDateKeyByDays(viewedDateKey, 7)
   const nextWeekHref =
-    nextWeekDateKey <= todayKey ? `/dashboard?shift=${shiftParam}&date=${nextWeekDateKey}` : null
+    nextWeekDateKey <= todayKey
+      ? `/dashboard?shift=${shiftParam}&date=${nextWeekDateKey}${weeklyGroupSuffix}`
+      : null
+  const weeklyGroupHref = (group: "location" | "type") =>
+    `/dashboard?shift=${shiftParam}&date=${viewedDateKey}&weeklyGroup=${group}`
 
   const inspectedThisShift = (row: EquipmentRow) => {
     // Unresolved (red) means out of service until fixed — being inspected
@@ -217,12 +216,6 @@ export default async function DashboardPage({
 
   const workingCount = equipmentRows.filter((row) => isWorking(row.stage)).length
   const noInspectionCount = equipmentRows.filter((row) => isNotInspected(row.stage)).length
-
-  // One simple group per forklift type, plus one for pallet jacks — kept as
-  // a flat list rather than a nested category/type tree. Swapping to a
-  // location-based grouping later is just a different group list here.
-  const byType = (source: typeof equipmentRows, type: EquipmentType) =>
-    source.filter((row) => row.equipment.type === type)
 
   // Lean, client-safe slice for the search popup — never pass `latest`/
   // `history` down since those carry full inspection answers (photos
@@ -303,53 +296,20 @@ export default async function DashboardPage({
           todayKey={todayKey}
           prevWeekHref={prevWeekHref}
           nextWeekHref={nextWeekHref}
+          groupBy={weeklyGroupBy}
+          locationHref={weeklyGroupHref("location")}
+          typeHref={weeklyGroupHref("type")}
         />
       </div>
 
       <div className="my-3 border-t border-gray-200" />
 
-      <details className="group rounded-lg border border-gray-200">
-        <summary className="flex cursor-pointer items-center justify-between rounded-lg px-3 py-2.5 text-sm font-medium text-gray-700 transition-colors duration-100 hover:bg-gray-50 active:scale-[0.99] active:bg-gray-100">
-          <span>View Vehicle Status</span>
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 20 20"
-            fill="currentColor"
-            className="h-4 w-4 shrink-0 text-gray-400 transition-transform duration-200 group-open:rotate-180"
-          >
-            <path
-              fillRule="evenodd"
-              d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z"
-              clipRule="evenodd"
-            />
-          </svg>
-        </summary>
-        <div className="space-y-3 border-t border-gray-200 p-3">
-          <FleetOverview
-            title="Forklift"
-            subgroups={FORKLIFT_TYPES.map((type) => ({
-              label: type,
-              rows: byType(equipmentRows, type),
-            }))}
-          />
-          <FleetOverview
-            title="Pallet Jacks"
-            subgroups={[{ label: "Pallet Jack", rows: byType(equipmentRows, "Pallet Jack") }]}
-            compact
-          />
-        </div>
-      </details>
-
-      <div className="mt-2">
-        <LocationOverview rows={equipmentRows} />
-      </div>
-
-      <div className="my-3 border-t border-gray-200" />
-
+      <p className="mb-2 text-center text-sm font-semibold text-gray-900">All Vehicles</p>
       <EquipmentBrowser
         cards={rows.map((row) => ({
           serial: row.equipment.serial,
           type: row.equipment.type,
+          location: row.equipment.location,
           stage: row.stage,
           escalated: row.escalated,
           node: (
@@ -410,170 +370,6 @@ type EquipmentRow = {
   escalated: boolean
 }
 
-function FleetOverview({
-  title,
-  subgroups,
-  compact = false,
-}: {
-  title: string
-  subgroups: { label: EquipmentType; rows: EquipmentRow[] }[]
-  compact?: boolean
-}) {
-  const visible = subgroups.filter((g) => g.rows.length > 0)
-  const total = visible.reduce((sum, g) => sum + g.rows.length, 0)
-  if (total === 0) return null
-  const showSubLabels = visible.length > 1
-  return (
-    <div>
-      <h3 className="mb-1.5 text-xs font-semibold tracking-wide text-brand uppercase">
-        {title} ({total})
-      </h3>
-      <div
-        className={`flex flex-col gap-y-1.5 rounded-lg border border-gray-200 px-3 ${
-          compact ? "py-1.5" : "py-3"
-        }`}
-      >
-        {visible.map((g, i) => (
-          <div
-            key={g.label}
-            className={`flex items-center gap-[5px] ${
-              showSubLabels && i > 0 ? "border-t border-gray-200/70 pt-1.5" : ""
-            }`}
-          >
-            {showSubLabels && (
-              <span className="w-24 shrink-0 text-xs font-medium text-gray-500">
-                {equipmentTypeLabel(g.label)} ({g.rows.length})
-              </span>
-            )}
-            <div className="flex flex-wrap gap-1">
-              {g.rows.map((row) => (
-                <a
-                  key={row.equipment.serial}
-                  href={`/dashboard/equipment/${row.equipment.serial}`}
-                  title={`${row.equipment.flNumber} — ${row.equipment.makeColor}`}
-                  className="flex p-1"
-                >
-                  <StatusDot stage={row.stage} />
-                </a>
-              ))}
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}
-
-function LocationOverview({ rows }: { rows: EquipmentRow[] }) {
-  const byLocation = LOCATIONS.map((location) => ({
-    location,
-    rows: rows.filter((row) => row.equipment.location === location),
-  })).filter((g) => g.rows.length > 0)
-
-  if (byLocation.length === 0) return null
-
-  const half = Math.ceil(byLocation.length / 2)
-  const left = byLocation.slice(0, half)
-  const right = byLocation.slice(half)
-
-  return (
-    <details className="group rounded-lg border border-gray-200">
-      <summary className="flex cursor-pointer items-center justify-between rounded-lg px-3 py-2.5 text-sm font-medium text-gray-700 transition-colors duration-100 hover:bg-gray-50 active:scale-[0.99] active:bg-gray-100">
-        <span>Vehicle Per Location</span>
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          viewBox="0 0 20 20"
-          fill="currentColor"
-          className="h-4 w-4 shrink-0 text-gray-400 transition-transform duration-200 group-open:rotate-180"
-        >
-          <path
-            fillRule="evenodd"
-            d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z"
-            clipRule="evenodd"
-          />
-        </svg>
-      </summary>
-      <div className="grid grid-cols-[auto_1fr] items-center gap-x-3 gap-y-1 border-t border-gray-200 p-3 lg:hidden">
-        <LocationRows locations={byLocation} />
-      </div>
-      <div className="hidden gap-x-8 border-t border-gray-200 p-3 lg:grid lg:grid-cols-2">
-        <div className="grid grid-cols-[auto_1fr] items-center gap-x-3 gap-y-1">
-          <LocationRows locations={left} />
-        </div>
-        <div className="grid grid-cols-[auto_1fr] items-center gap-x-3 gap-y-1">
-          <LocationRows locations={right} />
-        </div>
-      </div>
-    </details>
-  )
-}
-
-function LocationRows({
-  locations,
-}: {
-  locations: { location: string; rows: EquipmentRow[] }[]
-}) {
-  return (
-    <>
-      {locations.map((g, i) => {
-        const forkliftRows = g.rows.filter(
-          (row) => equipmentCategory(row.equipment.type) === "Forklift"
-        )
-        const palletRows = g.rows.filter(
-          (row) => equipmentCategory(row.equipment.type) === "Pallet Jack"
-        )
-        const showTypeTags = forkliftRows.length > 0 && palletRows.length > 0
-        const rowBorder = i > 0 ? "border-t border-gray-200 pt-1" : ""
-
-        return (
-          <Fragment key={g.location}>
-            <span className={rowBorder}>
-              <LocationVehiclesButton
-                location={g.location}
-                count={g.rows.length}
-                vehicles={g.rows.map((row) => ({
-                  serial: row.equipment.serial,
-                  flNumber: row.equipment.flNumber,
-                  makeColor: row.equipment.makeColor,
-                  stage: row.stage,
-                }))}
-              />
-            </span>
-            <div className={`flex flex-wrap items-center gap-2 ${rowBorder}`}>
-              {[
-                { label: "FL", rows: forkliftRows },
-                { label: "PJ", rows: palletRows },
-              ]
-                .filter((sg) => sg.rows.length > 0)
-                .map((sg) => (
-                  <span key={sg.label} className="flex items-center gap-1">
-                    {showTypeTags && (
-                      <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-gray-200 text-[9px] font-bold text-gray-700">
-                        {sg.label}
-                      </span>
-                    )}
-                    <span className="flex flex-wrap gap-1">
-                      {sg.rows.map((row) => (
-                        <a
-                          key={row.equipment.serial}
-                          href={`/dashboard/equipment/${row.equipment.serial}`}
-                          title={`${row.equipment.flNumber} — ${row.equipment.makeColor}`}
-                          className="flex p-1"
-                        >
-                          <StatusDot stage={row.stage} size="xl" />
-                        </a>
-                      ))}
-                    </span>
-                  </span>
-                ))}
-            </div>
-          </Fragment>
-        )
-      })}
-    </>
-  )
-}
-
 function ShiftOverview({
   shiftWindow,
   selectedShiftLabel,
@@ -606,12 +402,17 @@ function ShiftOverview({
     month: "short",
     day: "numeric",
   }).format(shiftWindow.start)
-  const hoursLabel = shiftWindow.label === "Day" ? "5am–5pm" : "5pm–5am"
   const dateKey = easternDateKey(shiftWindow.start)
 
   return (
     <div>
-      <p className="mb-2 text-center text-sm font-semibold text-gray-900">Shift Report</p>
+      <ShiftDateNav
+        dateKey={dateKey}
+        todayKey={todayKey}
+        label={shiftWindow.label as "Day" | "Night"}
+        dateLabel={dateLabel}
+        isViewingLive={isViewingLive}
+      />
       <div className="mb-2 flex gap-1.5 rounded-lg border border-gray-200 bg-gray-50 p-1 text-sm font-medium">
         {(["Day", "Night"] as const).map((label) => {
           const selected = selectedShiftLabel === label
@@ -628,28 +429,19 @@ function ShiftOverview({
                 selected ? "bg-white text-gray-900 shadow-sm" : "text-gray-500"
               }`}
             >
-              {label} Shift{isLive && " · Now"}
+              {label} ({label === "Day" ? "5am–5pm" : "5pm–5am"}){isLive && " · Now"}
             </Link>
           )
         })}
       </div>
-
-      <ShiftDateNav
-        dateKey={dateKey}
-        todayKey={todayKey}
-        label={shiftWindow.label as "Day" | "Night"}
-        dateLabel={dateLabel}
-        hoursLabel={hoursLabel}
-        isViewingLive={isViewingLive}
-      />
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
         <div className="rounded-lg border border-green-200 bg-green-50 p-3 shadow-sm">
           <p className="pb-1.5 text-sm font-semibold text-green-800">
             Inspected ({inspected.length}/{rows.length})
           </p>
-          {inspected.length > 0 && (
-            <div className="flex flex-wrap gap-1.5 border-t border-green-200/60 pt-2">
-              {inspected.map((row) => {
+          <div className="flex flex-wrap gap-1.5 border-t border-green-200/60 pt-2">
+            {inspected.length > 0 &&
+              inspected.map((row) => {
                 const isPendingConfirm = row.stage === "pending-confirm"
                 const inspectorName = row.latest
                   ? `${row.latest.inspection.firstName} ${row.latest.inspection.lastName}`
@@ -668,8 +460,7 @@ function ShiftOverview({
                   />
                 )
               })}
-            </div>
-          )}
+          </div>
         </div>
         <div className="relative rounded-lg border border-gray-300 bg-gray-50 p-3 pb-6 shadow-sm">
           <p className="pb-1.5 text-sm font-semibold text-gray-700">

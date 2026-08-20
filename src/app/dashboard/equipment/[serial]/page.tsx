@@ -42,7 +42,7 @@ export default async function EquipmentDetailPage({
   searchParams,
 }: {
   params: Promise<{ serial: string }>
-  searchParams: Promise<{ page?: string }>
+  searchParams: Promise<{ page?: string; date?: string; shift?: string }>
 }) {
   const cookieStore = await cookies()
   const authed = cookieStore.get(DASHBOARD_COOKIE)?.value === dashboardSessionValue()
@@ -51,7 +51,7 @@ export default async function EquipmentDetailPage({
   }
 
   const { serial } = await params
-  const { page: pageParam } = await searchParams
+  const { page: pageParam, date: highlightDate, shift: highlightShift } = await searchParams
   const savedManagerName = cookieStore.get(MANAGER_NAME_COOKIE)?.value ?? ""
   const today = new Date().toISOString().slice(0, 10)
   const todayDisplay = new Intl.DateTimeFormat("en-US", {
@@ -83,6 +83,16 @@ export default async function EquipmentDetailPage({
   const stage = (latest?.stage ?? "none") as Stage | "none"
   const since = badSince(recentHistory, today)
   const daysPassed = since ? daysPassedCount(since, today) : 0
+
+  // Weekly Report cells link straight here with the day/shift they came
+  // from — this finds which specific inspection that was so it can open
+  // pre-expanded instead of leaving the visitor to hunt through history.
+  const highlightId =
+    highlightDate && highlightShift
+      ? (recentHistory.find(
+          (row) => row.inspection.date === highlightDate && row.inspection.shift === highlightShift
+        )?.inspection.id ?? null)
+      : null
 
   const page = Math.max(1, Number(pageParam) || 1)
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE))
@@ -317,7 +327,11 @@ export default async function EquipmentDetailPage({
         </p>
         <ul className="space-y-2">
           {pageHistory.map((row) => (
-            <HistoryLine key={row.inspection.id} row={row} />
+            <HistoryLine
+              key={row.inspection.id}
+              row={row}
+              highlighted={row.inspection.id === highlightId}
+            />
           ))}
         </ul>
 
@@ -353,10 +367,15 @@ export default async function EquipmentDetailPage({
   )
 }
 
-function HistoryLine({ row }: { row: InspectionRow }) {
+function HistoryLine({ row, highlighted }: { row: InspectionRow; highlighted?: boolean }) {
   return (
-    <li className="rounded-lg border border-gray-200 p-3">
-      <details>
+    <li
+      id={highlighted ? "highlighted-inspection" : undefined}
+      className={`rounded-lg border p-3 ${
+        highlighted ? "border-brand ring-2 ring-brand/30" : "border-gray-200"
+      }`}
+    >
+      <details open={highlighted || undefined}>
         <summary className="flex cursor-pointer items-center justify-between gap-3 text-sm transition-colors duration-100">
           <span className="text-gray-700">
             {row.inspection.date} · {row.inspection.shift} · {row.inspection.firstName}{" "}

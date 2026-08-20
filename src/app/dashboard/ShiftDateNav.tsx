@@ -10,14 +10,12 @@ export default function ShiftDateNav({
   todayKey,
   label,
   dateLabel,
-  hoursLabel,
   isViewingLive,
 }: {
   dateKey: string
   todayKey: string
   label: "Day" | "Night"
   dateLabel: string
-  hoursLabel: string
   isViewingLive: boolean
 }) {
   const router = useRouter()
@@ -41,6 +39,10 @@ export default function ShiftDateNav({
     void goToDate(shiftDateKeyByDays(dateKey, -1))
   }
 
+  function handleForward() {
+    void goToDate(shiftDateKeyByDays(dateKey, 1))
+  }
+
   async function handlePick(e: React.ChangeEvent<HTMLInputElement>) {
     const picked = e.target.value
     if (!picked || picked === dateKey) return
@@ -49,42 +51,66 @@ export default function ShiftDateNav({
   }
 
   return (
-    <h2 className="mt-2 mb-1 flex items-center gap-1 text-xs font-semibold tracking-wide text-gray-500 uppercase">
-      <button
-        type="button"
-        onClick={handleBack}
-        disabled={checking}
-        aria-label="Go back one day"
-        className="flex h-8 w-8 shrink-0 items-center justify-center rounded text-base text-gray-400 transition-colors duration-100 hover:bg-gray-100 hover:text-gray-600 active:scale-95"
-      >
-        ‹
-      </button>
-      <span className="normal-case">
-        {dateLabel} · {hoursLabel}
-        {!isViewingLive && <span className="ml-1 text-gray-400">(Past)</span>}
-      </span>
-      <span className="relative ml-auto flex h-8 w-8 shrink-0 items-center justify-center">
+    <div className="mb-2">
+      {/* Same size/spacing/arrow convention as WeeklyReport's header — one
+          shared visual language for both date-nav rows on this page. */}
+      <div className="flex items-center justify-center gap-4">
         <button
           type="button"
-          onClick={() => dateInputRef.current?.showPicker?.()}
+          onClick={handleBack}
           disabled={checking}
-          aria-label="Pick a date"
-          className="flex h-8 w-8 items-center justify-center rounded text-gray-400 transition-colors duration-100 hover:bg-gray-100 hover:text-gray-600 active:scale-95"
+          aria-label="Go back one day"
+          className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-gray-400 transition-colors duration-100 hover:bg-gray-100 hover:text-gray-600 active:scale-90"
         >
-          📅
+          ‹
         </button>
-        <input
-          key={dateKey}
-          ref={dateInputRef}
-          type="date"
-          defaultValue={dateKey}
-          max={todayKey}
-          onChange={handlePick}
-          aria-hidden="true"
-          tabIndex={-1}
-          className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
-        />
-      </span>
-    </h2>
+        <p className="text-sm font-semibold text-gray-700">
+          Shift Report · {dateLabel}
+          {!isViewingLive && <span className="ml-1 text-gray-400">(Past)</span>}
+        </p>
+        {isViewingLive ? (
+          <span
+            aria-hidden="true"
+            className="flex h-6 w-6 shrink-0 items-center justify-center text-gray-200"
+          >
+            ›
+          </span>
+        ) : (
+          <button
+            type="button"
+            onClick={handleForward}
+            disabled={checking}
+            aria-label="Go forward one day"
+            className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-gray-400 transition-colors duration-100 hover:bg-gray-100 hover:text-gray-600 active:scale-90"
+          >
+            ›
+          </button>
+        )}
+      </div>
+      <div className="mt-1.5 flex justify-end">
+        <span className="relative flex h-6 w-6 shrink-0 items-center justify-center">
+          <button
+            type="button"
+            onClick={() => dateInputRef.current?.showPicker?.()}
+            disabled={checking}
+            aria-label="Pick a date"
+            className="flex h-6 w-6 items-center justify-center rounded text-sm text-gray-400 transition-colors duration-100 hover:bg-gray-100 hover:text-gray-600 active:scale-90"
+          >
+            📅
+          </button>
+          <input
+            key={dateKey}
+            ref={dateInputRef}
+            type="date"
+            defaultValue={dateKey}
+            max={todayKey}
+            onChange={handlePick}
+            aria-hidden="true"
+            tabIndex={-1}
+            className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+          />
+        </span>
+      </div>
+    </div>
   )
 }
