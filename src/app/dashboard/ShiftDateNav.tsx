@@ -33,7 +33,7 @@ export default function ShiftDateNav({
       window.alert("No inspection data for that shift yet.")
       return false
     }
-    router.push(`/dashboard?shift=${label.toLowerCase()}&date=${targetDateKey}`)
+    router.push(`/dashboard?shift=${label.toLowerCase()}&date=${targetDateKey}`, { scroll: false })
     return true
   }
 

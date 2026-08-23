@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import { Inter, Geist_Mono } from "next/font/google";
+import ScrollPreserver from "./ScrollPreserver";
 import "./globals.css";
 
 // Inter over the previous (unused — body{} was hardcoded to Arial) Geist
@@ -40,7 +41,8 @@ export default function RootLayout({
             overscroll-none kills the iOS rubber-band bounce past the top/
             bottom edge — scrolling stops exactly where the content ends
             instead of springing past it. */}
-        <div className="flex-1 overflow-x-hidden overflow-y-auto overscroll-none">
+        <div id="app-scroll-container" className="flex-1 overflow-x-hidden overflow-y-auto overscroll-none">
+          <ScrollPreserver />
           {children}
         </div>
         <footer className="flex shrink-0 justify-center border-t border-gray-100 bg-white py-3">

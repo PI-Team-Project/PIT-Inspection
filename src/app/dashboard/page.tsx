@@ -30,7 +30,7 @@ import {
   badSince,
   retentionCutoff,
   daysPassedCount,
-  weeklyCellStage,
+  weeklyCell,
   RETENTION_YEARS,
   type InspectionRow,
 } from "./inspectionRow"
@@ -177,8 +177,8 @@ export default async function DashboardPage({
     location: row.equipment.location,
     type: row.equipment.type,
     cells: weekDays.map((dateKey) => ({
-      day: weeklyCellStage(row.history, dateKey, "Day"),
-      night: weeklyCellStage(row.history, dateKey, "Night"),
+      day: weeklyCell(row.history, dateKey, "Day"),
+      night: weeklyCell(row.history, dateKey, "Night"),
     })),
   }))
   // Stepping a week here just moves the same shared date ±7 days, keeping
@@ -197,13 +197,24 @@ export default async function DashboardPage({
   const weeklyGroupHref = (group: "location" | "type") =>
     `/dashboard?shift=${shiftParam}&date=${viewedDateKey}&weeklyGroup=${group}`
 
+  // `row.latest` is the single most-recent inspection ever, not necessarily
+  // one from the shift actually being viewed — using only that against a
+  // past shiftWindow made every past date show up as "nothing inspected"
+  // regardless of what really happened, and (if only fixed for the count)
+  // would still show today's inspector/stage on a chip for a past shift.
+  // Scan history for whichever inspection (if any) actually falls inside
+  // this window, same as the Weekly Report's per-cell lookup does.
+  const shiftInspectionFor = (row: EquipmentRow) =>
+    row.history.find(
+      (h) => h.inspection.createdAt >= shiftWindow.start && h.inspection.createdAt < shiftWindow.end
+    )
+
   const inspectedThisShift = (row: EquipmentRow) => {
+    const match = shiftInspectionFor(row)
     // Unresolved (red) means out of service until fixed — being inspected
     // this shift doesn't make it ready to use, so it never counts as
     // "Inspected" regardless of timing.
-    if (row.stage === "unresolved") return false
-    const createdAt = row.latest?.inspection.createdAt
-    return Boolean(createdAt && createdAt >= shiftWindow.start && createdAt < shiftWindow.end)
+    return match !== undefined && match.stage !== "unresolved"
   }
 
   const rows =
@@ -274,6 +285,7 @@ export default async function DashboardPage({
           todayKey={todayKey}
           isViewingLive={isViewingLive}
           rows={equipmentRows}
+          shiftInspectionFor={shiftInspectionFor}
           inspectedThisShift={inspectedThisShift}
           statusChip={
             <Link
@@ -379,6 +391,7 @@ function ShiftOverview({
   todayKey,
   isViewingLive,
   rows,
+  shiftInspectionFor,
   inspectedThisShift,
   statusChip,
 }: {
@@ -389,6 +402,7 @@ function ShiftOverview({
   todayKey: string
   isViewingLive: boolean
   rows: EquipmentRow[]
+  shiftInspectionFor: (row: EquipmentRow) => InspectionRow | undefined
   inspectedThisShift: (row: EquipmentRow) => boolean
   statusChip: ReactNode
 }) {
@@ -446,9 +460,14 @@ function ShiftOverview({
           <div className="flex flex-wrap gap-1.5 border-t border-green-200/60 pt-2">
             {inspected.length > 0 &&
               inspected.map((row) => {
-                const isPendingConfirm = row.stage === "pending-confirm"
-                const inspectorName = row.latest
-                  ? `${row.latest.inspection.firstName} ${row.latest.inspection.lastName}`
+                // The chip reflects THIS shift's inspection specifically —
+                // not row.stage/row.latest, which is the vehicle's overall
+                // most-recent state and could be from a different shift
+                // entirely when viewing a past date.
+                const shiftInspection = shiftInspectionFor(row)
+                const isPendingConfirm = shiftInspection?.stage === "pending-confirm"
+                const inspectorName = shiftInspection
+                  ? `${shiftInspection.inspection.firstName} ${shiftInspection.inspection.lastName}`
                   : "Unknown"
                 return (
                   <InspectedChip
@@ -466,7 +485,7 @@ function ShiftOverview({
               })}
           </div>
         </div>
-        <div className="relative rounded-lg border border-gray-300 bg-gray-50 p-3 pb-6 shadow-sm">
+        <div className="rounded-lg border border-gray-300 bg-gray-50 p-3 shadow-sm">
           <p className="pb-1.5 text-sm font-semibold text-gray-700">
             Not Yet Inspected ({notInspected.length}/{rows.length})
           </p>
@@ -490,7 +509,7 @@ function ShiftOverview({
             </div>
           )}
           {notInspected.some((row) => row.stage === "unresolved" || row.stage === "pending-confirm") && (
-            <div className="absolute bottom-1.5 right-2 flex items-center gap-2 text-[10px] font-medium text-gray-400">
+            <div className="mt-3 flex flex-wrap items-center justify-end gap-x-3 gap-y-1 border-t border-gray-200 pt-2 text-[10px] font-medium text-gray-400">
               <span className="flex items-center gap-1">
                 <span className="h-1.5 w-1.5 rounded-full bg-red-400" />
                 inspection requested

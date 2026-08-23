@@ -109,17 +109,24 @@ export function daysPassedCount(since: string, today: string): number {
   )
 }
 
-// The stage shown in a single weekly-report cell — whichever inspection (if
-// any) fell inside that specific day+shift window. `history` is already
-// sorted newest-first, so the first match is the one that counts.
-export function weeklyCellStage(
+export type WeeklyCell = { stage: Stage | "none"; inspectorName: string | null }
+
+// The stage (and who submitted it) for a single weekly-report cell —
+// whichever inspection (if any) fell inside that specific day+shift window.
+// `history` is already sorted newest-first, so the first match is the one
+// that counts.
+export function weeklyCell(
   history: InspectionRow[],
   dateKey: string,
   shiftLabel: "Day" | "Night"
-): Stage | "none" {
+): WeeklyCell {
   const window = getShiftWindowForDate(dateKey, shiftLabel)
   const match = history.find(
     (row) => row.inspection.createdAt >= window.start && row.inspection.createdAt < window.end
   )
-  return match?.stage ?? "none"
+  if (!match) return { stage: "none", inspectorName: null }
+  return {
+    stage: match.stage,
+    inspectorName: `${match.inspection.firstName} ${match.inspection.lastName}`,
+  }
 }

@@ -1,14 +1,18 @@
-import { Fragment } from "react"
+"use client"
+
+import { Fragment, useRef, useState } from "react"
 import Link from "next/link"
 import type { Stage } from "@/lib/review"
 import { LOCATIONS, equipmentTypeLabel, type Location, type EquipmentType } from "@/lib/equipment"
+
+type WeeklyCellData = { stage: Stage | "none"; inspectorName: string | null }
 
 type WeeklyRow = {
   serial: string
   flNumber: string
   location: Location
   type: EquipmentType
-  cells: { day: Stage | "none"; night: Stage | "none" }[]
+  cells: { day: WeeklyCellData; night: WeeklyCellData }[]
 }
 
 const CELL_COLOR: Record<Stage | "none", string> = {
@@ -16,17 +20,77 @@ const CELL_COLOR: Record<Stage | "none", string> = {
   "pending-confirm": "bg-yellow-400",
   confirmed: "bg-green-500",
   clean: "bg-green-500",
-  none: "bg-white",
+  // A pure white fill made the white grid border between cells vanish on
+  // any empty stretch — a faint gray keeps the same border visible as a
+  // real line everywhere, not just between colored cells.
+  none: "bg-gray-50",
 }
 
-// Color alone shouldn't carry the meaning here — a glyph on top means the
-// grid still reads correctly for colorblind viewers, not just at a glance.
+// Only the severe case gets a glyph now — a full grid of ✓/? on every good
+// cell read as visual noise once there's a real month of data. Unresolved
+// (red) keeps "!" since that's the one state that must never be missed.
 const CELL_GLYPH: Record<Stage | "none", string> = {
   unresolved: "!",
-  "pending-confirm": "?",
-  confirmed: "✓",
-  clean: "✓",
+  "pending-confirm": "",
+  confirmed: "",
+  clean: "",
   none: "",
+}
+
+// Mouse hover reveals the name instantly via CSS group-hover — no delay,
+// unlike the browser's native `title` tooltip. Touch has no hover state at
+// all, so the pointer type of the actual tap (captured on pointerdown)
+// decides there: the first tap reveals instead of navigating, the second
+// tap (now that it's already revealed) goes through. The name floats in an
+// absolutely-positioned tooltip rather than growing the cell — these boxes
+// are fixed-size and must stay that way regardless of what's shown inside
+// them.
+function WeeklyCell({
+  href,
+  stage,
+  inspectorName,
+}: {
+  href: string | null
+  stage: Stage | "none"
+  inspectorName: string | null
+}) {
+  const [revealed, setRevealed] = useState(false)
+  const lastPointerType = useRef("mouse")
+
+  if (!href) return <>{CELL_GLYPH[stage]}</>
+
+  function handlePointerDown(e: React.PointerEvent<HTMLAnchorElement>) {
+    lastPointerType.current = e.pointerType
+  }
+
+  function handleClick(e: React.MouseEvent<HTMLAnchorElement>) {
+    if (lastPointerType.current === "mouse") return
+    if (!revealed) {
+      e.preventDefault()
+      setRevealed(true)
+    }
+  }
+
+  return (
+    <Link
+      href={href}
+      title={inspectorName ? `Inspected by ${inspectorName}` : undefined}
+      onPointerDown={handlePointerDown}
+      onClick={handleClick}
+      className="group relative flex h-full w-full items-center justify-center"
+    >
+      {CELL_GLYPH[stage]}
+      {inspectorName && (
+        <span
+          className={`pointer-events-none absolute bottom-full left-1/2 z-30 mb-1 -translate-x-1/2 rounded bg-gray-900 px-1.5 py-0.5 text-[10px] leading-tight font-normal whitespace-nowrap normal-case text-white shadow-lg ${
+            revealed ? "block" : "hidden group-hover:block"
+          }`}
+        >
+          {inspectorName}
+        </span>
+      )}
+    </Link>
+  )
 }
 
 const TYPE_ORDER: EquipmentType[] = ["Sit Down", "Propane", "Standup", "Pallet Jack"]
@@ -49,15 +113,23 @@ type GroupBy = "location" | "type"
 // order and what the merged left-hand label reads. Nothing collapses and
 // nothing re-shapes, since jumping between "reorganized" and "collapsed
 // and I have to reopen every group" was exactly the complaint before this.
-function groupRows(rows: WeeklyRow[], groupBy: GroupBy): { label: string; rows: WeeklyRow[] }[] {
+function groupRows(
+  rows: WeeklyRow[],
+  groupBy: GroupBy
+): { label: string; category: "Forklift" | null; rows: WeeklyRow[] }[] {
   if (groupBy === "location") {
     return LOCATIONS.map((location) => ({
       label: location,
+      category: null,
       rows: rows.filter((row) => row.location === location),
     })).filter((g) => g.rows.length > 0)
   }
   return TYPE_ORDER.map((type) => ({
     label: equipmentTypeLabel(type),
+    // "Sit Down"/"Propane"/"Standup" are all forklift subtypes — tagging
+    // them makes that relationship visible per-box instead of only in the
+    // toggle's own "By Type" label.
+    category: (type === "Pallet Jack" ? null : "Forklift") as "Forklift" | null,
     rows: rows.filter((row) => row.type === type),
   })).filter((g) => g.rows.length > 0)
 }
@@ -99,6 +171,7 @@ export default function WeeklyReport({
         <div className="flex items-center justify-center gap-4">
           <Link
             href={prevWeekHref}
+            scroll={false}
             aria-label="Previous week"
             className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-gray-400 transition-colors duration-100 hover:bg-gray-100 hover:text-gray-600 active:scale-90"
           >
@@ -110,6 +183,7 @@ export default function WeeklyReport({
           {nextWeekHref ? (
             <Link
               href={nextWeekHref}
+              scroll={false}
               aria-label="Next week"
               className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-gray-400 transition-colors duration-100 hover:bg-gray-100 hover:text-gray-600 active:scale-90"
             >
@@ -192,10 +266,18 @@ export default function WeeklyReport({
             <tr>
               {weekDays.map((dateKey) => (
                 <Fragment key={dateKey}>
-                  <th className="border-l border-gray-200 bg-gray-50 py-0.5 text-center text-[9px] font-medium text-gray-400 sm:text-xs">
+                  <th
+                    className={`border-l border-gray-200 py-0.5 text-center text-[9px] font-medium sm:text-xs ${
+                      dateKey === todayKey ? "bg-brand/10 text-brand" : "bg-gray-50 text-gray-400"
+                    }`}
+                  >
                     D
                   </th>
-                  <th className="border-gray-200 bg-gray-50 py-0.5 text-center text-[9px] font-medium text-gray-400 sm:text-xs">
+                  <th
+                    className={`border-gray-200 py-0.5 text-center text-[9px] font-medium sm:text-xs ${
+                      dateKey === todayKey ? "bg-brand/10 text-brand" : "bg-gray-50 text-gray-400"
+                    }`}
+                  >
                     N
                   </th>
                 </Fragment>
@@ -209,10 +291,20 @@ export default function WeeklyReport({
                   {i === 0 && (
                     <td
                       rowSpan={g.rows.length}
-                      title={g.label}
-                      className="sticky left-0 z-10 truncate border-r border-t border-gray-200 bg-white px-1.5 py-1 align-top text-xs font-medium text-gray-500 sm:text-sm"
+                      title={g.category ? `${g.category} — ${g.label}` : g.label}
+                      className="sticky left-0 z-10 border-r border-t border-gray-200 bg-white px-1.5 py-1 align-top text-xs font-medium text-gray-500 sm:text-sm"
                     >
-                      {g.label}
+                      {/* The category line costs almost no height (leading-none,
+                          8px) specifically so a group needs the same minimum
+                          row height either grouping — every real group here has
+                          3+ rows, comfortably more than this ever needs, so
+                          the table's shape stays identical to By Location's. */}
+                      {g.category && (
+                        <span className="block truncate text-[8px] leading-none font-bold tracking-wide text-brand uppercase">
+                          {g.category}
+                        </span>
+                      )}
+                      <span className="block truncate leading-tight">{g.label}</span>
                     </td>
                   )}
                   <td className="sticky left-14 z-10 h-7 truncate border-r border-t border-gray-200 bg-white p-0 text-xs font-medium sm:left-20 sm:h-8 sm:text-sm">
@@ -226,32 +318,30 @@ export default function WeeklyReport({
                   {row.cells.map((cell, ci) => (
                     <Fragment key={ci}>
                       <td
-                        className={`h-7 w-6 border-l border-t border-gray-200 p-0 text-center align-middle text-sm leading-none font-bold text-white sm:h-8 sm:w-8 sm:text-base ${CELL_COLOR[cell.day]}`}
+                        className={`h-7 w-6 border-2 border-white p-0 text-center align-middle text-sm leading-none font-bold text-white sm:h-8 sm:w-8 sm:text-base ${CELL_COLOR[cell.day.stage]}`}
                       >
-                        {cell.day !== "none" ? (
-                          <Link
-                            href={`/dashboard/equipment/${row.serial}?date=${weekDays[ci]}&shift=Day#highlighted-inspection`}
-                            className="flex h-full w-full items-center justify-center"
-                          >
-                            {CELL_GLYPH[cell.day]}
-                          </Link>
-                        ) : (
-                          CELL_GLYPH[cell.day]
-                        )}
+                        <WeeklyCell
+                          href={
+                            cell.day.stage !== "none"
+                              ? `/dashboard/equipment/${row.serial}?date=${weekDays[ci]}&shift=Day#selected-inspection`
+                              : null
+                          }
+                          stage={cell.day.stage}
+                          inspectorName={cell.day.inspectorName}
+                        />
                       </td>
                       <td
-                        className={`h-7 w-6 border-t border-gray-200 p-0 text-center align-middle text-sm leading-none font-bold text-white sm:h-8 sm:w-8 sm:text-base ${CELL_COLOR[cell.night]}`}
+                        className={`h-7 w-6 border-2 border-white p-0 text-center align-middle text-sm leading-none font-bold text-white sm:h-8 sm:w-8 sm:text-base ${CELL_COLOR[cell.night.stage]}`}
                       >
-                        {cell.night !== "none" ? (
-                          <Link
-                            href={`/dashboard/equipment/${row.serial}?date=${weekDays[ci]}&shift=Night#highlighted-inspection`}
-                            className="flex h-full w-full items-center justify-center"
-                          >
-                            {CELL_GLYPH[cell.night]}
-                          </Link>
-                        ) : (
-                          CELL_GLYPH[cell.night]
-                        )}
+                        <WeeklyCell
+                          href={
+                            cell.night.stage !== "none"
+                              ? `/dashboard/equipment/${row.serial}?date=${weekDays[ci]}&shift=Night#selected-inspection`
+                              : null
+                          }
+                          stage={cell.night.stage}
+                          inspectorName={cell.night.inspectorName}
+                        />
                       </td>
                     </Fragment>
                   ))}

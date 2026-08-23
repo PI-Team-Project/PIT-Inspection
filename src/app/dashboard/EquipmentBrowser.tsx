@@ -141,6 +141,19 @@ export default function EquipmentBrowser({ cards }: { cards: Card[] }) {
     setOpenOverrides((prev) => ({ ...prev, [key]: open }))
   }
 
+  // Selecting a specific type/location is a request to see it, not just
+  // filter down to it — force its own group open so it doesn't take a
+  // second click on the (now much shorter) list to actually reveal it.
+  function openGroups(keys: string[]) {
+    setOpenOverrides((prev) => {
+      const next = { ...prev }
+      keys.forEach((key) => {
+        next[key] = true
+      })
+      return next
+    })
+  }
+
   // Switching axis resets the other axis's own filters — a subtype filter
   // or a single active location are meaningless once you're grouping by
   // the other one.
@@ -274,7 +287,10 @@ export default function EquipmentBrowser({ cards }: { cards: Card[] }) {
             <button
               type="button"
               key={location}
-              onClick={() => setActiveLocation(location)}
+              onClick={() => {
+                setActiveLocation(location)
+                openGroups([location])
+              }}
               className={`shrink-0 rounded-md px-2.5 py-1 text-center whitespace-nowrap transition-colors duration-100 active:scale-95 ${
                 activeLocation === location
                   ? "bg-brand/10 text-brand shadow-sm ring-1 ring-brand/30"
@@ -378,7 +394,10 @@ export default function EquipmentBrowser({ cards }: { cards: Card[] }) {
         </button>
         <button
           type="button"
-          onClick={() => setTab("Pallet Jack")}
+          onClick={() => {
+            setTab("Pallet Jack")
+            openGroups(["Pallet Jack"])
+          }}
           className={`flex-1 rounded-md py-1.5 text-center transition-colors duration-100 active:scale-95 ${
             tab === "Pallet Jack" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500"
           }`}
@@ -407,7 +426,11 @@ export default function EquipmentBrowser({ cards }: { cards: Card[] }) {
               <button
                 type="button"
                 key={type}
-                onClick={() => setActiveSubtypes(toggleSubtype(activeSubtypes, type))}
+                onClick={() => {
+                  const next = toggleSubtype(activeSubtypes, type)
+                  setActiveSubtypes(next)
+                  if (next.includes(type)) openGroups([type])
+                }}
                 className={`flex-1 rounded-md py-1 text-center transition-colors duration-100 active:scale-95 ${
                   selected
                     ? "bg-brand/10 text-brand shadow-sm ring-1 ring-brand/30"
