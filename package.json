@@ -9,6 +9,11 @@
     "lint": "eslint",
     "test": "vitest run",
     "test:watch": "vitest",
+    "db:staging": "prisma dev --name pit-staging -p 5480 -P 5481 -d",
+    "db:staging:stop": "prisma dev stop pit-staging",
+    "db:staging:migrate": "node scripts/with-env.mjs .env.staging -- prisma migrate deploy",
+    "db:staging:seed": "node scripts/with-env.mjs .env.staging -- tsx scripts/seed-loadtest.ts",
+    "dev:staging": "node scripts/with-env.mjs .env.staging -- next dev",
     "postinstall": "prisma generate"
   },
   "dependencies": {
@@ -33,6 +38,7 @@
     "eslint-config-next": "16.2.12",
     "playwright": "^1.62.1",
     "tailwindcss": "^4",
+    "tsx": "^4.23.12",
     "typescript": "^5",
     "vitest": "^4.1.11"
   }

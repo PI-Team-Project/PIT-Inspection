@@ -1,8 +1,10 @@
 // One-off synthetic-data generator for load/functional testing — simulates
 // ~30 vehicles being inspected twice a day for a month by a rotating pool of
-// workers. Points ONLY at the local `prisma dev` test database (hardcoded
-// below), never at .env's DATABASE_URL, so there's no way this can touch
-// the real (production-shared) database regardless of what .env contains.
+// workers. Run via `npm run db:staging:seed`, which loads DATABASE_URL from
+// .env.staging — never from .env, so there's no way this touches the real
+// (production-shared) database regardless of what .env contains. The
+// localhost check below is a second, independent guard against ever
+// running this against a real remote database by accident.
 import { PrismaClient } from "../src/generated/prisma/client"
 import { PrismaPg } from "@prisma/adapter-pg"
 import { Pool } from "pg"
@@ -10,8 +12,15 @@ import { EQUIPMENT_LIST } from "../src/lib/equipment"
 import { QUESTIONS, SAFETY_CRITICAL_QUESTION_IDS } from "../src/lib/questions"
 import { getShiftWindowForDate } from "../src/lib/shifts"
 
-const TEST_DB_URL = "postgres://postgres:postgres@localhost:51214/template1?sslmode=disable"
-const pool = new Pool({ connectionString: TEST_DB_URL })
+const dbUrl = process.env.DATABASE_URL
+if (!dbUrl || !dbUrl.includes("localhost")) {
+  console.error(
+    "Refusing to run: DATABASE_URL must be set and point at localhost (use `npm run db:staging:seed`, not a raw DATABASE_URL)."
+  )
+  process.exit(1)
+}
+
+const pool = new Pool({ connectionString: dbUrl })
 const adapter = new PrismaPg(pool)
 const prisma = new PrismaClient({ adapter })
 
@@ -52,6 +61,11 @@ function dailyAnswers(flagId: string | null): Record<string, Answer> {
 }
 
 async function main() {
+  // Idempotent: clear out any inspections from a previous seed run first,
+  // so re-running this doesn't just keep piling on more synthetic data.
+  console.log("Clearing existing inspections...")
+  await prisma.inspection.deleteMany({})
+
   console.log(`Seeding ${EQUIPMENT_LIST.length} vehicles...`)
   await prisma.equipment.createMany({ data: EQUIPMENT_LIST, skipDuplicates: true })
 
