@@ -73,18 +73,50 @@ export function buildRow(inspection: RawInspection) {
   return { inspection, answers, review, flagged, critical, unresolved, stage }
 }
 
-// Bad status is only "seen" if it's been sitting since a prior calendar day —
-// walks back through history while the equipment stays unresolved/pending-confirm.
-export function badSince(history: { stage: Stage | "none"; inspection: { date: string } }[], today: string): string | null {
-  let since: string | null = null
+// Once an issue is flagged, it stays open until a supervisor explicitly
+// signs it off — a LATER inspection simply not re-flagging the same thing
+// must never silently clear it. This was a real bug: a vehicle's status
+// used to come from only its single most recent inspection, so a worker's
+// routine "all good" shift could erase an outstanding, never-reviewed
+// safety flag from days earlier with nobody ever confirming it was fixed.
+// This scans the *whole* history for the most severe still-unconfirmed
+// issue — unresolved outranks pending-confirm, and ties go to whichever
+// has been open longest — so the app keeps surfacing it for review no
+// matter how many clean inspections happen after it, until someone
+// actually signs off on that specific one.
+const OPEN_SEVERITY: Record<"unresolved" | "pending-confirm", number> = {
+  unresolved: 0,
+  "pending-confirm": 1,
+}
+
+export function findOpenIssue<T extends { stage: Stage | "none"; inspection: { createdAt: Date } }>(
+  history: T[]
+): T | null {
+  let openIssue: T | null = null
   for (const row of history) {
-    if (row.stage === "unresolved" || row.stage === "pending-confirm") {
-      since = row.inspection.date
-    } else {
-      break
+    if (row.stage !== "unresolved" && row.stage !== "pending-confirm") continue
+    if (!openIssue) {
+      openIssue = row
+      continue
+    }
+    const rowRank = OPEN_SEVERITY[row.stage]
+    const bestRank = OPEN_SEVERITY[openIssue.stage as "unresolved" | "pending-confirm"]
+    if (rowRank < bestRank || (rowRank === bestRank && row.inspection.createdAt < openIssue.inspection.createdAt)) {
+      openIssue = row
     }
   }
-  return since && since < today ? since : null
+  return openIssue
+}
+
+// "Since" now just means "since the open issue found above" — no separate
+// consecutive-run walk needed, because findOpenIssue already scans the
+// full history rather than stopping at the first clean inspection.
+export function badSince(
+  history: { stage: Stage | "none"; inspection: { date: string; createdAt: Date } }[],
+  today: string
+): string | null {
+  const open = findOpenIssue(history)
+  return open && open.inspection.date < today ? open.inspection.date : null
 }
 
 // Forklift inspection/activity history is dropped after 2 years; pallet
@@ -115,11 +147,9 @@ export type WeeklyCell = { stage: Stage | "none"; inspectorName: string | null }
 // whichever inspection (if any) fell inside that specific day+shift window.
 // `history` is already sorted newest-first, so the first match is the one
 // that counts.
-export function weeklyCell(
-  history: InspectionRow[],
-  dateKey: string,
-  shiftLabel: "Day" | "Night"
-): WeeklyCell {
+export function weeklyCell<
+  T extends { stage: Stage | "none"; inspection: { createdAt: Date; firstName: string; lastName: string } },
+>(history: T[], dateKey: string, shiftLabel: "Day" | "Night"): WeeklyCell {
   const window = getShiftWindowForDate(dateKey, shiftLabel)
   const match = history.find(
     (row) => row.inspection.createdAt >= window.start && row.inspection.createdAt < window.end

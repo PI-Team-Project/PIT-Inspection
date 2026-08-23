@@ -19,7 +19,13 @@ import {
 import { isCriticalInspection, isCriticalFlag, type ActivityEntry, type Stage } from "@/lib/review"
 import { FLEET_TIME_ZONE } from "@/lib/shifts"
 import { DASHBOARD_COOKIE, MANAGER_NAME_COOKIE, dashboardSessionValue } from "@/lib/auth"
-import { buildRow, badSince, retentionCutoff, daysPassedCount } from "../../inspectionRow"
+import {
+  buildRow,
+  badSince,
+  findOpenIssue,
+  retentionCutoff,
+  daysPassedCount,
+} from "../../inspectionRow"
 import StatusDot from "../../StatusDot"
 import PhotoGallery from "../../PhotoGallery"
 import LocationChangeControl from "../../LocationChangeControl"
@@ -71,22 +77,25 @@ export default async function EquipmentDetailPage({
   })
   const allHistory = allInspections.map(buildRow)
   const latest = allHistory[0]
-  const stage = (latest?.stage ?? "none") as Stage | "none"
+  // A vehicle's status is the most severe still-unconfirmed issue anywhere
+  // in its history, not just whatever its latest inspection happened to
+  // report — a later "all good" shift must never silently clear an
+  // outstanding flag nobody actually reviewed. See findOpenIssue.
+  const openIssue = findOpenIssue(allHistory)
+  const stage = (openIssue?.stage ?? latest?.stage ?? "none") as Stage | "none"
   const since = badSince(allHistory, today)
   const daysPassed = since ? daysPassedCount(since, today) : 0
 
   // The page never drops straight into an inspection unless the visitor
   // asked for one: either a specific day+shift (Weekly Report / History
-  // links all end in ?date=&shift=), or — with nothing picked — the latest
-  // inspection IF it's still actually actionable. Anything already clean
-  // or confirmed stays out of the way on the overview below.
+  // links all end in ?date=&shift=), or — with nothing picked — whichever
+  // inspection is the current open issue above. Anything already clean or
+  // confirmed stays out of the way on the overview below.
   const selectedId = highlightDate && highlightShift
     ? (allHistory.find(
         (row) => row.inspection.date === highlightDate && row.inspection.shift === highlightShift
       )?.inspection.id ?? null)
-    : latest && (latest.stage === "unresolved" || latest.stage === "pending-confirm")
-      ? latest.inspection.id
-      : null
+    : (openIssue?.inspection.id ?? null)
 
   const selectedInspection = selectedId
     ? await prisma.inspection.findUnique({ where: { id: selectedId }, include: { photos: true } })
@@ -112,6 +121,20 @@ export default async function EquipmentDetailPage({
     stage: row.stage,
   }))
 
+  // Browsing a specific past day is a lookup, not an alert — even a day
+  // that was unresolved at the time shouldn't paint the whole page red
+  // when you're just checking history. Only the vehicle's CURRENT state
+  // (the top-level `stage`, driving the verdict badge) earns that weight,
+  // and only when nothing else was explicitly asked for.
+  const isBrowsingHistory = Boolean(highlightDate)
+  const zoneTone = isBrowsingHistory
+    ? "border-gray-300 bg-white"
+    : stage === "unresolved"
+      ? "border-red-300 bg-red-50/40"
+      : stage === "pending-confirm"
+        ? "border-amber-300 bg-amber-50/40"
+        : "border-gray-300 bg-white"
+
   // Capped at 2xl (not lg:4xl) and never wider — this is a page of short
   // text lines and a handful of narrow columns, not a wide table like the
   // dashboard's Weekly Report. Growing the container past a comfortable
@@ -119,30 +142,41 @@ export default async function EquipmentDetailPage({
   // regardless of how big the screen actually is.
   return (
     <main className="mx-auto max-w-lg px-4 py-8 sm:max-w-2xl">
-      <Link
-        href="/dashboard"
-        className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-gray-600"
-      >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          viewBox="0 0 20 20"
-          fill="currentColor"
-          className="h-4 w-4"
-        >
-          <path
-            fillRule="evenodd"
-            d="M9.707 14.707a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414l4-4a1 1 0 111.414 1.414L7.414 9H15a1 1 0 110 2H7.414l2.293 2.293a1 1 0 010 1.414z"
-            clipRule="evenodd"
-          />
-        </svg>
-        Dashboard
-      </Link>
+      {/* One breadcrumb instead of two competing "back" links — it always
+          says exactly where you are (Fleet, this vehicle, optionally a
+          specific day) and every level but the current one is a link. */}
+      <nav className="mb-4 flex items-center gap-1.5 text-sm font-medium text-gray-500">
+        <Link href="/dashboard" className="hover:text-gray-700 hover:underline">
+          Fleet
+        </Link>
+        <span className="text-gray-300">›</span>
+        {isBrowsingHistory ? (
+          <Link
+            href={`/dashboard/equipment/${serial}`}
+            className="hover:text-gray-700 hover:underline"
+          >
+            {equipment.flNumber}
+          </Link>
+        ) : (
+          <span className="text-gray-700">{equipment.flNumber}</span>
+        )}
+        {isBrowsingHistory && (
+          <>
+            <span className="text-gray-300">›</span>
+            <span className="text-gray-700">
+              {highlightDate}
+              {highlightShift ? ` · ${highlightShift}` : ""}
+            </span>
+          </>
+        )}
+      </nav>
 
-      <div
-        className={`rounded-lg border bg-white p-3 ${
-          stage === "unresolved" ? "border-red-300" : "border-gray-300"
-        }`}
-      >
+      {/* Identity, verdict, and the thing to actually do about it all live
+          in one zone whose color/weight scales with real urgency — not a
+          small pill next to an otherwise-neutral page. Browsing a past day
+          stays neutral regardless of that day's own stage; only the
+          vehicle's CURRENT state earns the tint. */}
+      <div id="selected-inspection" className={`scroll-mt-4 rounded-lg border p-4 ${zoneTone}`}>
         <div className="flex items-start justify-between gap-2">
           <div className="flex items-center gap-1.5">
             <StatusDot stage={stage} size="sm" />
@@ -150,20 +184,24 @@ export default async function EquipmentDetailPage({
               {equipment.makeColor} · {equipmentTypeLabel(equipment.type)} · {equipment.flNumber}
             </p>
           </div>
-          {since && (
+          {since && !isBrowsingHistory && (
             <p className="animate-[status-blink_3s_ease-in-out_infinite] shrink-0 text-right text-xs font-semibold leading-tight text-red-600">
               {daysPassed}d passed
             </p>
           )}
         </div>
 
-        {/* A small supporting tag, not a headline — the vehicle's own name
-            above is what should draw the eye first. */}
-        <span
-          className={`mt-1 inline-block rounded-full px-2 py-0.5 text-[10px] font-bold tracking-wide uppercase ${verdict.badge}`}
-        >
-          {verdict.label}
-        </span>
+        {isBrowsingHistory ? (
+          <p className="mt-1 text-[10px] font-bold tracking-wide text-gray-400 uppercase">
+            Viewing history
+          </p>
+        ) : (
+          <span
+            className={`mt-1 inline-block rounded-full px-2 py-0.5 text-[10px] font-bold tracking-wide uppercase ${verdict.badge}`}
+          >
+            {verdict.label}
+          </span>
+        )}
 
         <div className="mt-1.5 space-y-0.5">
           <p className="flex flex-wrap items-center gap-1.5 text-sm text-gray-600">
@@ -186,26 +224,9 @@ export default async function EquipmentDetailPage({
             <p className="text-sm text-gray-500">No inspection yet</p>
           )}
         </div>
-      </div>
 
-      {selected ? (
-        <div id="selected-inspection" className="mt-6 scroll-mt-4">
-          <div className="mb-1.5 flex items-center justify-between">
-            <p className="text-sm font-semibold text-gray-500">
-              {highlightDate
-                ? `Viewing ${selected.inspection.date} · ${selected.inspection.shift}`
-                : "Needs Your Review"}
-            </p>
-            {highlightDate && (
-              <Link
-                href={`/dashboard/equipment/${serial}`}
-                className="text-xs font-medium text-gray-500 hover:underline"
-              >
-                ← Back to overview
-              </Link>
-            )}
-          </div>
-        <div className="rounded-lg border border-gray-300 bg-white p-4">
+        {selected ? (
+        <div className="mt-4 border-t border-black/5 pt-4">
           {selected.stage === "pending-confirm" &&
             !selected.flagged.every((q) => selected.review.issueStatus[q.id] === "complete") && (
               <div className="mb-4 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">
@@ -333,27 +354,22 @@ export default async function EquipmentDetailPage({
             )}
           </form>
         </div>
-        </div>
-      ) : highlightDate ? (
-        <div
-          id="selected-inspection"
-          className="mt-6 scroll-mt-4 rounded-lg border border-gray-200 bg-gray-50 p-4 text-center text-sm text-gray-500"
-        >
-          No inspection found for {highlightDate} · {highlightShift}.
-        </div>
-      ) : (
-        <div
-          className={`mt-6 rounded-lg border p-4 text-center text-sm font-medium ${
-            latest
-              ? "border-green-200 bg-green-50 text-green-800"
-              : "border-gray-200 bg-gray-50 text-gray-500"
-          }`}
-        >
-          {latest
-            ? "✓ All caught up — nothing needs review right now."
-            : "No inspections yet — this vehicle hasn't been checked in."}
-        </div>
-      )}
+        ) : highlightDate ? (
+          <p className="mt-4 border-t border-black/5 pt-4 text-center text-sm text-gray-500">
+            No inspection found for {highlightDate} · {highlightShift}.
+          </p>
+        ) : (
+          <p
+            className={`mt-4 border-t border-black/5 pt-4 text-center text-sm font-medium ${
+              latest ? "text-green-800" : "text-gray-500"
+            }`}
+          >
+            {latest
+              ? "✓ All caught up — nothing needs review right now."
+              : "No inspections yet — this vehicle hasn't been checked in."}
+          </p>
+        )}
+      </div>
 
       <div className="mt-6 flex items-center justify-between border-t border-gray-100 pt-3 text-xs text-gray-400">
         <a

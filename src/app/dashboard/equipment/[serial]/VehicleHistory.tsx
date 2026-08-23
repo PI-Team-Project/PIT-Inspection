@@ -15,12 +15,13 @@ export type LogEntry = {
 // `confirmed` (had an issue, got flagged, then fixed and signed off) used to
 // look identical to `clean` (never had an issue) everywhere here — there
 // was no way to tell "resolved" apart from "was never a problem" without
-// opening every single green row. Teal keeps it visually distinct from
-// clean's green while still reading as a good outcome.
+// opening every single green row. Blue reads clearly as its own category
+// next to the red/yellow/green trio, rather than blending in as a dark
+// shade of "good" the way teal did.
 const STAGE_COLOR: Record<Stage, string> = {
   unresolved: "bg-red-500",
   "pending-confirm": "bg-yellow-400",
-  confirmed: "bg-teal-600",
+  confirmed: "bg-blue-500",
   clean: "bg-green-500",
 }
 
@@ -190,7 +191,7 @@ function CalendarView({
           <span className="h-2 w-2 rounded-full bg-green-500" /> Clean
         </span>
         <span className="flex items-center gap-1">
-          <span className="h-2 w-2 rounded-full bg-teal-600" /> Resolved
+          <span className="h-2 w-2 rounded-full bg-blue-500" /> Resolved
         </span>
         <span className="flex items-center gap-1">
           <span className="h-2 w-2 rounded-full bg-yellow-400" /> Attention
@@ -304,9 +305,12 @@ export default function VehicleHistory({
     return map
   }, [entries])
 
+  // "Issues" means any day that was ever a problem — including ones
+  // already fixed. Excluding resolved ones defeated the point of being
+  // able to track back and see what got caught and cleared over time.
   const filteredRows =
     view === "issues"
-      ? entries.filter((e) => e.stage === "unresolved" || e.stage === "pending-confirm")
+      ? entries.filter((e) => e.stage !== "clean")
       : entries
   const totalPages = Math.max(1, Math.ceil(filteredRows.length / PAGE_SIZE))
   const pageRows = filteredRows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
@@ -317,7 +321,9 @@ export default function VehicleHistory({
   }
 
   return (
-    <div className="rounded-lg border border-gray-200 shadow-sm">
+    // No shadow, lighter border than the status zone above — this is
+    // reference material to consult, not the thing demanding attention.
+    <div className="rounded-lg border border-gray-100">
       <div className="border-b border-gray-200 px-3 py-2.5">
         <p className="text-center text-sm font-semibold text-gray-700">
           History ({entries.length})
@@ -352,7 +358,7 @@ export default function VehicleHistory({
             rows={pageRows}
             emptyLabel={
               view === "issues"
-                ? "No unresolved or flagged inspections in this vehicle's history."
+                ? "No flagged or resolved inspections in this vehicle's history."
                 : "No inspections yet."
             }
           />

@@ -28,6 +28,7 @@ import WeeklyReport from "./WeeklyReport"
 import {
   buildRow,
   badSince,
+  findOpenIssue,
   retentionCutoff,
   daysPassedCount,
   weeklyCell,
@@ -123,7 +124,11 @@ export default async function DashboardPage({
       (row) => row.inspection.date >= cutoff
     )
     const latest = history[0]
-    const stage = (latest?.stage ?? "none") as Stage | "none"
+    // A vehicle's status is the most severe still-unconfirmed issue
+    // anywhere in its history, not just whatever its latest inspection
+    // happened to report — see findOpenIssue in ./inspectionRow.
+    const openIssue = findOpenIssue(history)
+    const stage = (openIssue?.stage ?? latest?.stage ?? "none") as Stage | "none"
     const since = badSince(history, today)
     return { equipment: eq, history, latest, stage, since, escalated: since !== null }
   }).sort(
