@@ -457,12 +457,17 @@ function ShiftOverview({
           )
         })}
       </div>
-      <div className="grid grid-cols-2 gap-2">
+      {/* Stacked full-width on mobile — splitting these two panels side by
+          side there left each one only half the screen, which meant the
+          2-column chip grid inside effectively became 4 columns across the
+          phone, too narrow for a full FL# without truncating. Side by side
+          only once there's room (sm+). */}
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
         <div className="rounded-lg border border-green-200 bg-green-50 p-3 shadow-sm">
           <p className="pb-1.5 text-sm font-semibold text-green-800">
             Inspected ({inspected.length}/{rows.length})
           </p>
-          <div className="flex flex-wrap gap-1.5 border-t border-green-200/60 pt-2">
+          <div className="grid grid-cols-2 gap-1.5 border-t border-green-200/60 pt-2">
             {inspected.length > 0 &&
               inspected.map((row) => {
                 // The chip reflects THIS shift's inspection specifically —
@@ -480,7 +485,7 @@ function ShiftOverview({
                     href={`/dashboard/equipment/${row.equipment.serial}`}
                     label={row.equipment.flNumber}
                     inspectorName={inspectorName}
-                    className={`rounded-md px-1.5 py-0.5 text-xs font-medium ${
+                    className={`truncate rounded-md px-1.5 py-0.5 text-center text-xs font-medium ${
                       isPendingConfirm
                         ? "bg-amber-100 text-amber-700"
                         : "border border-green-200 bg-white text-green-700"
@@ -492,15 +497,15 @@ function ShiftOverview({
         </div>
         <div className="rounded-lg border border-gray-300 bg-gray-50 p-3 shadow-sm">
           <p className="pb-1.5 text-sm font-semibold text-gray-700">
-            Not Yet Inspected ({notInspected.length}/{rows.length})
+            Not Inspected ({notInspected.length}/{rows.length})
           </p>
           {notInspected.length > 0 && (
-            <div className="flex flex-wrap gap-1.5 border-t border-gray-200 pt-2">
+            <div className="grid grid-cols-2 gap-1.5 border-t border-gray-200 pt-2">
               {notInspected.map((row) => (
                 <a
                   key={row.equipment.serial}
                   href={`/dashboard/equipment/${row.equipment.serial}`}
-                  className={`rounded-md px-1.5 py-0.5 text-xs font-medium ${
+                  className={`truncate rounded-md px-1.5 py-0.5 text-center text-xs font-medium ${
                     row.stage === "unresolved"
                       ? "bg-red-100 text-red-700"
                       : row.stage === "pending-confirm"

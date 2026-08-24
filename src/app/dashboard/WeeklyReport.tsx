@@ -3,7 +3,20 @@
 import { Fragment, useRef, useState } from "react"
 import Link from "next/link"
 import type { Stage } from "@/lib/review"
-import { LOCATIONS, equipmentTypeLabel, type Location, type EquipmentType } from "@/lib/equipment"
+import {
+  LOCATIONS,
+  REPAIR_LOCATION,
+  equipmentTypeLabel,
+  type Location,
+  type EquipmentType,
+} from "@/lib/equipment"
+
+// "Repairing 🛠️" is the longest location name and the emoji eats width for
+// no informational gain in this cramped column — shortened for display only,
+// everywhere else (the location picker, etc.) still shows the full name.
+function groupLabelText(groupBy: GroupBy, label: string): string {
+  return groupBy === "location" && label === REPAIR_LOCATION ? "Repair" : label
+}
 
 type WeeklyCellData = { stage: Stage | "none"; inspectorName: string | null }
 
@@ -286,13 +299,13 @@ export default function WeeklyReport({
             <tr>
               <th
                 rowSpan={2}
-                className="sticky left-0 z-10 w-16 border-b border-r border-gray-200 bg-gray-50 px-1.5 py-1 text-left text-xs font-semibold text-gray-600 sm:w-28 sm:text-sm"
+                className="sticky left-0 z-10 w-20 border-b border-r border-gray-200 bg-gray-50 px-1.5 py-1 text-left text-xs font-semibold text-gray-600 sm:w-28 sm:text-sm"
               >
                 {groupBy === "location" ? "Loc" : "Type"}
               </th>
               <th
                 rowSpan={2}
-                className="sticky left-16 z-10 w-24 border-b border-r border-gray-200 bg-gray-50 px-1.5 py-1 text-center text-xs font-semibold text-gray-600 sm:left-28 sm:w-24 sm:text-sm"
+                className="sticky left-20 z-10 w-24 border-b border-r border-gray-200 bg-gray-50 px-1.5 py-1 text-center text-xs font-semibold text-gray-600 sm:left-28 sm:w-24 sm:text-sm"
               >
                 FL#
               </th>
@@ -355,7 +368,7 @@ export default function WeeklyReport({
                       // Electrode" could widen the whole table beyond what
                       // "By Type" ever needs, unless every cell in the
                       // column agrees on the same fixed width.
-                      className={`sticky left-0 z-10 w-16 border-r border-t border-gray-200 bg-white px-1.5 py-1 align-top text-xs font-medium text-gray-500 sm:w-28 sm:text-sm ${
+                      className={`sticky left-0 z-10 w-20 border-r border-t border-gray-200 bg-white px-1.5 py-1 align-top text-xs font-medium text-gray-500 sm:w-28 sm:text-sm ${
                         groupHighlighted ? HIGHLIGHT : ""
                       }`}
                     >
@@ -369,13 +382,15 @@ export default function WeeklyReport({
                           {g.category}
                         </span>
                       )}
-                      <span className="block truncate leading-tight">{g.label}</span>
+                      <span className="block leading-tight whitespace-normal">
+                        {groupLabelText(groupBy, g.label)}
+                      </span>
                     </td>
                   )}
                   <td
                     onMouseEnter={() => setHovered({ kind: "row", key: row.serial })}
                     onMouseLeave={() => setHovered(null)}
-                    className={`sticky left-16 z-10 h-7 w-24 truncate border-r border-t border-gray-200 bg-white p-0 text-xs font-medium sm:left-28 sm:h-8 sm:w-24 sm:text-sm ${
+                    className={`sticky left-20 z-10 h-7 w-24 truncate border-r border-t border-gray-200 bg-white p-0 text-xs font-medium sm:left-28 sm:h-8 sm:w-24 sm:text-sm ${
                       rowHighlighted ? HIGHLIGHT : ""
                     }`}
                   >
