@@ -10,6 +10,9 @@ export type LogEntry = {
   shift: "Day" | "Night"
   inspectorName: string
   stage: Stage
+  // What was actually flagged (e.g. "Horn", "Repair Request"), so scanning
+  // the log tells you what's wrong without clicking into every red row.
+  issueSummary: string | null
 }
 
 // `confirmed` (had an issue, got flagged, then fixed and signed off) used to
@@ -220,17 +223,23 @@ function LogTable({
     return <p className="px-3 py-6 text-center text-sm text-gray-500">{emptyLabel}</p>
   }
   // One shared grid for the header AND every row (instead of a separate
-  // grid per row) so the same "auto" column ever only gets sized once —
-  // otherwise each row's Date/Shift columns size to that row's own content
-  // alone and drift out of alignment with the header and with each other.
-  // Each Link uses `contents` so its four cells become direct grid items
-  // (grid only auto-aligns direct children) while staying one clickable row.
+  // grid per row) so the same column ever only gets sized once — otherwise
+  // each row's Date/Shift columns size to that row's own content alone and
+  // drift out of alignment with the header and with each other. Date,
+  // Shift, and Inspector all carry an `fr` share (with a `minmax` floor so
+  // they never shrink below what their own content needs) so extra width
+  // on a wide screen spreads across all three proportionally, instead of
+  // only Inspector stretching while Status ends up stranded far to the
+  // right with a dead gap in front of it. Status/chevron stay fixed —
+  // they're icon-sized and have no reason to grow. Each Link uses
+  // `contents` so its cells become direct grid items (grid only
+  // auto-aligns direct children) while staying one clickable row.
   return (
-    <div className="grid grid-cols-[auto_auto_1fr_auto_auto] gap-y-0">
+    <div className="grid grid-cols-[minmax(7.5rem,1fr)_minmax(3.5rem,0.5fr)_minmax(0,3fr)_auto_auto] gap-y-0">
       <span className="bg-gray-50 py-1.5 pr-8 pl-3 text-[10px] font-semibold tracking-wide text-gray-500 uppercase">
         Date
       </span>
-      <span className="bg-gray-50 py-1.5 pr-8 text-[10px] font-semibold tracking-wide text-gray-500 uppercase">
+      <span className="bg-gray-50 py-1.5 pr-4 text-[10px] font-semibold tracking-wide text-gray-500 uppercase">
         Shift
       </span>
       <span className="bg-gray-50 py-1.5 pr-4 text-[10px] font-semibold tracking-wide text-gray-500 uppercase">
@@ -246,14 +255,20 @@ function LogTable({
           href={`/dashboard/equipment/${serial}?date=${r.date}&shift=${r.shift}#selected-inspection`}
           className="group contents"
         >
-          <span className="border-t border-gray-100 py-2 pr-8 pl-3 text-sm text-gray-700 transition-colors duration-100 group-hover:bg-gray-50 group-active:bg-gray-100">
+          <span className="border-t border-gray-100 py-2 pr-8 pl-3 text-sm whitespace-nowrap text-gray-700 transition-colors duration-100 group-hover:bg-gray-50 group-active:bg-gray-100">
             {r.date}
           </span>
-          <span className="border-t border-gray-100 py-2 pr-8 text-sm text-gray-500 transition-colors duration-100 group-hover:bg-gray-50 group-active:bg-gray-100">
+          <span className="border-t border-gray-100 py-2 pr-4 text-sm text-gray-500 transition-colors duration-100 group-hover:bg-gray-50 group-active:bg-gray-100">
             {r.shift}
           </span>
           <span className="truncate border-t border-gray-100 py-2 pr-4 text-sm text-gray-700 transition-colors duration-100 group-hover:bg-gray-50 group-active:bg-gray-100">
             {r.inspectorName}
+            {r.issueSummary && (
+              <span className="text-gray-600" style={{ fontFamily: "'Courier New', monospace" }}>
+                {" "}
+                · {r.issueSummary}
+              </span>
+            )}
           </span>
           <span className="flex items-center justify-center border-t border-gray-100 py-2 pr-3 transition-colors duration-100 group-hover:bg-gray-50 group-active:bg-gray-100">
             <span

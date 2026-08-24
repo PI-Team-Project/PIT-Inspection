@@ -87,15 +87,17 @@ export default async function EquipmentDetailPage({
   const daysPassed = since ? daysPassedCount(since, today) : 0
 
   // The page never drops straight into an inspection unless the visitor
-  // asked for one: either a specific day+shift (Weekly Report / History
-  // links all end in ?date=&shift=), or — with nothing picked — whichever
-  // inspection is the current open issue above. Anything already clean or
-  // confirmed stays out of the way on the overview below.
+  // explicitly asked for one via a specific day+shift — entry points that
+  // already know which day matter (a flagged square in the Weekly Report,
+  // a row in this vehicle's own History) link straight to that day. Landing
+  // on the vehicle by name always lands on the overview instead, with the
+  // verdict badge itself linking to the open issue if there is one — see
+  // below — rather than the whole questionnaire appearing unasked-for.
   const selectedId = highlightDate && highlightShift
     ? (allHistory.find(
         (row) => row.inspection.date === highlightDate && row.inspection.shift === highlightShift
       )?.inspection.id ?? null)
-    : (openIssue?.inspection.id ?? null)
+    : null
 
   const selectedInspection = selectedId
     ? await prisma.inspection.findUnique({ where: { id: selectedId }, include: { photos: true } })
@@ -119,6 +121,12 @@ export default async function EquipmentDetailPage({
     shift: row.inspection.shift as "Day" | "Night",
     inspectorName: `${row.inspection.firstName} ${row.inspection.lastName}`,
     stage: row.stage,
+    issueSummary:
+      row.flagged.length === 0
+        ? null
+        : row.flagged.length === 1
+          ? row.flagged[0].label
+          : `${row.flagged[0].label} +${row.flagged.length - 1} more`,
   }))
 
   // Browsing a specific past day is a lookup, not an alert — even a day
@@ -195,6 +203,16 @@ export default async function EquipmentDetailPage({
           <p className="mt-1 text-[10px] font-bold tracking-wide text-gray-400 uppercase">
             Viewing history
           </p>
+        ) : openIssue ? (
+          // The badge itself is the one-click path to the flagged
+          // inspection — no need to also embed the whole questionnaire
+          // here just to keep that reachable in one tap.
+          <Link
+            href={`/dashboard/equipment/${serial}?date=${openIssue.inspection.date}&shift=${openIssue.inspection.shift}#selected-inspection`}
+            className={`mt-1 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold tracking-wide uppercase hover:underline ${verdict.badge}`}
+          >
+            {verdict.label} →
+          </Link>
         ) : (
           <span
             className={`mt-1 inline-block rounded-full px-2 py-0.5 text-[10px] font-bold tracking-wide uppercase ${verdict.badge}`}
@@ -358,7 +376,7 @@ export default async function EquipmentDetailPage({
           <p className="mt-4 border-t border-black/5 pt-4 text-center text-sm text-gray-500">
             No inspection found for {highlightDate} · {highlightShift}.
           </p>
-        ) : (
+        ) : openIssue ? null : ( // the badge above is already the call to action
           <p
             className={`mt-4 border-t border-black/5 pt-4 text-center text-sm font-medium ${
               latest ? "text-green-800" : "text-gray-500"
@@ -371,6 +389,10 @@ export default async function EquipmentDetailPage({
         )}
       </div>
 
+      <div className="mt-6">
+        <VehicleHistory serial={serial} todayKey={today} entries={logEntries} />
+      </div>
+
       <div className="mt-6 flex items-center justify-between border-t border-gray-100 pt-3 text-xs text-gray-400">
         <a
           href={`/dashboard/export/${equipment.serial}`}
@@ -381,10 +403,6 @@ export default async function EquipmentDetailPage({
         <a href="/dashboard/manage" className="font-medium hover:text-gray-600 hover:underline">
           Manage this vehicle →
         </a>
-      </div>
-
-      <div className="mt-6">
-        <VehicleHistory serial={serial} todayKey={today} entries={logEntries} />
       </div>
     </main>
   )

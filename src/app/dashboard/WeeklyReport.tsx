@@ -109,6 +109,21 @@ function formatWeekRange(startKey: string, endKey: string): string {
 
 type GroupBy = "location" | "type"
 
+// Strips an optional leading single-letter prefix ("S-", "R-", "M-", "P-")
+// and the trailing serial number from an FL#, leaving just its model line
+// (e.g. "M-MIT-0270" and "R-MIT-0348" both reduce to "MIT") — the thing
+// that actually makes rows feel "organized" within a group, rather than
+// scattered by whichever prefix letter a given vehicle happens to carry.
+function flModelLine(flNumber: string): string {
+  return flNumber.replace(/^[A-Za-z]-/, "").replace(/-?\d+$/, "")
+}
+
+function byModelLineThenFlNumber(a: WeeklyRow, b: WeeklyRow): number {
+  const lineDiff = flModelLine(a.flNumber).localeCompare(flModelLine(b.flNumber))
+  if (lineDiff !== 0) return lineDiff
+  return a.flNumber.localeCompare(b.flNumber, undefined, { numeric: true })
+}
+
 // Same rows, same columns, same everything — grouping only changes the sort
 // order and what the merged left-hand label reads. Nothing collapses and
 // nothing re-shapes, since jumping between "reorganized" and "collapsed
@@ -121,7 +136,7 @@ function groupRows(
     return LOCATIONS.map((location) => ({
       label: location,
       category: null,
-      rows: rows.filter((row) => row.location === location),
+      rows: rows.filter((row) => row.location === location).sort(byModelLineThenFlNumber),
     })).filter((g) => g.rows.length > 0)
   }
   return TYPE_ORDER.map((type) => ({
@@ -130,7 +145,7 @@ function groupRows(
     // them makes that relationship visible per-box instead of only in the
     // toggle's own "By Type" label.
     category: (type === "Pallet Jack" ? null : "Forklift") as "Forklift" | null,
-    rows: rows.filter((row) => row.type === type),
+    rows: rows.filter((row) => row.type === type).sort(byModelLineThenFlNumber),
   })).filter((g) => g.rows.length > 0)
 }
 
@@ -153,7 +168,30 @@ export default function WeeklyReport({
   locationHref: string
   typeHref: string
 }) {
+  // Desktop-only hover cue: encodes either scope in one value so a single
+  // state variable drives both "highlight this one row" (hovering its FL#)
+  // and "highlight every row in this group" (hovering the group label).
+  // Declared before the early return below — hooks can't be conditional.
+  const [hovered, setHovered] = useState<{ kind: "row" | "group"; key: string } | null>(null)
+  // The day-column highlight is deliberately a separate, click/tap-toggled
+  // state rather than another hover — hover doesn't exist on touch at all,
+  // so this is the one of the three that actually works on mobile. Kept
+  // independent of `hovered` so a mouse moving across rows elsewhere never
+  // clears a day someone tapped to select.
+  const [selectedDay, setSelectedDay] = useState<string | null>(null)
+
   if (rows.length === 0) return null
+
+  const isRowHighlighted = (row: WeeklyRow, groupLabel: string) =>
+    hovered !== null &&
+    ((hovered.kind === "row" && hovered.key === row.serial) ||
+      (hovered.kind === "group" && hovered.key === groupLabel))
+  // A translucent gray shadow layered on top of whatever's already there —
+  // never a background swap — so a red/yellow/green cell stays exactly its
+  // own color (just slightly darkened) instead of being hidden, and an
+  // empty cell just reads as a faintly darker gray. Same treatment either
+  // way the data looks: mostly filled or mostly empty.
+  const HIGHLIGHT = "shadow-[inset_0_0_0_999px_rgba(107,114,128,0.16)]"
 
   const dayLabels = weekDays.map((dateKey) =>
     new Intl.DateTimeFormat("en-US", {
@@ -236,18 +274,25 @@ export default function WeeklyReport({
         </div>
       </div>
       <div className="overflow-x-auto">
-        <table className="w-full border-collapse">
+        {/* table-fixed is load-bearing: in the default auto layout, an
+            explicit width on a cell is only a hint — the browser still
+            grows a column to fit its widest content (e.g. "MI2 Electrode"),
+            which is exactly why the table could render a different width
+            depending on grouping. Fixed layout makes every column's width
+            authoritative, so truncate can actually clip long labels
+            instead of silently being overridden. */}
+        <table className="w-full table-fixed border-collapse">
           <thead>
             <tr>
               <th
                 rowSpan={2}
-                className="sticky left-0 z-10 w-14 border-b border-r border-gray-200 bg-gray-50 px-1.5 py-1 text-left text-xs font-semibold text-gray-600 sm:w-20 sm:text-sm"
+                className="sticky left-0 z-10 w-16 border-b border-r border-gray-200 bg-gray-50 px-1.5 py-1 text-left text-xs font-semibold text-gray-600 sm:w-28 sm:text-sm"
               >
                 {groupBy === "location" ? "Loc" : "Type"}
               </th>
               <th
                 rowSpan={2}
-                className="sticky left-14 z-10 w-16 border-b border-r border-gray-200 bg-gray-50 px-1.5 py-1 text-left text-xs font-semibold text-gray-600 sm:left-20 sm:w-24 sm:text-sm"
+                className="sticky left-16 z-10 w-24 border-b border-r border-gray-200 bg-gray-50 px-1.5 py-1 text-center text-xs font-semibold text-gray-600 sm:left-28 sm:w-24 sm:text-sm"
               >
                 FL#
               </th>
@@ -255,9 +300,13 @@ export default function WeeklyReport({
                 <th
                   key={dateKey}
                   colSpan={2}
-                  className={`border-b border-l border-gray-200 px-1 py-1 text-center text-[10px] font-semibold sm:text-sm ${
+                  onClick={() => setSelectedDay((prev) => (prev === dateKey ? null : dateKey))}
+                  // Click/tap-toggle, not hover — this is the one of these
+                  // highlight features that actually works on mobile, since
+                  // a tap is a click. Click the same day again to clear it.
+                  className={`cursor-pointer border-b border-l border-gray-200 px-1 py-1 text-center text-[10px] font-semibold sm:text-sm ${
                     dateKey === todayKey ? "bg-brand/10 text-brand" : "bg-gray-50 text-gray-600"
-                  }`}
+                  } ${selectedDay === dateKey ? HIGHLIGHT : ""}`}
                 >
                   {dayLabels[i]}
                 </th>
@@ -267,16 +316,18 @@ export default function WeeklyReport({
               {weekDays.map((dateKey) => (
                 <Fragment key={dateKey}>
                   <th
-                    className={`border-l border-gray-200 py-0.5 text-center text-[9px] font-medium sm:text-xs ${
+                    onClick={() => setSelectedDay((prev) => (prev === dateKey ? null : dateKey))}
+                    className={`cursor-pointer border-l border-gray-200 py-0.5 text-center text-[9px] font-medium sm:text-xs ${
                       dateKey === todayKey ? "bg-brand/10 text-brand" : "bg-gray-50 text-gray-400"
-                    }`}
+                    } ${selectedDay === dateKey ? HIGHLIGHT : ""}`}
                   >
                     D
                   </th>
                   <th
-                    className={`border-gray-200 py-0.5 text-center text-[9px] font-medium sm:text-xs ${
+                    onClick={() => setSelectedDay((prev) => (prev === dateKey ? null : dateKey))}
+                    className={`cursor-pointer border-gray-200 py-0.5 text-center text-[9px] font-medium sm:text-xs ${
                       dateKey === todayKey ? "bg-brand/10 text-brand" : "bg-gray-50 text-gray-400"
-                    }`}
+                    } ${selectedDay === dateKey ? HIGHLIGHT : ""}`}
                   >
                     N
                   </th>
@@ -286,13 +337,27 @@ export default function WeeklyReport({
           </thead>
           <tbody>
             {groups.map((g) =>
-              g.rows.map((row, i) => (
+              g.rows.map((row, i) => {
+                const groupHighlighted = hovered?.kind === "group" && hovered.key === g.label
+                const rowHighlighted = isRowHighlighted(row, g.label)
+                return (
                 <tr key={row.serial}>
                   {i === 0 && (
                     <td
                       rowSpan={g.rows.length}
                       title={g.category ? `${g.category} — ${g.label}` : g.label}
-                      className="sticky left-0 z-10 border-r border-t border-gray-200 bg-white px-1.5 py-1 align-top text-xs font-medium text-gray-500 sm:text-sm"
+                      onMouseEnter={() => setHovered({ kind: "group", key: g.label })}
+                      onMouseLeave={() => setHovered(null)}
+                      // Width must be fixed HERE too, not just on the <th> —
+                      // in an auto-layout table a column's rendered width
+                      // comes from whichever cell (header or body) needs
+                      // the most room, so a long location name like "MI2
+                      // Electrode" could widen the whole table beyond what
+                      // "By Type" ever needs, unless every cell in the
+                      // column agrees on the same fixed width.
+                      className={`sticky left-0 z-10 w-16 border-r border-t border-gray-200 bg-white px-1.5 py-1 align-top text-xs font-medium text-gray-500 sm:w-28 sm:text-sm ${
+                        groupHighlighted ? HIGHLIGHT : ""
+                      }`}
                     >
                       {/* The category line costs almost no height (leading-none,
                           8px) specifically so a group needs the same minimum
@@ -307,18 +372,28 @@ export default function WeeklyReport({
                       <span className="block truncate leading-tight">{g.label}</span>
                     </td>
                   )}
-                  <td className="sticky left-14 z-10 h-7 truncate border-r border-t border-gray-200 bg-white p-0 text-xs font-medium sm:left-20 sm:h-8 sm:text-sm">
+                  <td
+                    onMouseEnter={() => setHovered({ kind: "row", key: row.serial })}
+                    onMouseLeave={() => setHovered(null)}
+                    className={`sticky left-16 z-10 h-7 w-24 truncate border-r border-t border-gray-200 bg-white p-0 text-xs font-medium sm:left-28 sm:h-8 sm:w-24 sm:text-sm ${
+                      rowHighlighted ? HIGHLIGHT : ""
+                    }`}
+                  >
                     <Link
                       href={`/dashboard/equipment/${row.serial}`}
-                      className="flex h-full items-center truncate px-1.5 text-brand underline-offset-2 active:bg-gray-50 active:underline"
+                      className="flex h-full items-center justify-center truncate px-1.5 text-brand underline-offset-2 active:bg-gray-50 active:underline"
                     >
                       {row.flNumber}
                     </Link>
                   </td>
-                  {row.cells.map((cell, ci) => (
+                  {row.cells.map((cell, ci) => {
+                    const dayColumnSelected = selectedDay === weekDays[ci]
+                    return (
                     <Fragment key={ci}>
                       <td
-                        className={`h-7 w-6 border-2 border-white p-0 text-center align-middle text-sm leading-none font-bold text-white sm:h-8 sm:w-8 sm:text-base ${CELL_COLOR[cell.day.stage]}`}
+                        className={`h-7 w-6 border-2 border-white p-0 text-center align-middle text-sm leading-none font-bold text-white sm:h-8 sm:w-7 sm:text-base ${CELL_COLOR[cell.day.stage]} ${
+                          rowHighlighted || dayColumnSelected ? HIGHLIGHT : ""
+                        }`}
                       >
                         <WeeklyCell
                           href={
@@ -331,7 +406,9 @@ export default function WeeklyReport({
                         />
                       </td>
                       <td
-                        className={`h-7 w-6 border-2 border-white p-0 text-center align-middle text-sm leading-none font-bold text-white sm:h-8 sm:w-8 sm:text-base ${CELL_COLOR[cell.night.stage]}`}
+                        className={`h-7 w-6 border-2 border-white p-0 text-center align-middle text-sm leading-none font-bold text-white sm:h-8 sm:w-7 sm:text-base ${CELL_COLOR[cell.night.stage]} ${
+                          rowHighlighted || dayColumnSelected ? HIGHLIGHT : ""
+                        }`}
                       >
                         <WeeklyCell
                           href={
@@ -344,9 +421,11 @@ export default function WeeklyReport({
                         />
                       </td>
                     </Fragment>
-                  ))}
+                    )
+                  })}
                 </tr>
-              ))
+                )
+              })
             )}
           </tbody>
         </table>

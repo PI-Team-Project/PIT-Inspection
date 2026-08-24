@@ -1,4 +1,3 @@
-import Link from "next/link"
 import { cookies } from "next/headers"
 import { redirect } from "next/navigation"
 import { equipmentTypeLabel, type Equipment } from "@/lib/equipment"
@@ -6,6 +5,7 @@ import { getAllEquipmentIncludingRetired, RETENTION_DAYS } from "@/lib/equipment
 import { DASHBOARD_COOKIE, MANAGER_NAME_COOKIE, dashboardSessionValue } from "@/lib/auth"
 import { restoreVehicle } from "./actions"
 import ActiveVehiclesTable from "./ActiveVehiclesTable"
+import BackLink from "./BackLink"
 import ManageVehicleSearch from "./ManageVehicleSearch"
 import { RETIRED_COLS, HIDE_ON_MOBILE, SORT_FIELDS, isSortField, type SortField } from "./tableShared"
 
@@ -34,19 +34,7 @@ export default async function ManageVehiclesPage({
 
   return (
     <main className="mx-auto max-w-lg px-4 py-8 sm:max-w-2xl lg:max-w-4xl">
-      <Link
-        href="/dashboard"
-        className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-gray-600"
-      >
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
-          <path
-            fillRule="evenodd"
-            d="M9.707 14.707a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414l4-4a1 1 0 111.414 1.414L7.414 9H15a1 1 0 110 2H7.414l2.293 2.293a1 1 0 010 1.414z"
-            clipRule="evenodd"
-          />
-        </svg>
-        Dashboard
-      </Link>
+      <BackLink />
 
       <div className="flex items-start justify-between gap-3">
         <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
