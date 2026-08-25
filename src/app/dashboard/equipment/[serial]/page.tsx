@@ -221,104 +221,121 @@ export default async function EquipmentDetailPage({
           small pill next to an otherwise-neutral page. Browsing a past day
           stays neutral regardless of that day's own stage; only the
           vehicle's CURRENT state earns the tint. */}
-      <div id="selected-inspection" className={`scroll-mt-4 rounded-lg border p-4 ${zoneTone}`}>
-        <div className="flex items-start justify-between gap-2">
-          <div className="flex items-center gap-1.5">
-            <StatusDot stage={stage} size="sm" />
-            <p className="text-base font-semibold text-gray-900">
-              {equipment.makeColor} · {equipmentTypeLabel(equipment.type)} · {equipment.flNumber}
-            </p>
-          </div>
-          {since && !isBrowsingHistory && (
-            <p className="animate-[status-blink_3s_ease-in-out_infinite] shrink-0 text-right text-xs font-semibold leading-tight text-red-600">
-              {daysPassed}d passed
-            </p>
-          )}
-        </div>
-
-        {isBrowsingHistory ? (
-          <>
-            {/* This vehicle's CURRENT status was otherwise fully hidden while
-                browsing a specific day — a manager who lands here straight
-                from a link (a Weekly Report cell, a History row) for an
-                already-confirmed day never saw the vehicle overall still has
-                a separate, untouched open issue elsewhere. That gap is
-                exactly how MIT-2304 stayed red for two weeks unnoticed after
-                its Aug 10 report was confirmed: the Aug 7 report was open the
-                whole time, but nothing on this page said so unless you
-                happened to land on the Home view instead. */}
-            {/* An open issue elsewhere is an action to take, not a status to
-                display, so it renders as colored, underline-on-touch text
-                rather than a filled pill — a pill reads as "badge"; this
-                needs to read as "click here." */}
-            {openIssue && (
-              <Link
-                href={`/dashboard/equipment/${serial}?date=${openIssue.inspection.date}&shift=${openIssue.inspection.shift}#selected-inspection`}
-                className={`mt-1 inline-block text-sm font-semibold hover:underline active:underline ${verdict.text}`}
-              >
-                Click to review the inspection from {shortDate(openIssue.inspection.date)}
-                {openIssues.length > 1 ? ` (+${openIssues.length - 1} more)` : ""} →
-              </Link>
-            )}
-          </>
-        ) : openIssue ? (
-          <>
-            {/* The link itself is the one-click path to the flagged
-                inspection — no need to also embed the whole questionnaire
-                here just to keep that reachable in one tap. Colored text
-                with an underline on hover/tap, not a filled pill — this is
-                an action to take, not a status to display. */}
-            <Link
-              href={`/dashboard/equipment/${serial}?date=${openIssue.inspection.date}&shift=${openIssue.inspection.shift}#selected-inspection`}
-              className={`mt-1 inline-block text-sm font-semibold hover:underline active:underline ${verdict.text}`}
-            >
-              Click to review the inspection from {shortDate(openIssue.inspection.date)}
-              {openIssues.length > 1 ? ` (1 of ${openIssues.length})` : ""} →
-            </Link>
-            {/* Confirming the issue above never touches these — they're
-                separate inspections that each need their own sign-off. Named
-                explicitly so a manager can't mistake "cleared the top one"
-                for "vehicle is clear." */}
-            {openIssues.slice(1).map((issue) => (
-              <Link
-                key={issue.inspection.id}
-                href={`/dashboard/equipment/${serial}?date=${issue.inspection.date}&shift=${issue.inspection.shift}#selected-inspection`}
-                className="mt-0.5 block text-xs font-medium text-gray-500 hover:underline active:underline"
-              >
-                Also review the inspection from {shortDate(issue.inspection.date)} ({issue.inspection.shift}) →
-              </Link>
-            ))}
-          </>
-        ) : (
-          <span
-            className={`mt-1 inline-block rounded-full px-2 py-0.5 text-[10px] font-bold tracking-wide uppercase ${verdict.badge}`}
-          >
-            {verdict.label}
-          </span>
-        )}
-
-        <div className="mt-1.5 space-y-0.5">
-          <p className="flex flex-wrap items-center gap-1.5 text-sm text-gray-600">
-            {/* Where it is matters more day-to-day than its serial number —
-                leads with location, serial is the secondary/lookup detail. */}
-            <LocationChangeControl
-              serial={equipment.serial}
-              currentLocation={equipment.location}
-              savedManagerName={savedManagerName}
-            />
-            · Serial#: {equipment.serial}
+      <div id="selected-inspection" className={`scroll-mt-4 rounded-lg border p-3 ${zoneTone}`}>
+        {since && !isBrowsingHistory && (
+          <p className="mb-1 animate-[status-blink_3s_ease-in-out_infinite] text-right text-xs font-semibold leading-tight text-red-600">
+            {daysPassed}d passed
           </p>
-          {addedAt && addedAt > EQUIPMENT_ADDED_DATE_TRACKING_STARTS_AT && (
-            <p className="text-xs text-gray-400">Added {addedAt.toISOString().slice(0, 10)}</p>
-          )}
-          {latest ? (
-            <p className="text-sm text-gray-600">
-              Last inspected {latest.inspection.date} · {latest.inspection.shift} ·{" "}
-              {latest.inspection.firstName} {latest.inspection.lastName}
-            </p>
-          ) : (
-            <p className="text-sm text-gray-500">No inspection yet</p>
-          )}
+        )}
+        {/* Same bordered-grid look as the checklist table below, so the
+            vehicle's identity/status/location reads like one consistent
+            spreadsheet instead of a different freeform style up top. Every
+            clickable cell gets the same hover tint as a real spreadsheet
+            cell highlighting under the pointer. */}
+        <div className="overflow-hidden rounded-sm border border-gray-300 text-sm">
+          <div className="grid grid-cols-3">
+            <span className="col-span-3 flex items-center gap-1.5 border-b border-gray-300 bg-gray-50 px-2 py-1.5 font-bold text-gray-900">
+              <StatusDot stage={stage} size="sm" />
+              {equipment.makeColor} · {equipmentTypeLabel(equipment.type)} · {equipment.flNumber}
+            </span>
+
+            {isBrowsingHistory ? (
+              // This vehicle's CURRENT status was otherwise fully hidden
+              // while browsing a specific day — a manager who lands here
+              // straight from a link (a Weekly Report cell, a History row)
+              // for an already-confirmed day never saw the vehicle overall
+              // still has a separate, untouched open issue elsewhere. That
+              // gap is exactly how MIT-2304 stayed red for two weeks
+              // unnoticed after its Aug 10 report was confirmed: the Aug 7
+              // report was open the whole time, but nothing on this page
+              // said so unless you happened to land on the Home view.
+              openIssue && (
+                <Link
+                  href={`/dashboard/equipment/${serial}?date=${openIssue.inspection.date}&shift=${openIssue.inspection.shift}#selected-inspection`}
+                  className={`col-span-3 border-b border-gray-200 px-2 py-1.5 font-semibold transition-colors duration-100 hover:bg-gray-50 hover:underline ${verdict.text}`}
+                >
+                  Click to review the inspection from {shortDate(openIssue.inspection.date)}
+                  {openIssues.length > 1 ? ` (+${openIssues.length - 1} more)` : ""} →
+                </Link>
+              )
+            ) : openIssue ? (
+              <>
+                {/* The link itself is the one-click path to the flagged
+                    inspection — no need to also embed the whole
+                    questionnaire here just to keep that reachable in one
+                    tap. */}
+                <Link
+                  href={`/dashboard/equipment/${serial}?date=${openIssue.inspection.date}&shift=${openIssue.inspection.shift}#selected-inspection`}
+                  className={`col-span-3 border-b border-gray-200 px-2 py-1.5 font-semibold transition-colors duration-100 hover:bg-gray-50 hover:underline ${verdict.text}`}
+                >
+                  Click to review the inspection from {shortDate(openIssue.inspection.date)}
+                  {openIssues.length > 1 ? ` (1 of ${openIssues.length})` : ""} →
+                </Link>
+                {/* Confirming the issue above never touches these — they're
+                    separate inspections that each need their own sign-off.
+                    Named explicitly so a manager can't mistake "cleared the
+                    top one" for "vehicle is clear." */}
+                {openIssues.slice(1).map((issue) => (
+                  <Link
+                    key={issue.inspection.id}
+                    href={`/dashboard/equipment/${serial}?date=${issue.inspection.date}&shift=${issue.inspection.shift}#selected-inspection`}
+                    className="col-span-3 border-b border-gray-200 px-2 py-1 text-xs font-medium text-gray-500 transition-colors duration-100 hover:bg-gray-50 hover:underline"
+                  >
+                    Also review the inspection from {shortDate(issue.inspection.date)} ({issue.inspection.shift}) →
+                  </Link>
+                ))}
+              </>
+            ) : (
+              <span className="col-span-3 border-b border-gray-200 px-2 py-1.5">
+                <span
+                  className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-bold tracking-wide uppercase ${verdict.badge}`}
+                >
+                  {verdict.label}
+                </span>
+              </span>
+            )}
+
+            <span className="border-r border-b border-gray-200 px-2 py-1.5 text-gray-600 transition-colors duration-100 hover:bg-gray-50">
+              {/* Where it is matters more day-to-day than its serial
+                  number — leads with location, serial is the
+                  secondary/lookup detail. */}
+              <LocationChangeControl
+                serial={equipment.serial}
+                currentLocation={equipment.location}
+                savedManagerName={savedManagerName}
+              />
+            </span>
+            <span className="col-span-2 border-b border-gray-200 px-2 py-1.5 text-gray-600">
+              Serial#: {equipment.serial}
+            </span>
+
+            {addedAt && addedAt > EQUIPMENT_ADDED_DATE_TRACKING_STARTS_AT && (
+              <span className="col-span-3 border-b border-gray-200 px-2 py-1 text-xs text-gray-400">
+                Added {addedAt.toISOString().slice(0, 10)}
+              </span>
+            )}
+
+            {latest ? (
+              <>
+                {/* "Last inspected" gets its own full-width row on mobile
+                    (same treatment as its own text wrapping already had).
+                    Shift + inspector stay together as one lane, never
+                    split apart into two separate stacked rows. */}
+                <Link
+                  href={`/dashboard/equipment/${serial}?date=${latest.inspection.date}&shift=${latest.inspection.shift}#selected-inspection`}
+                  className="col-span-3 border-b border-gray-200 px-2 py-1.5 text-gray-600 transition-colors duration-100 hover:bg-gray-50 hover:text-brand hover:underline sm:col-span-1 sm:border-r sm:border-b-0"
+                >
+                  Last inspected {latest.inspection.date}
+                </Link>
+                <span className="col-span-3 px-2 py-1.5 text-gray-600 sm:col-span-2">
+                  {latest.inspection.shift} Shift ({latest.inspection.shift === "Day" ? "5am–5pm" : "5pm–5am"}) / Inspected by:{" "}
+                  {latest.inspection.firstName} {latest.inspection.lastName}
+                </span>
+              </>
+            ) : (
+              <span className="col-span-3 px-2 py-1.5 text-gray-500">No inspection yet</span>
+            )}
+          </div>
         </div>
 
         {selectedRows.length > 0 ? (
@@ -405,19 +422,21 @@ function InspectionReviewForm({
       <form action={saveActivity} className="space-y-4">
         <input type="hidden" name="inspectionId" value={row.inspection.id} />
 
-        <div className="max-w-xl overflow-hidden rounded-sm border border-gray-300 text-sm">
-        {/* Status column is a fixed width, not auto — auto sizes to
-            whichever content happens to be visible, so the column visibly
-            jumped narrower the instant "Tap to Fix" (10 chars) got hidden
-            and swapped for "Fixed" (5 chars) in a checked row. */}
-        <div className="grid grid-cols-[auto_1fr_6rem]">
-          <span className="border-r border-b border-gray-300 bg-gray-100 px-2 py-1 text-xs font-semibold tracking-wide text-gray-500 uppercase">
+        <div className="overflow-hidden rounded-sm border border-gray-300 text-sm">
+        {/* Answer gets a floor width so "Working condition" fits on one
+            line instead of wrapping; Status is fixed (not auto, and now
+            narrower than before) — auto sizes to whichever content happens
+            to be visible, which visibly jumped the column narrower the
+            instant "Tap to Fix" (10 chars) got hidden in favor of "Fixed"
+            (5 chars) in a checked row. */}
+        <div className="grid grid-cols-[auto_minmax(9rem,1fr)_5rem]">
+          <span className="border-r border-b border-gray-300 bg-gray-100 px-2 py-1.5 text-xs font-semibold tracking-wide text-gray-500 uppercase">
             Item
           </span>
-          <span className="border-r border-b border-gray-300 bg-gray-100 px-2 py-1 text-xs font-semibold tracking-wide text-gray-500 uppercase">
+          <span className="border-r border-b border-gray-300 bg-gray-100 px-2 py-1.5 text-xs font-semibold tracking-wide text-gray-500 uppercase">
             Answer
           </span>
-          <span className="border-b border-gray-300 bg-gray-100 px-2 py-1 text-center text-xs font-semibold tracking-wide text-gray-500 uppercase">
+          <span className="border-b border-gray-300 bg-gray-100 px-2 py-1.5 text-center text-xs font-semibold tracking-wide text-gray-500 uppercase">
             Status
           </span>
           {(isCriticalInspection(row.inspection) ? [REPAIR_REQUEST_QUESTION] : QUESTIONS).map(
@@ -447,10 +466,10 @@ function InspectionReviewForm({
                       much width that long labels ("Forward & Backward
                       Movement") got clipped by the table's own overflow-
                       hidden edge instead of just wrapping to a second line. */}
-                  <span className={`px-1.5 py-0.5 font-semibold ${textColor} ${rowBg} ${cellBorder}`}>
+                  <span className={`px-2 py-1.5 font-semibold ${textColor} ${rowBg} ${cellBorder}`}>
                     {isRepairRequest ? "Repair Request" : `${q.number}. ${q.label}`}
                   </span>
-                  <span className={`px-1.5 py-0.5 ${textColor} ${rowBg} ${cellBorder}`}>
+                  <span className={`px-2 py-1.5 ${textColor} ${rowBg} ${cellBorder}`}>
                     {isRepairRequest ? "" : answer.value}
                     {/* Specify text goes on its own line under the answer
                         instead of trailing inline — "Good (No Exposed
@@ -460,7 +479,7 @@ function InspectionReviewForm({
                       <span className="block text-xs text-gray-500">{answer.specify}</span>
                     )}
                   </span>
-                  <span className={`flex items-center justify-center px-1 py-0.5 ${rowBg} border-b border-gray-200`}>
+                  <span className={`flex items-center justify-center px-1 py-1.5 ${rowBg} border-b border-gray-200`}>
                     {bad &&
                       (isLocked ? (
                         // Signed and confirmed — permanent. Plain text, not
