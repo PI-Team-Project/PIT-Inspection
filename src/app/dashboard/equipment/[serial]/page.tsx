@@ -337,17 +337,16 @@ export default async function EquipmentDetailPage({
 
             {latest ? (
               <>
-                {/* "Last inspected" gets its own full-width row on mobile
-                    (same treatment as its own text wrapping already had).
-                    Shift + inspector stay together as one lane, never
-                    split apart into two separate stacked rows. */}
-                {/* "Nd passed" used to float above the whole box on its
-                    own line — this row already had plenty of empty space
-                    next to a short date, so it lives right here now
-                    instead of taking up an extra line. */}
+                {/* "Last inspected" is always a full-width row (col-span-3
+                    at every viewport, not just mobile) — it just stretches
+                    wider as the box grows, with "18d passed" pushed to the
+                    far right edge, rather than being restructured into a
+                    column-1-only layout at wider widths. Shift + inspector
+                    stay together as their own row below, never split apart
+                    into two separate stacked rows. */}
                 <Link
                   href={`/dashboard/equipment/${serial}?date=${latest.inspection.date}&shift=${latest.inspection.shift}#selected-inspection`}
-                  className="col-span-3 flex min-w-0 items-center justify-between gap-2 border-b border-gray-200 px-2 py-1.5 text-gray-600 transition-colors duration-100 hover:bg-gray-50 hover:text-brand hover:underline sm:col-span-1 sm:border-r sm:border-b-0"
+                  className="col-span-3 flex min-w-0 items-center justify-between gap-2 border-b border-gray-200 px-2 py-1.5 text-gray-600 transition-colors duration-100 hover:bg-gray-50 hover:text-brand hover:underline"
                 >
                   <span className="min-w-0 truncate">Last inspected: {latest.inspection.date}</span>
                   {since && (
@@ -356,15 +355,6 @@ export default async function EquipmentDetailPage({
                     </span>
                   )}
                 </Link>
-                {/* This row is only 1 column wide at sm+ (see col-span-1
-                    above) — without something claiming the other 2, grid
-                    auto-flow slides Shift/Inspected By into those leftover
-                    cells instead of starting a fresh row, cramming all four
-                    fields onto one crowded line. This spacer closes the row
-                    out so Shift/Inspected By always get their own row,
-                    matching mobile. Invisible on mobile, where the row
-                    above is already col-span-3 (nothing left to fill). */}
-                <span className="hidden border-b border-gray-200 sm:col-span-2 sm:block" />
                 {/* An actual cell border divides these now, not a "/"
                     character in the middle of one shared cell. */}
                 <span className="border-r border-gray-200 px-2 py-1.5 text-gray-600">
@@ -645,7 +635,7 @@ function InspectionReviewForm({
         </div>
         </div>
 
-        <div className="mt-6 max-w-xl rounded-lg border border-gray-200 bg-gray-50 p-3">
+        <div className="mt-6 rounded-lg border border-gray-200 bg-gray-50 p-3">
           <p className="mb-3 text-sm font-semibold text-gray-900">Supervisor Review</p>
           <label className="mb-1 block text-sm font-medium text-gray-700">Note</label>
           <textarea
