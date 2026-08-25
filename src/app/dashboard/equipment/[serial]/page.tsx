@@ -485,9 +485,9 @@ function InspectionReviewForm({
                               reads as "done" instead of staying an
                               alarming amber next to a now-calm green check. */}
                           <span className="text-center text-[8px] leading-none font-bold tracking-wide text-amber-600 uppercase">
-                            Mark
+                            Tap to
                             <br />
-                            Fixed
+                            Fix
                           </span>
                         </>
                       ))}

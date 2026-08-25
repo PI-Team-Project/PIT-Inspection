@@ -93,32 +93,32 @@ export default function ShiftDateNav({
               ›
             </button>
           )}
+          {/* Calendar picker sits right in the nav row now, next to the
+              forward arrow, instead of on its own centered line below. */}
+          <span className="relative flex h-6 w-6 shrink-0 items-center justify-center">
+            <button
+              type="button"
+              onClick={() => dateInputRef.current?.showPicker?.()}
+              disabled={checking}
+              aria-label="Pick a date"
+              className="flex h-6 w-6 items-center justify-center rounded text-sm text-gray-400 transition-colors duration-100 hover:bg-gray-100 hover:text-gray-600 active:scale-90"
+            >
+              📅
+            </button>
+            <input
+              key={dateKey}
+              ref={dateInputRef}
+              type="date"
+              defaultValue={dateKey}
+              max={todayKey}
+              onChange={handlePick}
+              aria-hidden="true"
+              tabIndex={-1}
+              className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+            />
+          </span>
         </div>
         <div className="flex justify-end">{statusChip}</div>
-      </div>
-      <div className="mt-1.5 flex justify-center">
-        <span className="relative flex h-6 w-6 shrink-0 items-center justify-center">
-          <button
-            type="button"
-            onClick={() => dateInputRef.current?.showPicker?.()}
-            disabled={checking}
-            aria-label="Pick a date"
-            className="flex h-6 w-6 items-center justify-center rounded text-sm text-gray-400 transition-colors duration-100 hover:bg-gray-100 hover:text-gray-600 active:scale-90"
-          >
-            📅
-          </button>
-          <input
-            key={dateKey}
-            ref={dateInputRef}
-            type="date"
-            defaultValue={dateKey}
-            max={todayKey}
-            onChange={handlePick}
-            aria-hidden="true"
-            tabIndex={-1}
-            className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
-          />
-        </span>
       </div>
     </div>
   )

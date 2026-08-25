@@ -412,11 +412,21 @@ function ShiftOverview({
   statusChip: ReactNode
 }) {
   const inspected = rows.filter(inspectedThisShift)
-  // Unresolved (red) ones sort first in `rows` overall (most urgent), but
-  // here they should trail at the end of this specific list instead.
+  // Unresolved (red) ones lead this list too, same as the fleet-wide sort —
+  // whoever's picking up work next shift should see the most urgent vehicle
+  // first, not have to scan past it. Within the same severity, the longest-
+  // outstanding issue (oldest `since`) comes first; rows with no open issue
+  // at all sort last.
   const notInspected = rows
     .filter((row) => !inspectedThisShift(row))
-    .sort((a, b) => Number(a.stage === "unresolved") - Number(b.stage === "unresolved"))
+    .sort((a, b) => {
+      const severityDiff = Number(b.stage === "unresolved") - Number(a.stage === "unresolved")
+      if (severityDiff !== 0) return severityDiff
+      if (a.since && b.since) return a.since.localeCompare(b.since)
+      if (a.since) return -1
+      if (b.since) return 1
+      return 0
+    })
 
   const dateLabel = new Intl.DateTimeFormat("en-US", {
     timeZone: FLEET_TIME_ZONE,
