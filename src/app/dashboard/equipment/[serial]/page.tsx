@@ -337,10 +337,9 @@ export default async function EquipmentDetailPage({
                 {/* An actual cell border divides these now, not a "/"
                     character in the middle of one shared cell. */}
                 <span className="border-r border-gray-200 px-2 py-1.5 text-gray-600">
-                  {latest.inspection.shift} Shift (
-                  {latest.inspection.shift === "Day" ? "5am–5pm" : "5pm–5am"})
+                  {latest.inspection.shift} Shift
                 </span>
-                <span className="px-2 py-1.5 text-gray-600">
+                <span className="px-2 py-1.5 whitespace-nowrap text-gray-600">
                   Inspected By: {latest.inspection.firstName} {latest.inspection.lastName}
                 </span>
               </>
