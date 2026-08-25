@@ -261,8 +261,8 @@ export default async function DashboardPage({
 
       <div className="mt-3 border-t border-gray-100" />
 
-      <div className="mt-4 flex items-center justify-between gap-3">
-        <div className="flex items-baseline gap-3">
+      <div className="mt-2 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
           <LiveClock timeZone={FLEET_TIME_ZONE} initialLabel={timeLabel} />
           <span className="text-xs font-medium text-gray-400">Eastern Time — Holland, MI</span>
         </div>
