@@ -637,7 +637,7 @@ function EquipmentCard({
             <span className="border-r border-b border-gray-200 px-2 py-1.5 text-gray-600">
               {latest.inspection.shift} Shift
             </span>
-            <span className="border-r border-b border-gray-200 px-2 py-1.5 whitespace-nowrap text-gray-600">
+            <span className="truncate border-r border-b border-gray-200 px-2 py-1.5 whitespace-nowrap text-gray-600">
               Inspected By: {latest.inspection.firstName} {latest.inspection.lastName}
             </span>
           </>

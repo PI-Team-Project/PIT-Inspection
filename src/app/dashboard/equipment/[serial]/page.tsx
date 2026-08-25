@@ -222,11 +222,6 @@ export default async function EquipmentDetailPage({
           stays neutral regardless of that day's own stage; only the
           vehicle's CURRENT state earns the tint. */}
       <div id="selected-inspection" className={`scroll-mt-4 rounded-lg border p-3 ${zoneTone}`}>
-        {since && !isBrowsingHistory && (
-          <p className="mb-1 animate-[status-blink_3s_ease-in-out_infinite] text-right text-xs font-semibold leading-tight text-red-600">
-            {daysPassed}d passed
-          </p>
-        )}
         {/* Same bordered-grid look as the checklist table below, so the
             vehicle's identity/status/location reads like one consistent
             spreadsheet instead of a different freeform style up top. Every
@@ -238,20 +233,26 @@ export default async function EquipmentDetailPage({
               ("Stand Up", "S-DOO-0116") that were leaving the title
               cramped enough to wrap onto two lines while they sat on
               mostly empty space. */}
-          <div className="grid grid-cols-[2.3fr_0.5fr_1.1fr]">
+          <div className="grid grid-cols-[minmax(0,2.3fr)_minmax(0,0.5fr)_minmax(0,1.1fr)]">
             {/* Three separate cells, not one merged with "·" — matching the
                 same one-field-per-column shape every other row in this grid
                 already uses. All three are flex/items-center now so their
                 text sits on the same baseline despite the title being a
-                bigger, bolder font than its neighbors. */}
-            <span className="flex items-center gap-2 border-r border-b border-gray-300 px-1.5 py-1.5 text-base font-bold whitespace-nowrap text-gray-900">
+                bigger, bolder font than its neighbors. `minmax(0, …)` tracks
+                (rather than bare fr) plus `truncate` on each nowrap cell
+                keep an unusually long make/color string (e.g. "Mint
+                Mitsubishi") from forcing the whole grid wider than the
+                page — it ellipsizes in its own cell instead of blowing out
+                every other row's width, which is what was clipping "18d
+                passed" on the Last Inspected row below. */}
+            <span className="flex items-center gap-2 truncate border-r border-b border-gray-300 px-1.5 py-1.5 text-base font-bold whitespace-nowrap text-gray-900">
               <StatusDot stage={stage} size="sm" />
-              {equipment.makeColor}
+              <span className="truncate">{equipment.makeColor}</span>
             </span>
-            <span className="flex items-center border-r border-b border-gray-300 px-1.5 py-1.5 text-gray-700">
+            <span className="flex items-center truncate border-r border-b border-gray-300 px-1.5 py-1.5 text-gray-700">
               {equipmentTypeLabel(equipment.type)}
             </span>
-            <span className="flex items-center border-b border-gray-300 px-1.5 py-1.5 whitespace-nowrap text-gray-700">
+            <span className="flex items-center truncate border-b border-gray-300 px-1.5 py-1.5 whitespace-nowrap text-gray-700">
               {equipment.flNumber}
             </span>
 
@@ -335,18 +336,27 @@ export default async function EquipmentDetailPage({
                     (same treatment as its own text wrapping already had).
                     Shift + inspector stay together as one lane, never
                     split apart into two separate stacked rows. */}
+                {/* "Nd passed" used to float above the whole box on its
+                    own line — this row already had plenty of empty space
+                    next to a short date, so it lives right here now
+                    instead of taking up an extra line. */}
                 <Link
                   href={`/dashboard/equipment/${serial}?date=${latest.inspection.date}&shift=${latest.inspection.shift}#selected-inspection`}
-                  className="col-span-3 border-b border-gray-200 px-2 py-1.5 text-gray-600 transition-colors duration-100 hover:bg-gray-50 hover:text-brand hover:underline sm:col-span-1 sm:border-r sm:border-b-0"
+                  className="col-span-3 flex min-w-0 items-center justify-between gap-2 border-b border-gray-200 px-2 py-1.5 text-gray-600 transition-colors duration-100 hover:bg-gray-50 hover:text-brand hover:underline sm:col-span-1 sm:border-r sm:border-b-0"
                 >
-                  Last inspected: {latest.inspection.date}
+                  <span className="min-w-0 truncate">Last inspected: {latest.inspection.date}</span>
+                  {since && !isBrowsingHistory && (
+                    <span className="animate-[status-blink_3s_ease-in-out_infinite] shrink-0 text-xs font-semibold text-red-600">
+                      {daysPassed}d passed
+                    </span>
+                  )}
                 </Link>
                 {/* An actual cell border divides these now, not a "/"
                     character in the middle of one shared cell. */}
                 <span className="border-r border-gray-200 px-2 py-1.5 text-gray-600">
                   {latest.inspection.shift} Shift
                 </span>
-                <span className="px-2 py-1.5 whitespace-nowrap text-gray-600">
+                <span className="col-span-2 truncate px-2 py-1.5 whitespace-nowrap text-gray-600">
                   Inspected By: {latest.inspection.firstName} {latest.inspection.lastName}
                 </span>
               </>
