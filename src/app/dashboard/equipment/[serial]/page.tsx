@@ -233,18 +233,25 @@ export default async function EquipmentDetailPage({
             clickable cell gets the same hover tint as a real spreadsheet
             cell highlighting under the pointer. */}
         <div className="overflow-hidden rounded-sm border border-gray-300 text-sm">
-          <div className="grid grid-cols-3">
+          {/* Title column (status light + make/color) gets noticeably more
+              room than type/FL# — those are short, fixed-shape strings
+              ("Stand Up", "S-DOO-0116") that were leaving the title
+              cramped enough to wrap onto two lines while they sat on
+              mostly empty space. */}
+          <div className="grid grid-cols-[2.3fr_0.5fr_1.1fr]">
             {/* Three separate cells, not one merged with "·" — matching the
                 same one-field-per-column shape every other row in this grid
-                already uses. */}
-            <span className="flex items-center gap-1.5 border-r border-b border-gray-300 px-2 py-1.5 text-base font-bold text-gray-900">
+                already uses. All three are flex/items-center now so their
+                text sits on the same baseline despite the title being a
+                bigger, bolder font than its neighbors. */}
+            <span className="flex items-center gap-2 border-r border-b border-gray-300 px-1.5 py-1.5 text-base font-bold whitespace-nowrap text-gray-900">
               <StatusDot stage={stage} size="sm" />
               {equipment.makeColor}
             </span>
-            <span className="border-r border-b border-gray-300 px-2 py-1.5 text-gray-700">
+            <span className="flex items-center border-r border-b border-gray-300 px-1.5 py-1.5 text-gray-700">
               {equipmentTypeLabel(equipment.type)}
             </span>
-            <span className="border-b border-gray-300 px-2 py-1.5 text-gray-700">
+            <span className="flex items-center border-b border-gray-300 px-1.5 py-1.5 whitespace-nowrap text-gray-700">
               {equipment.flNumber}
             </span>
 
@@ -479,14 +486,61 @@ function InspectionReviewForm({
                     {isRepairRequest ? "Repair Request" : `${q.number}. ${q.label}`}
                   </span>
                   <span className={`px-2 py-1.5 ${textColor} ${rowBg} ${cellBorder}`}>
-                    {isRepairRequest ? "" : answer.value}
-                    {/* Specify text goes on its own line under the answer
-                        instead of trailing inline — "Good (No Exposed
-                        Wire)" was wrapping mid-phrase and costing far more
-                        row height than the two short lines it is now. */}
-                    {!isRepairRequest && answer.specify && (
-                      <span className="block text-xs text-gray-500">{answer.specify}</span>
-                    )}
+                    {(() => {
+                      const hasPhotos = Boolean(answer.photos && answer.photos.length > 0)
+                      const hasNoteOrPhotos = Boolean(answer.note) || hasPhotos
+                      const specifyLine = !isRepairRequest && answer.specify && (
+                        <span className="block text-xs text-gray-500">{answer.specify}</span>
+                      )
+                      // No more permanent "Note: …" row underneath every
+                      // flagged item — that's back to a plain <details>
+                      // disclosure right on the answer, so the note/photos
+                      // only take up space once someone actually taps to
+                      // open them. The camera icon (same one used on the
+                      // fleet list) still shows up front so a photo's
+                      // presence is visible without opening anything.
+                      if (!hasNoteOrPhotos) {
+                        return (
+                          <>
+                            {isRepairRequest ? "" : answer.value}
+                            {specifyLine}
+                          </>
+                        )
+                      }
+                      return (
+                        <details>
+                          <summary className="flex cursor-pointer list-none items-center gap-1 marker:hidden">
+                            {isRepairRequest ? "Reported" : answer.value}
+                            {hasPhotos && (
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                viewBox="0 0 20 20"
+                                fill="currentColor"
+                                className="h-3.5 w-3.5 shrink-0 text-gray-400"
+                              >
+                                <path
+                                  fillRule="evenodd"
+                                  d="M1 8a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 018.07 3h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0016.07 6H17a2 2 0 012 2v9a2 2 0 01-2 2H3a2 2 0 01-2-2V8zm13.5 3a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0z"
+                                  clipRule="evenodd"
+                                />
+                              </svg>
+                            )}
+                          </summary>
+                          {specifyLine}
+                          {answer.note && (
+                            <p className="mt-1 text-xs text-gray-500">
+                              {isRepairRequest ? "" : "Note: "}
+                              {answer.note}
+                            </p>
+                          )}
+                          {answer.photos && answer.photos.length > 0 && (
+                            <div className="mt-1">
+                              <PhotoGallery photos={answer.photos} notes={answer.photoNotes} />
+                            </div>
+                          )}
+                        </details>
+                      )
+                    })()}
                   </span>
                   <span className={`flex items-center justify-center px-1 py-1.5 ${rowBg} border-b border-gray-200`}>
                     {bad &&
@@ -531,21 +585,6 @@ function InspectionReviewForm({
                         </label>
                       ))}
                   </span>
-                  {(answer.note || (answer.photos && answer.photos.length > 0)) && (
-                    <div
-                      className={`col-span-3 flex flex-wrap items-start gap-2 border-b border-gray-200 px-2 py-1.5 ${rowBg}`}
-                    >
-                      {answer.note && (
-                        <p className="text-xs text-gray-500">
-                          {isRepairRequest ? "" : "Note: "}
-                          {answer.note}
-                        </p>
-                      )}
-                      {answer.photos && answer.photos.length > 0 && (
-                        <PhotoGallery photos={answer.photos} notes={answer.photoNotes} />
-                      )}
-                    </div>
-                  )}
                 </Fragment>
               )
             }
