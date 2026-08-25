@@ -89,7 +89,7 @@ export default function ShiftDateNav({
             onClick={() => dateInputRef.current?.showPicker?.()}
             disabled={checking}
             aria-label="Pick a date"
-            className="rounded px-1.5 py-1 -mx-1.5 -my-1 text-lg font-semibold whitespace-nowrap text-gray-700 transition-colors duration-100 hover:bg-gray-100 active:scale-95"
+            className="rounded px-1.5 py-1 -mx-1.5 -my-1 text-sm font-semibold whitespace-nowrap text-gray-700 transition-colors duration-100 hover:bg-gray-100 active:scale-95"
           >
             {/* Always shows one of these two words instead of the label
                 popping in and out — that was shifting how wide this whole

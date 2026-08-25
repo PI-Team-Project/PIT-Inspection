@@ -32,7 +32,7 @@ export default function LiveClock({
   }, [timeZone])
 
   return (
-    <span className="font-mono text-3xl font-semibold tracking-wide text-gray-900 tabular-nums">
+    <span className="font-mono text-2xl font-semibold tracking-wide text-gray-900 tabular-nums">
       {label}
     </span>
   )
