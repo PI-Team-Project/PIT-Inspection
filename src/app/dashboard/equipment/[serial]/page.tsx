@@ -233,22 +233,23 @@ export default async function EquipmentDetailPage({
               ("Stand Up", "S-DOO-0116") that were leaving the title
               cramped enough to wrap onto two lines while they sat on
               mostly empty space. */}
-          <div className="grid grid-cols-[minmax(158px,2.3fr)_minmax(100px,0.5fr)_minmax(114px,1.1fr)]">
+          <div className="grid grid-cols-[minmax(64px,2.3fr)_minmax(100px,0.5fr)_minmax(114px,1.1fr)]">
             {/* Three separate cells, not one merged with "·" — matching the
                 same one-field-per-column shape every other row in this grid
                 already uses. All three are flex/items-center now so their
                 text sits on the same baseline despite the title being a
-                bigger, bolder font than its neighbors. The pixel floors
-                (sized to the longest real value in each field — "Mint
-                Mitsubishi", "Pallet Jack", "S-DOO-0137") are what actually
-                matter here: plain fr tracks let a long value force the
-                whole grid wider than its container (clipping unrelated
-                rows below, like "Last Inspected"), while a floor that's
-                too small would truncate short, fixed-vocabulary values
-                like "Pallet Jack" even with room to spare. Above the
-                floors, columns still grow proportionally exactly like
-                before. `truncate` only remains as a backstop for a future
-                value longer than anything in the fleet today. */}
+                bigger, bolder font than its neighbors. Type/FL# get real
+                pixel floors (sized to the longest real value in each field
+                — "Pallet Jack", "S-DOO-0137") so they never truncate with
+                room to spare; make/color's own floor is deliberately small
+                (just icon + a couple characters) because it's the one
+                field allowed to ellipsize — on the smallest real phone
+                widths (375px ≈ a 331px box), even "Pallet Jack" + an FL#
+                alone leave no room left for "Mint Mitsubishi" in full, so
+                make/color is the field that gives first. A floor here big
+                enough to always fit it too would force the whole grid
+                wider than that box, clipping unrelated rows below (like
+                "Last Inspected") the way plain fr tracks originally did. */}
             <span className="flex items-center gap-2 truncate border-r border-b border-gray-300 px-1.5 py-1.5 text-base font-bold whitespace-nowrap text-gray-900">
               <StatusDot stage={stage} size="sm" />
               <span className="truncate">{equipment.makeColor}</span>
@@ -462,13 +463,32 @@ function InspectionReviewForm({
         <input type="hidden" name="inspectionId" value={row.inspection.id} />
 
         <div className="overflow-hidden rounded-sm border border-gray-300 text-sm">
-        {/* Answer gets a floor width so "Working condition" fits on one
-            line instead of wrapping; Status is fixed (not auto, and now
-            narrower than before) — auto sizes to whichever content happens
-            to be visible, which visibly jumped the column narrower the
-            instant "Tap to Fix" (10 chars) got hidden in favor of "Fixed"
-            (5 chars) in a checked row. */}
-        <div className="grid grid-cols-[auto_minmax(9rem,1fr)_5rem]">
+        {/* Same measured-pixel-floor approach as the vehicle info box
+            above, sized against real device widths (a 360px phone gives
+            this table ~316px, a 375px phone ~331px): Answer's floor
+            covers "Working condition" on one line — that's the one
+            column that must never wrap, so its floor is a real content
+            measurement, not a guess. Status is fixed (not auto, which
+            visibly jumped the column narrower the instant "Tap to Fix"
+            (10 chars) got hidden in favor of "Fixed" (5 chars) in a
+            checked row). Item's own floor is deliberately smaller than
+            Answer's — giving it an equal floor would push their combined
+            minimum past that ~316-331px box, forcing the whole table
+            wider than its container the same way the vehicle info box
+            blew out above. Item is the column that's allowed to wrap
+            (the two genuinely longest labels, "Forward & Backward
+            Movement" and "Lift/Lowering Movement", still wrap to a
+            second line when space is tight — expected, and the wrap now
+            indents under the label instead of back under the number),
+            so it doesn't need a no-wrap guarantee the way Answer does.
+            `min-w-0` on both the cell and the label span keeps a long
+            single word ("Battery", "Lowering") from silently overflowing
+            past its own cell into the next one — where it would render
+            invisibly, hidden behind that cell's opaque background
+            instead of visibly wrapping; `break-words` is the last-resort
+            backstop on the rare word that's still too wide even for its
+            own line at the smallest supported width. */}
+        <div className="grid grid-cols-[minmax(90px,auto)_minmax(9rem,1fr)_5rem]">
           <span className="border-r border-b border-gray-300 bg-gray-100 px-2 py-1.5 text-xs font-semibold tracking-wide text-gray-500 uppercase">
             Item
           </span>
@@ -508,13 +528,13 @@ function InspectionReviewForm({
                       The number sits in its own shrink-0 flex item so a
                       wrapped second line indents under the label text, not
                       back under the number. */}
-                  <span className={`flex gap-1 px-2 py-1.5 font-semibold ${textColor} ${rowBg} ${cellBorder}`}>
+                  <span className={`flex min-w-0 gap-1 px-2 py-1.5 font-semibold ${textColor} ${rowBg} ${cellBorder}`}>
                     {isRepairRequest ? (
                       "Repair Request"
                     ) : (
                       <>
                         <span className="shrink-0">{q.number}.</span>
-                        <span>{q.label}</span>
+                        <span className="min-w-0 break-words">{q.label}</span>
                       </>
                     )}
                   </span>
