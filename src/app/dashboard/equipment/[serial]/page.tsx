@@ -294,15 +294,13 @@ export default async function EquipmentDetailPage({
                   </Link>
                 ))}
               </>
-            ) : (
-              <span className="col-span-3 border-b border-gray-200 px-2 py-1.5">
-                <span
-                  className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-bold tracking-wide uppercase ${verdict.badge}`}
-                >
-                  {verdict.label}
-                </span>
-              </span>
-            )}
+            ) : null /* Nothing open (All Clear / No Inspections Yet) — no
+                        badge here at all now. Both of those already get
+                        their own plain-language message below the grid
+                        ("All caught up…" / "No inspections yet…"), so a
+                        pill up here just repeated the same fact a second
+                        time for the common case, when it should only show
+                        up when there's actually something to flag. */}
 
             <span className="border-r border-b border-gray-200 px-2 py-1.5 text-gray-600 transition-colors duration-100 hover:bg-gray-50">
               {/* Where it is matters more day-to-day than its serial
@@ -336,9 +334,14 @@ export default async function EquipmentDetailPage({
                 >
                   Last inspected: {latest.inspection.date}
                 </Link>
-                <span className="col-span-3 px-2 py-1.5 text-gray-600 sm:col-span-2">
-                  {latest.inspection.shift} Shift ({latest.inspection.shift === "Day" ? "5am–5pm" : "5pm–5am"}) / Inspected By:{" "}
-                  {latest.inspection.firstName} {latest.inspection.lastName}
+                {/* An actual cell border divides these now, not a "/"
+                    character in the middle of one shared cell. */}
+                <span className="border-r border-gray-200 px-2 py-1.5 text-gray-600">
+                  {latest.inspection.shift} Shift (
+                  {latest.inspection.shift === "Day" ? "5am–5pm" : "5pm–5am"})
+                </span>
+                <span className="px-2 py-1.5 text-gray-600">
+                  Inspected By: {latest.inspection.firstName} {latest.inspection.lastName}
                 </span>
               </>
             ) : (
@@ -370,9 +373,7 @@ export default async function EquipmentDetailPage({
               latest ? "text-green-800" : "text-gray-500"
             }`}
           >
-            {latest
-              ? "✓ All caught up — nothing needs review right now."
-              : "No inspections yet — this vehicle hasn't been checked in."}
+            {latest ? "✓ All caught up" : "No inspections yet — this vehicle hasn't been checked in."}
           </p>
         )}
       </div>
