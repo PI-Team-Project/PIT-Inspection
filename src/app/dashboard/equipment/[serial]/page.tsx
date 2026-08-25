@@ -234,9 +234,18 @@ export default async function EquipmentDetailPage({
             cell highlighting under the pointer. */}
         <div className="overflow-hidden rounded-sm border border-gray-300 text-sm">
           <div className="grid grid-cols-3">
-            <span className="col-span-3 flex items-center gap-1.5 border-b border-gray-300 bg-gray-50 px-2 py-1.5 font-bold text-gray-900">
+            {/* Three separate cells, not one merged with "·" — matching the
+                same one-field-per-column shape every other row in this grid
+                already uses. */}
+            <span className="flex items-center gap-1.5 border-r border-b border-gray-300 px-2 py-1.5 text-base font-bold text-gray-900">
               <StatusDot stage={stage} size="sm" />
-              {equipment.makeColor} · {equipmentTypeLabel(equipment.type)} · {equipment.flNumber}
+              {equipment.makeColor}
+            </span>
+            <span className="border-r border-b border-gray-300 px-2 py-1.5 text-gray-700">
+              {equipmentTypeLabel(equipment.type)}
+            </span>
+            <span className="border-b border-gray-300 px-2 py-1.5 text-gray-700">
+              {equipment.flNumber}
             </span>
 
             {isBrowsingHistory ? (
@@ -325,10 +334,10 @@ export default async function EquipmentDetailPage({
                   href={`/dashboard/equipment/${serial}?date=${latest.inspection.date}&shift=${latest.inspection.shift}#selected-inspection`}
                   className="col-span-3 border-b border-gray-200 px-2 py-1.5 text-gray-600 transition-colors duration-100 hover:bg-gray-50 hover:text-brand hover:underline sm:col-span-1 sm:border-r sm:border-b-0"
                 >
-                  Last inspected {latest.inspection.date}
+                  Last inspected: {latest.inspection.date}
                 </Link>
                 <span className="col-span-3 px-2 py-1.5 text-gray-600 sm:col-span-2">
-                  {latest.inspection.shift} Shift ({latest.inspection.shift === "Day" ? "5am–5pm" : "5pm–5am"}) / Inspected by:{" "}
+                  {latest.inspection.shift} Shift ({latest.inspection.shift === "Day" ? "5am–5pm" : "5pm–5am"}) / Inspected By:{" "}
                   {latest.inspection.firstName} {latest.inspection.lastName}
                 </span>
               </>

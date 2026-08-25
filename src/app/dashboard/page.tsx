@@ -558,99 +558,117 @@ function EquipmentCard({
   const hasPhotos = (latest?.inspection._count?.photos ?? 0) > 0
   const daysPassed = since ? daysPassedCount(since, today) : 0
 
+  const hasIssueRow =
+    latest && (stage === "unresolved" || stage === "pending-confirm") && latest.flagged.length > 0
+
   return (
+    // Same bordered-grid look as the vehicle detail page and its checklist
+    // table — one consistent spreadsheet style everywhere a vehicle's info
+    // shows up. A dedicated 4th column carries the two pieces of info that
+    // don't apply to every row (a photo indicator, how-long-open) instead
+    // of floating them as an absolute-positioned overlay on top.
     <Link
       href={`/dashboard/equipment/${equipment.serial}`}
-      className={`relative flex items-start gap-1.5 rounded-lg border bg-white p-4 transition-colors duration-100 active:bg-gray-50 ${
+      className={`block overflow-hidden rounded-sm border text-sm transition-colors duration-100 hover:bg-gray-50 ${
         stage === "unresolved" ? "border-red-300" : "border-gray-300"
       }`}
     >
-      <span className="mt-1">
-        <StatusDot stage={stage} size="lg" />
-      </span>
-      <div className="w-full">
-        <p
-          className={`text-sm font-semibold text-gray-900 ${hasPhotos ? "pr-6" : ""}`}
-        >
-          {equipment.makeColor} · {equipmentTypeLabel(equipment.type)} · {equipment.flNumber}
-        </p>
-
-        <div className="mt-1.5 space-y-1 text-sm text-gray-600">
-          <p>
-            <span className="text-gray-400">Serial:</span> {equipment.serial}
-          </p>
-          <p className="flex flex-wrap items-center gap-1.5">
-            <span className="text-gray-400">Location:</span>
-            {isUnderRepair(equipment.location) ? (
-              <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-sm font-semibold text-amber-800">
-                🛠️ Under Repair
-              </span>
-            ) : (
-              equipment.location
-            )}
-          </p>
-          {latest ? (
-            <>
-              <p>
-                <span className="text-gray-400">Inspected:</span>{" "}
-                {latest.inspection.date === today ? (
-                  <span className="font-semibold text-gray-900">
-                    Today, {todayDisplay}
-                  </span>
-                ) : (
-                  latest.inspection.date
-                )}{" "}
-                · {latest.inspection.shift}
-              </p>
-              <p>
-                <span className="text-gray-400">By:</span>{" "}
-                {latest.inspection.firstName} {latest.inspection.lastName}
-              </p>
-            </>
-          ) : (
-            <p>
-              <span className="text-gray-400">Inspected:</span> No inspection yet
-            </p>
-          )}
-        </div>
-        {latest &&
-          (stage === "unresolved" || stage === "pending-confirm") &&
-          latest.flagged.length > 0 && (
-            <IssueLine
-              flagged={latest.flagged}
-              review={latest.review}
-              criticalIds={new Set(latest.critical.map((q) => q.id))}
-            />
-          )}
-      </div>
-
-      {hasPhotos && (
-        <span
-          title="Photo attached (latest inspection)"
-          className="absolute right-4 top-4 text-gray-400"
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 20 20"
-            fill="currentColor"
-            className="h-4 w-4"
-          >
-            <path
-              fillRule="evenodd"
-              d="M1 8a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 018.07 3h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0016.07 6H17a2 2 0 012 2v9a2 2 0 01-2 2H3a2 2 0 01-2-2V8zm13.5 3a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0z"
-              clipRule="evenodd"
-            />
-          </svg>
+      <div className="grid grid-cols-[1.6fr_1fr_1.3fr_4.5rem]">
+        <span className="flex items-center gap-1.5 border-r border-b border-gray-200 px-2 py-1.5 text-base font-bold text-gray-900">
+          <StatusDot stage={stage} size="sm" />
+          {equipment.makeColor}
         </span>
-      )}
+        <span className="border-r border-b border-gray-200 px-2 py-1.5 text-gray-700">
+          {equipmentTypeLabel(equipment.type)}
+        </span>
+        <span className="border-r border-b border-gray-200 px-2 py-1.5 text-gray-700">
+          {equipment.flNumber}
+        </span>
+        <span className="flex items-center justify-center border-b border-gray-200 px-1 py-1.5 text-gray-400">
+          {hasPhotos && (
+            <span title="Photo attached (latest inspection)">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+                className="h-4 w-4"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M1 8a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 018.07 3h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0016.07 6H17a2 2 0 012 2v9a2 2 0 01-2 2H3a2 2 0 01-2-2V8zm13.5 3a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0z"
+                  clipRule="evenodd"
+                />
+              </svg>
+            </span>
+          )}
+        </span>
 
-      {since && (
-        <p className="absolute bottom-4 right-4 animate-[status-blink_3s_ease-in-out_infinite] text-right text-xs font-semibold leading-tight text-red-600">
-          {daysPassed} day{daysPassed === 1 ? "" : "s"}
-          <br />
-          passed
-        </p>
-      )}
+        <span className="border-r border-b border-gray-200 px-2 py-1.5 text-gray-600">
+          Location:{" "}
+          {isUnderRepair(equipment.location) ? (
+            <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800">
+              🛠️ Under Repair
+            </span>
+          ) : (
+            equipment.location
+          )}
+        </span>
+        <span className="col-span-2 border-r border-b border-gray-200 px-2 py-1.5 text-gray-600">
+          Serial#: {equipment.serial}
+        </span>
+        <span className="border-b border-gray-200 px-1 py-1.5" />
+
+        {latest ? (
+          <>
+            <span className="border-r border-b border-gray-200 px-2 py-1.5 text-gray-600">
+              Inspected:{" "}
+              {latest.inspection.date === today ? (
+                <span className="font-semibold text-gray-900">Today, {todayDisplay}</span>
+              ) : (
+                latest.inspection.date
+              )}
+            </span>
+            <span className="border-r border-b border-gray-200 px-2 py-1.5 text-gray-600">
+              {latest.inspection.shift} Shift (
+              {latest.inspection.shift === "Day" ? "5am–5pm" : "5pm–5am"})
+            </span>
+            <span className="border-r border-b border-gray-200 px-2 py-1.5 text-gray-600">
+              Inspected By: {latest.inspection.firstName} {latest.inspection.lastName}
+            </span>
+          </>
+        ) : (
+          <span className="col-span-3 border-r border-b border-gray-200 px-2 py-1.5 text-gray-500">
+            No inspection yet
+          </span>
+        )}
+        <span className="border-b border-gray-200 px-1 py-1.5" />
+
+        {(hasIssueRow || since) && (
+          <>
+            {/* "Days passed" tracks the OLDEST still-open issue anywhere in
+                this vehicle's history (see findOpenIssue), not just
+                whether the latest inspection itself was flagged — so this
+                row, and the counter in it, must render independently of
+                whether latest.flagged has anything in it. */}
+            <span className="col-span-3 border-r border-gray-200 px-2 py-1.5">
+              {hasIssueRow && (
+                <IssueLine
+                  flagged={latest.flagged}
+                  review={latest.review}
+                  criticalIds={new Set(latest.critical.map((q) => q.id))}
+                />
+              )}
+            </span>
+            <span className="flex items-center justify-center px-1 py-1.5 text-center text-xs font-semibold leading-tight text-red-600">
+              {since && (
+                <span className="animate-[status-blink_3s_ease-in-out_infinite]">
+                  {daysPassed} day{daysPassed === 1 ? "" : "s"} passed
+                </span>
+              )}
+            </span>
+          </>
+        )}
+      </div>
     </Link>
   )
 }
