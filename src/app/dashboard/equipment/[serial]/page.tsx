@@ -233,18 +233,22 @@ export default async function EquipmentDetailPage({
               ("Stand Up", "S-DOO-0116") that were leaving the title
               cramped enough to wrap onto two lines while they sat on
               mostly empty space. */}
-          <div className="grid grid-cols-[minmax(0,2.3fr)_minmax(0,0.5fr)_minmax(0,1.1fr)]">
+          <div className="grid grid-cols-[minmax(158px,2.3fr)_minmax(100px,0.5fr)_minmax(114px,1.1fr)]">
             {/* Three separate cells, not one merged with "·" — matching the
                 same one-field-per-column shape every other row in this grid
                 already uses. All three are flex/items-center now so their
                 text sits on the same baseline despite the title being a
-                bigger, bolder font than its neighbors. `minmax(0, …)` tracks
-                (rather than bare fr) plus `truncate` on each nowrap cell
-                keep an unusually long make/color string (e.g. "Mint
-                Mitsubishi") from forcing the whole grid wider than the
-                page — it ellipsizes in its own cell instead of blowing out
-                every other row's width, which is what was clipping "18d
-                passed" on the Last Inspected row below. */}
+                bigger, bolder font than its neighbors. The pixel floors
+                (sized to the longest real value in each field — "Mint
+                Mitsubishi", "Pallet Jack", "S-DOO-0137") are what actually
+                matter here: plain fr tracks let a long value force the
+                whole grid wider than its container (clipping unrelated
+                rows below, like "Last Inspected"), while a floor that's
+                too small would truncate short, fixed-vocabulary values
+                like "Pallet Jack" even with room to spare. Above the
+                floors, columns still grow proportionally exactly like
+                before. `truncate` only remains as a backstop for a future
+                value longer than anything in the fleet today. */}
             <span className="flex items-center gap-2 truncate border-r border-b border-gray-300 px-1.5 py-1.5 text-base font-bold whitespace-nowrap text-gray-900">
               <StatusDot stage={stage} size="sm" />
               <span className="truncate">{equipment.makeColor}</span>
@@ -345,18 +349,27 @@ export default async function EquipmentDetailPage({
                   className="col-span-3 flex min-w-0 items-center justify-between gap-2 border-b border-gray-200 px-2 py-1.5 text-gray-600 transition-colors duration-100 hover:bg-gray-50 hover:text-brand hover:underline sm:col-span-1 sm:border-r sm:border-b-0"
                 >
                   <span className="min-w-0 truncate">Last inspected: {latest.inspection.date}</span>
-                  {since && !isBrowsingHistory && (
+                  {since && (
                     <span className="animate-[status-blink_3s_ease-in-out_infinite] shrink-0 text-xs font-semibold text-red-600">
                       {daysPassed}d passed
                     </span>
                   )}
                 </Link>
+                {/* This row is only 1 column wide at sm+ (see col-span-1
+                    above) — without something claiming the other 2, grid
+                    auto-flow slides Shift/Inspected By into those leftover
+                    cells instead of starting a fresh row, cramming all four
+                    fields onto one crowded line. This spacer closes the row
+                    out so Shift/Inspected By always get their own row,
+                    matching mobile. Invisible on mobile, where the row
+                    above is already col-span-3 (nothing left to fill). */}
+                <span className="hidden border-b border-gray-200 sm:col-span-2 sm:block" />
                 {/* An actual cell border divides these now, not a "/"
                     character in the middle of one shared cell. */}
                 <span className="border-r border-gray-200 px-2 py-1.5 text-gray-600">
                   {latest.inspection.shift} Shift
                 </span>
-                <span className="col-span-2 truncate px-2 py-1.5 whitespace-nowrap text-gray-600">
+                <span className="px-2 py-1.5 whitespace-nowrap text-gray-600">
                   Inspected By: {latest.inspection.firstName} {latest.inspection.lastName}
                 </span>
               </>
@@ -491,9 +504,19 @@ function InspectionReviewForm({
                   {/* No more forced nowrap -- that's what was demanding so
                       much width that long labels ("Forward & Backward
                       Movement") got clipped by the table's own overflow-
-                      hidden edge instead of just wrapping to a second line. */}
-                  <span className={`px-2 py-1.5 font-semibold ${textColor} ${rowBg} ${cellBorder}`}>
-                    {isRepairRequest ? "Repair Request" : `${q.number}. ${q.label}`}
+                      hidden edge instead of just wrapping to a second line.
+                      The number sits in its own shrink-0 flex item so a
+                      wrapped second line indents under the label text, not
+                      back under the number. */}
+                  <span className={`flex gap-1 px-2 py-1.5 font-semibold ${textColor} ${rowBg} ${cellBorder}`}>
+                    {isRepairRequest ? (
+                      "Repair Request"
+                    ) : (
+                      <>
+                        <span className="shrink-0">{q.number}.</span>
+                        <span>{q.label}</span>
+                      </>
+                    )}
                   </span>
                   <span className={`px-2 py-1.5 ${textColor} ${rowBg} ${cellBorder}`}>
                     {(() => {
