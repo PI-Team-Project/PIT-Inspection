@@ -477,7 +477,9 @@ function ShiftOverview({
           <p className="pb-1.5 text-sm font-semibold text-green-800">
             Inspected ({inspected.length}/{rows.length})
           </p>
-          <div className="grid grid-cols-2 gap-1.5 border-t border-green-200/60 pt-2">
+          {/* 4 columns, not 2 — each chip is just a short FL# code, so 2
+              per row left most of the panel's width empty. */}
+          <div className="grid grid-cols-4 gap-1.5 border-t border-green-200/60 pt-2">
             {inspected.length > 0 &&
               inspected.map((row) => {
                 // The chip reflects THIS shift's inspection specifically —
@@ -495,7 +497,7 @@ function ShiftOverview({
                     href={`/dashboard/equipment/${row.equipment.serial}`}
                     label={row.equipment.flNumber}
                     inspectorName={inspectorName}
-                    className={`truncate rounded-md px-1.5 py-0.5 text-center text-xs font-medium ${
+                    className={`truncate rounded-md px-0.5 py-0.5 text-center text-[10px] font-medium ${
                       isPendingConfirm
                         ? "bg-amber-100 text-amber-700"
                         : "border border-green-200 bg-white text-green-700"
@@ -510,12 +512,12 @@ function ShiftOverview({
             Not Inspected ({notInspected.length}/{rows.length})
           </p>
           {notInspected.length > 0 && (
-            <div className="grid grid-cols-2 gap-1.5 border-t border-gray-200 pt-2">
+            <div className="grid grid-cols-4 gap-1.5 border-t border-gray-200 pt-2">
               {notInspected.map((row) => (
                 <a
                   key={row.equipment.serial}
                   href={`/dashboard/equipment/${row.equipment.serial}`}
-                  className={`truncate rounded-md px-1.5 py-0.5 text-center text-xs font-medium ${
+                  className={`truncate rounded-md px-0.5 py-0.5 text-center text-[10px] font-medium ${
                     row.stage === "unresolved"
                       ? "bg-red-100 text-red-700"
                       : row.stage === "pending-confirm"
