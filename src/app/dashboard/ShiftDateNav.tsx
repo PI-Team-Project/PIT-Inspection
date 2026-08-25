@@ -71,10 +71,40 @@ export default function ShiftDateNav({
           >
             ‹
           </button>
-          <p className="text-sm font-semibold text-gray-700 whitespace-nowrap">
+          {/* Both the icon and the date text open the same calendar picker —
+              two separate, explicit triggers (not an invisible input
+              overlaying either) so each one's own click reliably fires,
+              rather than one silently eating the other's clicks. */}
+          <button
+            type="button"
+            onClick={() => dateInputRef.current?.showPicker?.()}
+            disabled={checking}
+            aria-label="Pick a date"
+            className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-sm text-gray-400 transition-colors duration-100 hover:bg-gray-100 hover:text-gray-600 active:scale-90"
+          >
+            📅
+          </button>
+          <button
+            type="button"
+            onClick={() => dateInputRef.current?.showPicker?.()}
+            disabled={checking}
+            aria-label="Pick a date"
+            className="rounded px-1.5 py-1 -mx-1.5 -my-1 text-sm font-semibold whitespace-nowrap text-gray-700 transition-colors duration-100 hover:bg-gray-100 active:scale-95"
+          >
             Shift Report · {dateLabel}
             {!isViewingLive && <span className="ml-1 text-gray-400">(Past)</span>}
-          </p>
+          </button>
+          <input
+            key={dateKey}
+            ref={dateInputRef}
+            type="date"
+            defaultValue={dateKey}
+            max={todayKey}
+            onChange={handlePick}
+            aria-hidden="true"
+            tabIndex={-1}
+            className="sr-only"
+          />
           {isViewingLive ? (
             <span
               aria-hidden="true"
@@ -93,30 +123,6 @@ export default function ShiftDateNav({
               ›
             </button>
           )}
-          {/* Calendar picker sits right in the nav row now, next to the
-              forward arrow, instead of on its own centered line below. */}
-          <span className="relative flex h-6 w-6 shrink-0 items-center justify-center">
-            <button
-              type="button"
-              onClick={() => dateInputRef.current?.showPicker?.()}
-              disabled={checking}
-              aria-label="Pick a date"
-              className="flex h-6 w-6 items-center justify-center rounded text-sm text-gray-400 transition-colors duration-100 hover:bg-gray-100 hover:text-gray-600 active:scale-90"
-            >
-              📅
-            </button>
-            <input
-              key={dateKey}
-              ref={dateInputRef}
-              type="date"
-              defaultValue={dateKey}
-              max={todayKey}
-              onChange={handlePick}
-              aria-hidden="true"
-              tabIndex={-1}
-              className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
-            />
-          </span>
         </div>
         <div className="flex justify-end">{statusChip}</div>
       </div>
