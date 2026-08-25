@@ -186,7 +186,7 @@ export default async function EquipmentDetailPage({
   // reading width just left every card stretched with a lot of dead space,
   // regardless of how big the screen actually is.
   return (
-    <main className="mx-auto max-w-lg px-4 py-8 sm:max-w-2xl">
+    <main className="mx-auto max-w-lg px-2 py-8 sm:max-w-2xl sm:px-4">
       {/* One breadcrumb instead of two competing "back" links — it always
           says exactly where you are (Fleet, this vehicle, optionally a
           specific day) and every level but the current one is a link. */}
@@ -238,9 +238,6 @@ export default async function EquipmentDetailPage({
 
         {isBrowsingHistory ? (
           <>
-            <p className="mt-1 text-[10px] font-bold tracking-wide text-gray-400 uppercase">
-              Viewing history
-            </p>
             {/* This vehicle's CURRENT status was otherwise fully hidden while
                 browsing a specific day — a manager who lands here straight
                 from a link (a Weekly Report cell, a History row) for an
@@ -251,9 +248,8 @@ export default async function EquipmentDetailPage({
                 whole time, but nothing on this page said so unless you
                 happened to land on the Home view instead. */}
             {/* An open issue elsewhere is an action to take, not a status to
-                display — so unlike "Viewing history" above (plain label, no
-                link target), this renders as colored, underline-on-touch
-                text rather than a filled pill. A pill reads as "badge"; this
+                display, so it renders as colored, underline-on-touch text
+                rather than a filled pill — a pill reads as "badge"; this
                 needs to read as "click here." */}
             {openIssue && (
               <Link
@@ -394,7 +390,7 @@ function InspectionReviewForm({
   return (
     <div className="mt-4 border-t border-black/5 pt-4">
       {showShiftLabel && (
-        <p className="mb-2 text-xs font-bold tracking-wide text-gray-400 uppercase">
+        <p className="mb-2 text-sm font-bold tracking-wide text-gray-400 uppercase">
           {row.inspection.shift} Shift · {row.inspection.firstName} {row.inspection.lastName}
         </p>
       )}
@@ -409,7 +405,21 @@ function InspectionReviewForm({
       <form action={saveActivity} className="space-y-4">
         <input type="hidden" name="inspectionId" value={row.inspection.id} />
 
-        <div className="grid max-w-xl grid-cols-[auto_1fr_auto] items-baseline gap-x-4 gap-y-1.5 text-sm">
+        <div className="max-w-xl overflow-hidden rounded-sm border border-gray-300 text-sm">
+        {/* Status column is a fixed width, not auto — auto sizes to
+            whichever content happens to be visible, so the column visibly
+            jumped narrower the instant "Tap to Fix" (10 chars) got hidden
+            and swapped for "Fixed" (5 chars) in a checked row. */}
+        <div className="grid grid-cols-[auto_1fr_6rem]">
+          <span className="border-r border-b border-gray-300 bg-gray-100 px-2 py-1 text-xs font-semibold tracking-wide text-gray-500 uppercase">
+            Item
+          </span>
+          <span className="border-r border-b border-gray-300 bg-gray-100 px-2 py-1 text-xs font-semibold tracking-wide text-gray-500 uppercase">
+            Answer
+          </span>
+          <span className="border-b border-gray-300 bg-gray-100 px-2 py-1 text-center text-xs font-semibold tracking-wide text-gray-500 uppercase">
+            Status
+          </span>
           {(isCriticalInspection(row.inspection) ? [REPAIR_REQUEST_QUESTION] : QUESTIONS).map(
             (q, i) => {
               const answer = row.answers[q.id]
@@ -426,74 +436,77 @@ function InspectionReviewForm({
                   : bad
                     ? "text-amber-700"
                     : "text-gray-700"
-              const rowBorder = i > 0 ? "border-t border-gray-100 pt-1.5" : ""
+              // Alternating row shading + full cell borders on every side —
+              // the spreadsheet look this was asked for, instead of a plain
+              // list with just a line under each row.
+              const rowBg = i % 2 === 1 ? "bg-gray-50" : "bg-white"
+              const cellBorder = "border-r border-b border-gray-200"
               return (
                 <Fragment key={q.id}>
-                  <span className={`whitespace-nowrap font-semibold ${textColor} ${rowBorder}`}>
+                  {/* No more forced nowrap -- that's what was demanding so
+                      much width that long labels ("Forward & Backward
+                      Movement") got clipped by the table's own overflow-
+                      hidden edge instead of just wrapping to a second line. */}
+                  <span className={`px-1.5 py-0.5 font-semibold ${textColor} ${rowBg} ${cellBorder}`}>
                     {isRepairRequest ? "Repair Request" : `${q.number}. ${q.label}`}
                   </span>
-                  <span className={`${textColor} ${rowBorder}`}>
+                  <span className={`px-1.5 py-0.5 ${textColor} ${rowBg} ${cellBorder}`}>
                     {isRepairRequest ? "" : answer.value}
-                    {!isRepairRequest && answer.specify ? ` — ${answer.specify}` : ""}
+                    {/* Specify text goes on its own line under the answer
+                        instead of trailing inline — "Good (No Exposed
+                        Wire)" was wrapping mid-phrase and costing far more
+                        row height than the two short lines it is now. */}
+                    {!isRepairRequest && answer.specify && (
+                      <span className="block text-xs text-gray-500">{answer.specify}</span>
+                    )}
                   </span>
-                  <span className="flex flex-col items-center gap-0.5">
+                  <span className={`flex items-center justify-center px-1 py-0.5 ${rowBg} border-b border-gray-200`}>
                     {bad &&
                       (isLocked ? (
-                        // Signed and confirmed — permanent. A static badge,
-                        // not a control: no cursor, no hover state, nothing
-                        // to click. The hidden input still submits
-                        // "complete" so re-saving a note here (if that ever
-                        // happens) can't accidentally flip this back open.
+                        // Signed and confirmed — permanent. Plain text, not
+                        // a control: no cursor, no hover state, nothing to
+                        // click. The hidden input still submits "complete"
+                        // so re-saving a note here (if that ever happens)
+                        // can't accidentally flip this back open.
                         <span
                           title="Confirmed by supervisor signature — permanent, can't be reopened"
-                          className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-green-300 bg-green-50 text-sm leading-none text-green-700"
+                          className="text-[10px] font-bold tracking-wide text-green-700 uppercase"
                         >
                           <input type="hidden" name={`issue_${q.id}`} value="complete" />
-                          <span className="sr-only">Confirmed fixed — permanent</span>✓
+                          Fixed
                         </span>
                       ) : (
-                        <>
-                          <label
-                            title={
-                              status === "complete"
-                                ? "Marked fixed — click to reopen"
-                                : "Click to mark fixed"
-                            }
-                            className={`has-checked:[&+span]:text-green-700 inline-flex h-6 w-6 shrink-0 cursor-pointer select-none items-center justify-center rounded-full border text-sm leading-none shadow-sm transition-all duration-100 active:scale-90 has-checked:border-green-300 has-checked:bg-green-50 has-checked:animate-none ${
-                              status === "complete"
-                                ? "border-amber-300 bg-amber-50 hover:border-amber-400 hover:bg-amber-100"
-                                : "animate-[status-blink_1.6s_ease-in-out_infinite] border-amber-400 bg-amber-100 ring-2 ring-amber-300 hover:border-amber-500 hover:bg-amber-200"
-                            }`}
-                          >
-                            <input
-                              type="checkbox"
-                              name={`issue_${q.id}`}
-                              value="complete"
-                              defaultChecked={status === "complete"}
-                              className="peer sr-only"
-                            />
-                            <span className="sr-only">Mark fixed</span>
-                            <span className="peer-checked:hidden">⚠</span>
-                            <span className="hidden peer-checked:inline">✓</span>
-                          </label>
-                          {/* The icon alone wasn't reading as "you need to
-                              tap this" — a tiny imperative label removes
-                              any doubt. Turns the same dark green as the
-                              icon the instant it's checked (via the
-                              `has-checked:[&+label]` rule above, since this
-                              label is the icon label's next sibling), so it
-                              reads as "done" instead of staying an
-                              alarming amber next to a now-calm green check. */}
-                          <span className="text-center text-[8px] leading-none font-bold tracking-wide text-amber-600 uppercase">
-                            Tap to
-                            <br />
-                            Fix
+                        // No icon — the text itself is the whole control,
+                        // and its own wording swaps from an instruction to
+                        // a confirmation the instant it's checked.
+                        <label
+                          title={
+                            status === "complete"
+                              ? "Marked fixed — click to reopen"
+                              : "Click to mark fixed"
+                          }
+                          className="flex h-full w-full cursor-pointer items-center justify-center rounded px-1 py-1 text-center transition-colors duration-100 active:scale-95"
+                        >
+                          <input
+                            type="checkbox"
+                            name={`issue_${q.id}`}
+                            value="complete"
+                            defaultChecked={status === "complete"}
+                            className="peer sr-only"
+                          />
+                          <span className="animate-pulse text-[10px] font-bold tracking-wide text-amber-600 uppercase peer-checked:hidden">
+                            Tap to Fix
                           </span>
-                        </>
+                          <span className="hidden text-[10px] font-bold tracking-wide text-green-700 uppercase peer-checked:inline">
+                            Fixed
+                          </span>
+                        </label>
                       ))}
                   </span>
                   {(answer.note || (answer.photos && answer.photos.length > 0)) && (
-                    <div className="col-span-3 -mt-0.5 flex flex-wrap items-start gap-2">
+                    <div
+                      className={`col-span-3 flex flex-wrap items-start gap-2 border-b border-gray-200 px-2 py-1.5 ${rowBg}`}
+                    >
                       {answer.note && (
                         <p className="text-xs text-gray-500">
                           {isRepairRequest ? "" : "Note: "}
@@ -509,6 +522,7 @@ function InspectionReviewForm({
               )
             }
           )}
+        </div>
         </div>
 
         <div className="mt-6 max-w-xl rounded-lg border border-gray-200 bg-gray-50 p-3">
