@@ -411,10 +411,11 @@ export default function InspectionForm({
           <StepHeading text="Your Name" />
           <div className="space-y-5">
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-gray-700">
+              <label htmlFor="lastName" className="mb-1.5 block text-sm font-medium text-gray-700">
                 Last Name
               </label>
               <input
+                id="lastName"
                 type="text"
                 name="lastName"
                 value={values.lastName ?? ""}
@@ -425,10 +426,11 @@ export default function InspectionForm({
               />
             </div>
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-gray-700">
+              <label htmlFor="firstName" className="mb-1.5 block text-sm font-medium text-gray-700">
                 First Name
               </label>
               <input
+                id="firstName"
                 type="text"
                 name="firstName"
                 value={values.firstName ?? ""}
@@ -498,10 +500,11 @@ export default function InspectionForm({
           </p>
           <div className="space-y-4">
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-gray-700">
+              <label htmlFor="repairDescription" className="mb-1.5 block text-sm font-medium text-gray-700">
                 What&apos;s wrong?
               </label>
               <textarea
+                id="repairDescription"
                 name="repairDescription"
                 value={values.repairDescription ?? ""}
                 onChange={(e) => set("repairDescription", e.target.value)}
@@ -1007,10 +1010,14 @@ export default function InspectionForm({
                 </div>
 
                 <div>
-                  <label className="mb-1.5 block text-sm font-medium text-gray-700">
+                  <label
+                    htmlFor={`${q.id}_note`}
+                    className="mb-1.5 block text-sm font-medium text-gray-700"
+                  >
                     Note
                   </label>
                   <textarea
+                    id={`${q.id}_note`}
                     name={`${q.id}_note`}
                     rows={3}
                     placeholder="Describe in as much detail as possible"
@@ -1633,10 +1640,11 @@ function PhotoEditorModal({
         )}
 
         <div className="mt-4">
-          <label className="mb-1 block text-xs font-medium text-gray-700">
+          <label htmlFor="photo-editor-note" className="mb-1 block text-xs font-medium text-gray-700">
             Note (optional)
           </label>
           <textarea
+            id="photo-editor-note"
             value={noteText}
             onChange={(e) => setNoteText(e.target.value)}
             rows={2}
