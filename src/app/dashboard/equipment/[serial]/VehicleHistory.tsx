@@ -156,10 +156,12 @@ function CalendarView({
               }`}
             >
               {entry?.Day || entry?.Night ? (
+                // No shift on this link — the date represents the whole
+                // day, and the equipment page shows every inspection that
+                // happened that day together (Day and Night both, when both
+                // exist) rather than forcing a pick of just one.
                 <Link
-                  href={`/dashboard/equipment/${serial}?date=${dateKey}&shift=${
-                    entry.Day ? "Day" : "Night"
-                  }#selected-inspection`}
+                  href={`/dashboard/equipment/${serial}?date=${dateKey}#selected-inspection`}
                   className="block text-[10px] font-medium text-gray-500 hover:text-brand hover:underline"
                 >
                   {Number(dateKey.slice(-2))}

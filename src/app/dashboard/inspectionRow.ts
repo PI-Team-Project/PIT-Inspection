@@ -92,20 +92,27 @@ const OPEN_SEVERITY: Record<"unresolved" | "pending-confirm", number> = {
 export function findOpenIssue<T extends { stage: Stage | "none"; inspection: { createdAt: Date } }>(
   history: T[]
 ): T | null {
-  let openIssue: T | null = null
-  for (const row of history) {
-    if (row.stage !== "unresolved" && row.stage !== "pending-confirm") continue
-    if (!openIssue) {
-      openIssue = row
-      continue
-    }
-    const rowRank = OPEN_SEVERITY[row.stage]
-    const bestRank = OPEN_SEVERITY[openIssue.stage as "unresolved" | "pending-confirm"]
-    if (rowRank < bestRank || (rowRank === bestRank && row.inspection.createdAt < openIssue.inspection.createdAt)) {
-      openIssue = row
-    }
-  }
-  return openIssue
+  return findAllOpenIssues(history)[0] ?? null
+}
+
+// Same scan as findOpenIssue, but returns every still-open inspection, not
+// just the worst one. A vehicle can accumulate more than one of these
+// independently (e.g. two separate Repair Requests days apart) — confirming
+// the newer one doesn't touch the older one, so a manager who only sees "the"
+// open issue can walk away thinking the vehicle is fully clear when it isn't.
+// Worst/oldest first, same ordering findOpenIssue already used.
+export function findAllOpenIssues<
+  T extends { stage: Stage | "none"; inspection: { createdAt: Date } },
+>(history: T[]): T[] {
+  return history
+    .filter((row): row is T & { stage: "unresolved" | "pending-confirm" } =>
+      row.stage === "unresolved" || row.stage === "pending-confirm"
+    )
+    .sort((a, b) => {
+      const rankDiff = OPEN_SEVERITY[a.stage] - OPEN_SEVERITY[b.stage]
+      if (rankDiff !== 0) return rankDiff
+      return a.inspection.createdAt.getTime() - b.inspection.createdAt.getTime()
+    })
 }
 
 // "Since" now just means "since the open issue found above" — no separate

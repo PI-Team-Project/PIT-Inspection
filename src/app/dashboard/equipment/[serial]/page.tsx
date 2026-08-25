@@ -22,9 +22,10 @@ import { DASHBOARD_COOKIE, MANAGER_NAME_COOKIE, dashboardSessionValue } from "@/
 import {
   buildRow,
   badSince,
-  findOpenIssue,
+  findAllOpenIssues,
   retentionCutoff,
   daysPassedCount,
+  type InspectionRow,
 } from "../../inspectionRow"
 import StatusDot from "../../StatusDot"
 import PhotoGallery from "../../PhotoGallery"
@@ -32,6 +33,18 @@ import LocationChangeControl from "../../LocationChangeControl"
 import SignConfirmButton from "../../SignConfirmButton"
 import { saveActivity } from "../../actions"
 import VehicleHistory, { type LogEntry } from "./VehicleHistory"
+
+// A date KEY ("2026-08-07") has no time zone of its own — formatting as UTC
+// (not the server's local zone) guarantees the digits shown always match
+// the digits in the key, with no drift. Used for the short, readable dates
+// in the "click to review" sentences below (e.g. "Aug 7").
+function shortDate(dateKey: string): string {
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone: "UTC",
+    month: "short",
+    day: "numeric",
+  }).format(new Date(`${dateKey}T00:00:00Z`))
+}
 
 export default async function EquipmentDetailPage({
   params,
@@ -81,39 +94,63 @@ export default async function EquipmentDetailPage({
   // in its history, not just whatever its latest inspection happened to
   // report — a later "all good" shift must never silently clear an
   // outstanding flag nobody actually reviewed. See findOpenIssue.
-  const openIssue = findOpenIssue(allHistory)
+  // Every still-open inspection, worst/oldest first — not just the single
+  // worst one. A vehicle can carry more than one independently (two separate
+  // Repair Requests days apart, say) — confirming the newer one never
+  // touches the older one, so a manager needs to know there's a second item
+  // waiting even after clearing the one the badge below jumps to first.
+  const openIssues = findAllOpenIssues(allHistory)
+  const openIssue = openIssues[0] ?? null
   const stage = (openIssue?.stage ?? latest?.stage ?? "none") as Stage | "none"
   const since = badSince(allHistory, today)
   const daysPassed = since ? daysPassedCount(since, today) : 0
 
   // The page never drops straight into an inspection unless the visitor
-  // explicitly asked for one via a specific day+shift — entry points that
-  // already know which day matter (a flagged square in the Weekly Report,
-  // a row in this vehicle's own History) link straight to that day. Landing
-  // on the vehicle by name always lands on the overview instead, with the
-  // verdict badge itself linking to the open issue if there is one — see
-  // below — rather than the whole questionnaire appearing unasked-for.
-  const selectedId = highlightDate && highlightShift
-    ? (allHistory.find(
-        (row) => row.inspection.date === highlightDate && row.inspection.shift === highlightShift
-      )?.inspection.id ?? null)
-    : null
+  // explicitly asked for one via a specific day — entry points that already
+  // know which day matter (a flagged square in the Weekly Report, a row in
+  // this vehicle's own History, a calendar date) link straight to that day.
+  // Landing on the vehicle by name always lands on the overview instead,
+  // with the verdict badge itself linking to the open issue if there is
+  // one — see below — rather than the whole questionnaire appearing
+  // unasked-for.
+  //
+  // A day can carry BOTH a Day and a Night inspection — every link into a
+  // specific date (whichever shift it names, or none) shows every
+  // inspection that actually happened that day together, Day before Night,
+  // rather than forcing a pick of just one. `highlightShift` still narrows
+  // which one the breadcrumb names and which one a same-day link came from,
+  // but never hides the other.
+  const SHIFT_SORT_ORDER: Record<string, number> = { Day: 0, Night: 1 }
+  const matchingRows = highlightDate
+    ? allHistory
+        .filter((row) => row.inspection.date === highlightDate)
+        .sort(
+          (a, b) =>
+            (SHIFT_SORT_ORDER[a.inspection.shift] ?? 2) - (SHIFT_SORT_ORDER[b.inspection.shift] ?? 2)
+        )
+    : []
+  const matchingIds = matchingRows.map((row) => row.inspection.id)
 
-  const selectedInspection = selectedId
-    ? await prisma.inspection.findUnique({ where: { id: selectedId }, include: { photos: true } })
-    : null
-  const selected = selectedInspection ? buildRow(selectedInspection) : null
+  const selectedInspections = matchingIds.length
+    ? await prisma.inspection.findMany({ where: { id: { in: matchingIds } }, include: { photos: true } })
+    : []
+  // Refetched rows can come back in any order — matchingIds already carries
+  // the Day-before-Night order decided above, so re-derive from that.
+  const selectedRows: InspectionRow[] = matchingIds
+    .map((id) => selectedInspections.find((i) => i.id === id))
+    .filter((i) => i !== undefined)
+    .map(buildRow)
 
   // A single, always-in-the-same-place verdict — the one thing a manager
   // actually needs to know before reading anything else on the page.
   const verdict =
     stage === "unresolved"
-      ? { label: "Needs Review", badge: "bg-red-50 text-red-700" }
+      ? { label: "Needs Review", badge: "bg-red-50 text-red-700", text: "text-red-700" }
       : stage === "pending-confirm"
-        ? { label: "Needs Attention", badge: "bg-amber-50 text-amber-700" }
+        ? { label: "Needs Attention", badge: "bg-amber-50 text-amber-700", text: "text-amber-700" }
         : stage === "none"
-          ? { label: "No Inspections Yet", badge: "bg-gray-100 text-gray-500" }
-          : { label: "All Clear", badge: "bg-green-50 text-green-700" }
+          ? { label: "No Inspections Yet", badge: "bg-gray-100 text-gray-500", text: "text-gray-500" }
+          : { label: "All Clear", badge: "bg-green-50 text-green-700", text: "text-green-700" }
 
   const logEntries: LogEntry[] = allHistory.map((row) => ({
     id: row.inspection.id,
@@ -200,19 +237,62 @@ export default async function EquipmentDetailPage({
         </div>
 
         {isBrowsingHistory ? (
-          <p className="mt-1 text-[10px] font-bold tracking-wide text-gray-400 uppercase">
-            Viewing history
-          </p>
+          <>
+            <p className="mt-1 text-[10px] font-bold tracking-wide text-gray-400 uppercase">
+              Viewing history
+            </p>
+            {/* This vehicle's CURRENT status was otherwise fully hidden while
+                browsing a specific day — a manager who lands here straight
+                from a link (a Weekly Report cell, a History row) for an
+                already-confirmed day never saw the vehicle overall still has
+                a separate, untouched open issue elsewhere. That gap is
+                exactly how MIT-2304 stayed red for two weeks unnoticed after
+                its Aug 10 report was confirmed: the Aug 7 report was open the
+                whole time, but nothing on this page said so unless you
+                happened to land on the Home view instead. */}
+            {/* An open issue elsewhere is an action to take, not a status to
+                display — so unlike "Viewing history" above (plain label, no
+                link target), this renders as colored, underline-on-touch
+                text rather than a filled pill. A pill reads as "badge"; this
+                needs to read as "click here." */}
+            {openIssue && (
+              <Link
+                href={`/dashboard/equipment/${serial}?date=${openIssue.inspection.date}&shift=${openIssue.inspection.shift}#selected-inspection`}
+                className={`mt-1 inline-block text-sm font-semibold hover:underline active:underline ${verdict.text}`}
+              >
+                Click to review the inspection from {shortDate(openIssue.inspection.date)}
+                {openIssues.length > 1 ? ` (+${openIssues.length - 1} more)` : ""} →
+              </Link>
+            )}
+          </>
         ) : openIssue ? (
-          // The badge itself is the one-click path to the flagged
-          // inspection — no need to also embed the whole questionnaire
-          // here just to keep that reachable in one tap.
-          <Link
-            href={`/dashboard/equipment/${serial}?date=${openIssue.inspection.date}&shift=${openIssue.inspection.shift}#selected-inspection`}
-            className={`mt-1 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold tracking-wide uppercase hover:underline ${verdict.badge}`}
-          >
-            {verdict.label} →
-          </Link>
+          <>
+            {/* The link itself is the one-click path to the flagged
+                inspection — no need to also embed the whole questionnaire
+                here just to keep that reachable in one tap. Colored text
+                with an underline on hover/tap, not a filled pill — this is
+                an action to take, not a status to display. */}
+            <Link
+              href={`/dashboard/equipment/${serial}?date=${openIssue.inspection.date}&shift=${openIssue.inspection.shift}#selected-inspection`}
+              className={`mt-1 inline-block text-sm font-semibold hover:underline active:underline ${verdict.text}`}
+            >
+              Click to review the inspection from {shortDate(openIssue.inspection.date)}
+              {openIssues.length > 1 ? ` (1 of ${openIssues.length})` : ""} →
+            </Link>
+            {/* Confirming the issue above never touches these — they're
+                separate inspections that each need their own sign-off. Named
+                explicitly so a manager can't mistake "cleared the top one"
+                for "vehicle is clear." */}
+            {openIssues.slice(1).map((issue) => (
+              <Link
+                key={issue.inspection.id}
+                href={`/dashboard/equipment/${serial}?date=${issue.inspection.date}&shift=${issue.inspection.shift}#selected-inspection`}
+                className="mt-0.5 block text-xs font-medium text-gray-500 hover:underline active:underline"
+              >
+                Also review the inspection from {shortDate(issue.inspection.date)} ({issue.inspection.shift}) →
+              </Link>
+            ))}
+          </>
         ) : (
           <span
             className={`mt-1 inline-block rounded-full px-2 py-0.5 text-[10px] font-bold tracking-wide uppercase ${verdict.badge}`}
@@ -223,12 +303,14 @@ export default async function EquipmentDetailPage({
 
         <div className="mt-1.5 space-y-0.5">
           <p className="flex flex-wrap items-center gap-1.5 text-sm text-gray-600">
-            Serial#: {equipment.serial} ·
+            {/* Where it is matters more day-to-day than its serial number —
+                leads with location, serial is the secondary/lookup detail. */}
             <LocationChangeControl
               serial={equipment.serial}
               currentLocation={equipment.location}
               savedManagerName={savedManagerName}
             />
+            · Serial#: {equipment.serial}
           </p>
           {addedAt && addedAt > EQUIPMENT_ADDED_DATE_TRACKING_STARTS_AT && (
             <p className="text-xs text-gray-400">Added {addedAt.toISOString().slice(0, 10)}</p>
@@ -243,138 +325,22 @@ export default async function EquipmentDetailPage({
           )}
         </div>
 
-        {selected ? (
-        <div className="mt-4 border-t border-black/5 pt-4">
-          {selected.stage === "pending-confirm" &&
-            !selected.flagged.every((q) => selected.review.issueStatus[q.id] === "complete") && (
-              <div className="mb-4 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">
-                Mark every flagged item below <strong>Complete</strong>, then submit below to
-                confirm all clear.
-              </div>
-            )}
-
-          <form action={saveActivity} className="space-y-4">
-            <input type="hidden" name="inspectionId" value={selected.inspection.id} />
-
-            <div className="grid max-w-xl grid-cols-[auto_1fr_auto] items-baseline gap-x-4 gap-y-1.5 text-sm">
-              {(isCriticalInspection(selected.inspection)
-                ? [REPAIR_REQUEST_QUESTION]
-                : QUESTIONS
-              ).map((q, i) => {
-                const answer = selected.answers[q.id]
-                if (!answer) return null
-                const isRepairRequest = q.id === REPAIR_REQUEST_ISSUE_ID
-                const bad = needsAttention(answer.value)
-                const critical = bad && isCriticalFlag(selected.inspection, q.id)
-                const status = selected.review.issueStatus[q.id]
-                const fixed = bad && status === "complete"
-                const textColor = fixed
-                  ? "text-gray-500"
-                  : critical
-                    ? "text-red-700"
-                    : bad
-                      ? "text-amber-700"
-                      : "text-gray-700"
-                const rowBorder = i > 0 ? "border-t border-gray-100 pt-1.5" : ""
-                return (
-                  <Fragment key={q.id}>
-                    <span className={`whitespace-nowrap font-semibold ${textColor} ${rowBorder}`}>
-                      {isRepairRequest ? "Repair Request" : `${q.number}. ${q.label}`}
-                    </span>
-                    <span className={`${textColor} ${rowBorder}`}>
-                      {isRepairRequest ? "" : answer.value}
-                      {!isRepairRequest && answer.specify ? ` — ${answer.specify}` : ""}
-                    </span>
-                    <span className="flex justify-end">
-                      {bad && (
-                        <label
-                          title={status === "complete" ? "Marked fixed — click to reopen" : "Click to mark fixed"}
-                          className="inline-flex h-6 w-6 shrink-0 cursor-pointer select-none items-center justify-center rounded-full border border-amber-300 bg-amber-50 text-sm leading-none shadow-sm transition-all duration-100 hover:border-amber-400 hover:bg-amber-100 active:scale-90 has-checked:border-green-300 has-checked:bg-green-50"
-                        >
-                          <input
-                            type="checkbox"
-                            name={`issue_${q.id}`}
-                            value="complete"
-                            defaultChecked={status === "complete"}
-                            className="peer sr-only"
-                          />
-                          <span className="sr-only">Mark fixed</span>
-                          <span className="peer-checked:hidden">⚠</span>
-                          <span className="hidden peer-checked:inline">✓</span>
-                        </label>
-                      )}
-                    </span>
-                    {(answer.note || (answer.photos && answer.photos.length > 0)) && (
-                      <div className="col-span-3 -mt-0.5 flex flex-wrap items-start gap-2">
-                        {answer.note && (
-                          <p className="text-xs text-gray-500">
-                            {isRepairRequest ? "" : "Note: "}
-                            {answer.note}
-                          </p>
-                        )}
-                        {answer.photos && answer.photos.length > 0 && (
-                          <PhotoGallery photos={answer.photos} notes={answer.photoNotes} />
-                        )}
-                      </div>
-                    )}
-                  </Fragment>
-                )
-              })}
-            </div>
-
-            <div className="mt-6 max-w-xl rounded-lg border border-gray-200 bg-gray-50 p-3">
-              <p className="mb-3 text-sm font-semibold text-gray-900">Supervisor Review</p>
-              <label className="mb-1 block text-sm font-medium text-gray-700">Note</label>
-              <textarea
-                name="noteText"
-                placeholder="What did you check or change?"
-                rows={2}
-                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
-              />
-
-              <div className="mt-3">
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="mb-1 block text-sm font-medium text-gray-700">
-                      Supervisor Signature
-                    </label>
-                    <input
-                      type="text"
-                      name="reviewerName"
-                      defaultValue={savedManagerName}
-                      placeholder="Name of the supervisor"
-                      required
-                      className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-sm font-medium text-gray-700">Date</label>
-                    <p className="rounded-lg border border-gray-200 bg-gray-100 px-3 py-2 text-sm text-gray-600">
-                      {todayDisplay}
-                    </p>
-                  </div>
-                </div>
-                <SignConfirmButton />
-              </div>
-            </div>
-
-            {selected.review.activity.length > 0 && (
-              <div className="border-t border-gray-100 pt-2.5">
-                <p className="mb-1.5 text-xs font-semibold text-gray-500">Activity</p>
-                <ul className="space-y-1.5">
-                  {[...selected.review.activity].reverse().map((entry) => (
-                    <li key={entry.id} className="text-xs text-gray-600">
-                      <ActivityLine entry={entry} />
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-          </form>
-        </div>
+        {selectedRows.length > 0 ? (
+          selectedRows.map((row) => (
+            <InspectionReviewForm
+              key={row.inspection.id}
+              row={row}
+              savedManagerName={savedManagerName}
+              todayDisplay={todayDisplay}
+              // A day can hold both a Day and a Night inspection — when it
+              // does, each form needs its own shift label so the two don't
+              // read as one confusing merged form.
+              showShiftLabel={selectedRows.length > 1}
+            />
+          ))
         ) : highlightDate ? (
           <p className="mt-4 border-t border-black/5 pt-4 text-center text-sm text-gray-500">
-            No inspection found for {highlightDate} · {highlightShift}.
+            No inspection found for {highlightDate}.
           </p>
         ) : openIssue ? null : ( // the badge above is already the call to action
           <p
@@ -405,6 +371,196 @@ export default async function EquipmentDetailPage({
         </a>
       </div>
     </main>
+  )
+}
+
+function InspectionReviewForm({
+  row,
+  savedManagerName,
+  todayDisplay,
+  showShiftLabel,
+}: {
+  row: InspectionRow
+  savedManagerName: string
+  todayDisplay: string
+  showShiftLabel: boolean
+}) {
+  // Once a supervisor has signed and confirmed this specific inspection
+  // (stage "confirmed"), every flagged item's Complete toggle becomes
+  // permanent — that signature is a real record of it being fixed, and it
+  // must never be silently reopened by an accidental tap afterward.
+  const isLocked = row.stage === "confirmed"
+
+  return (
+    <div className="mt-4 border-t border-black/5 pt-4">
+      {showShiftLabel && (
+        <p className="mb-2 text-xs font-bold tracking-wide text-gray-400 uppercase">
+          {row.inspection.shift} Shift · {row.inspection.firstName} {row.inspection.lastName}
+        </p>
+      )}
+      {row.stage === "pending-confirm" &&
+        !row.flagged.every((q) => row.review.issueStatus[q.id] === "complete") && (
+          <div className="mb-4 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">
+            Mark every flagged item below <strong>Complete</strong>, then submit below to confirm
+            all clear.
+          </div>
+        )}
+
+      <form action={saveActivity} className="space-y-4">
+        <input type="hidden" name="inspectionId" value={row.inspection.id} />
+
+        <div className="grid max-w-xl grid-cols-[auto_1fr_auto] items-baseline gap-x-4 gap-y-1.5 text-sm">
+          {(isCriticalInspection(row.inspection) ? [REPAIR_REQUEST_QUESTION] : QUESTIONS).map(
+            (q, i) => {
+              const answer = row.answers[q.id]
+              if (!answer) return null
+              const isRepairRequest = q.id === REPAIR_REQUEST_ISSUE_ID
+              const bad = needsAttention(answer.value)
+              const critical = bad && isCriticalFlag(row.inspection, q.id)
+              const status = row.review.issueStatus[q.id]
+              const fixed = bad && status === "complete"
+              const textColor = fixed
+                ? "text-gray-500"
+                : critical
+                  ? "text-red-700"
+                  : bad
+                    ? "text-amber-700"
+                    : "text-gray-700"
+              const rowBorder = i > 0 ? "border-t border-gray-100 pt-1.5" : ""
+              return (
+                <Fragment key={q.id}>
+                  <span className={`whitespace-nowrap font-semibold ${textColor} ${rowBorder}`}>
+                    {isRepairRequest ? "Repair Request" : `${q.number}. ${q.label}`}
+                  </span>
+                  <span className={`${textColor} ${rowBorder}`}>
+                    {isRepairRequest ? "" : answer.value}
+                    {!isRepairRequest && answer.specify ? ` — ${answer.specify}` : ""}
+                  </span>
+                  <span className="flex flex-col items-center gap-0.5">
+                    {bad &&
+                      (isLocked ? (
+                        // Signed and confirmed — permanent. A static badge,
+                        // not a control: no cursor, no hover state, nothing
+                        // to click. The hidden input still submits
+                        // "complete" so re-saving a note here (if that ever
+                        // happens) can't accidentally flip this back open.
+                        <span
+                          title="Confirmed by supervisor signature — permanent, can't be reopened"
+                          className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-green-300 bg-green-50 text-sm leading-none text-green-700"
+                        >
+                          <input type="hidden" name={`issue_${q.id}`} value="complete" />
+                          <span className="sr-only">Confirmed fixed — permanent</span>✓
+                        </span>
+                      ) : (
+                        <>
+                          <label
+                            title={
+                              status === "complete"
+                                ? "Marked fixed — click to reopen"
+                                : "Click to mark fixed"
+                            }
+                            className={`has-checked:[&+span]:text-green-700 inline-flex h-6 w-6 shrink-0 cursor-pointer select-none items-center justify-center rounded-full border text-sm leading-none shadow-sm transition-all duration-100 active:scale-90 has-checked:border-green-300 has-checked:bg-green-50 has-checked:animate-none ${
+                              status === "complete"
+                                ? "border-amber-300 bg-amber-50 hover:border-amber-400 hover:bg-amber-100"
+                                : "animate-[status-blink_1.6s_ease-in-out_infinite] border-amber-400 bg-amber-100 ring-2 ring-amber-300 hover:border-amber-500 hover:bg-amber-200"
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              name={`issue_${q.id}`}
+                              value="complete"
+                              defaultChecked={status === "complete"}
+                              className="peer sr-only"
+                            />
+                            <span className="sr-only">Mark fixed</span>
+                            <span className="peer-checked:hidden">⚠</span>
+                            <span className="hidden peer-checked:inline">✓</span>
+                          </label>
+                          {/* The icon alone wasn't reading as "you need to
+                              tap this" — a tiny imperative label removes
+                              any doubt. Turns the same dark green as the
+                              icon the instant it's checked (via the
+                              `has-checked:[&+label]` rule above, since this
+                              label is the icon label's next sibling), so it
+                              reads as "done" instead of staying an
+                              alarming amber next to a now-calm green check. */}
+                          <span className="text-center text-[8px] leading-none font-bold tracking-wide text-amber-600 uppercase">
+                            Mark
+                            <br />
+                            Fixed
+                          </span>
+                        </>
+                      ))}
+                  </span>
+                  {(answer.note || (answer.photos && answer.photos.length > 0)) && (
+                    <div className="col-span-3 -mt-0.5 flex flex-wrap items-start gap-2">
+                      {answer.note && (
+                        <p className="text-xs text-gray-500">
+                          {isRepairRequest ? "" : "Note: "}
+                          {answer.note}
+                        </p>
+                      )}
+                      {answer.photos && answer.photos.length > 0 && (
+                        <PhotoGallery photos={answer.photos} notes={answer.photoNotes} />
+                      )}
+                    </div>
+                  )}
+                </Fragment>
+              )
+            }
+          )}
+        </div>
+
+        <div className="mt-6 max-w-xl rounded-lg border border-gray-200 bg-gray-50 p-3">
+          <p className="mb-3 text-sm font-semibold text-gray-900">Supervisor Review</p>
+          <label className="mb-1 block text-sm font-medium text-gray-700">Note</label>
+          <textarea
+            name="noteText"
+            placeholder="What did you check or change?"
+            rows={2}
+            className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
+          />
+
+          <div className="mt-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">
+                  Supervisor Signature
+                </label>
+                <input
+                  type="text"
+                  name="reviewerName"
+                  defaultValue={savedManagerName}
+                  placeholder="Name of the supervisor"
+                  required
+                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">Date</label>
+                <p className="rounded-lg border border-gray-200 bg-gray-100 px-3 py-2 text-sm text-gray-600">
+                  {todayDisplay}
+                </p>
+              </div>
+            </div>
+            <SignConfirmButton />
+          </div>
+        </div>
+
+        {row.review.activity.length > 0 && (
+          <div className="border-t border-gray-100 pt-2.5">
+            <p className="mb-1.5 text-xs font-semibold text-gray-500">Activity</p>
+            <ul className="space-y-1.5">
+              {[...row.review.activity].reverse().map((entry) => (
+                <li key={entry.id} className="text-xs text-gray-600">
+                  <ActivityLine entry={entry} />
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </form>
+    </div>
   )
 }
 

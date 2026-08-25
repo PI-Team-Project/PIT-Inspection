@@ -1,6 +1,6 @@
 import type { Inspection } from "@/generated/prisma/client"
 import { QUESTIONS } from "@/lib/questions"
-import { parseReview, getStage, isCriticalInspection, flaggedIssueIds } from "@/lib/review"
+import { parseReview, getStage, criticalFlaggedIds, flaggedIssueIds } from "@/lib/review"
 
 type Answers = Record<string, { value: string; specify?: string }>
 
@@ -41,7 +41,13 @@ export function buildInspectionsCsv(inspections: Inspection[]): string {
     const answers = inspection.answers as Answers
     const review = parseReview(inspection.review)
     const flaggedIds = flaggedIssueIds(inspection, answers)
-    const criticalIds = isCriticalInspection(inspection) ? flaggedIds : []
+    // BUG FIX: this used to only treat a whole Repair Request as critical,
+    // never a Daily inspection's individual safety-critical flag (horn,
+    // brakes, etc.) — so a Daily inspection with an unresolved
+    // safety-critical answer exported as "Needs Attention" here while the
+    // live dashboard correctly showed it as "Unresolved". criticalFlaggedIds
+    // is the same check the dashboard/equipment page use.
+    const criticalIds = criticalFlaggedIds(inspection, flaggedIds)
     const unresolvedCriticalCount = criticalIds.filter(
       (id) => review.issueStatus[id] !== "complete"
     ).length

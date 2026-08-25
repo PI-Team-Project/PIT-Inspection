@@ -3,6 +3,8 @@ import { cookies } from "next/headers"
 import { prisma } from "@/lib/prisma"
 import { DASHBOARD_COOKIE, dashboardSessionValue } from "@/lib/auth"
 import { buildInspectionsCsv } from "@/lib/inspectionsCsv"
+import { getEquipmentBySerial } from "@/lib/equipmentLocations"
+import { retentionCutoff } from "../../inspectionRow"
 
 export async function GET(
   _request: Request,
@@ -16,8 +18,19 @@ export async function GET(
 
   const { serial } = await params
 
+  const equipment = await getEquipmentBySerial(serial)
+  if (!equipment) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 })
+  }
+
+  // Same per-type retention cutoff the equipment detail page and dashboard
+  // already use — without it, this pulled a vehicle's ENTIRE inspection
+  // history unbounded, unlike the fleet-wide export which is bounded.
+  const today = new Date().toISOString().slice(0, 10)
+  const cutoff = retentionCutoff(equipment.type, today)
+
   const inspections = await prisma.inspection.findMany({
-    where: { equipmentSerial: serial },
+    where: { equipmentSerial: serial, date: { gte: cutoff } },
     orderBy: { createdAt: "desc" },
   })
 

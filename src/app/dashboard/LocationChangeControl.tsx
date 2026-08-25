@@ -28,18 +28,20 @@ export default function LocationChangeControl({
   const underRepair = isUnderRepair(currentLocation)
 
   if (!open) {
+    // No pill, no pencil icon — plain text that just changes color on
+    // hover/tap, the same "this is clickable" cue used elsewhere on this
+    // page (the review links) rather than button chrome.
     return (
       <button
         type="button"
         onClick={() => setOpen(true)}
         className={
           underRepair
-            ? "inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-sm font-semibold text-amber-800 active:scale-95"
-            : "inline-flex items-center gap-1 rounded-full border border-gray-300 px-2 py-0.5 text-sm text-gray-600 active:scale-95"
+            ? "font-semibold text-amber-700 transition-colors duration-100 hover:text-amber-900 hover:underline active:text-amber-900 active:underline"
+            : "text-gray-600 transition-colors duration-100 hover:text-brand hover:underline active:text-brand-dark active:underline"
         }
       >
         {underRepair ? "🛠️ Under Repair" : `📍 ${currentLocation}`}
-        {!underRepair && <span className="text-gray-400">✎</span>}
       </button>
     )
   }
