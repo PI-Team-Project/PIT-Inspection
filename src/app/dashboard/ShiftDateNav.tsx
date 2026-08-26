@@ -58,10 +58,16 @@ export default function ShiftDateNav({
           shared visual language for both date-nav rows on this page. The
           outer 3-column grid keeps the title truly centered regardless of
           the status chip's width, instead of the chip's width dragging it
-          off-center. */}
-      <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
+          off-center. `minmax(0, 1fr)` on the outer tracks (rather than bare
+          1fr) is what actually matters on a narrow phone: the middle
+          column's content doesn't wrap or shrink (nowrap date text, fixed
+          icon buttons), so without an explicit 0 floor the grid blows out
+          past the viewport trying to give it room — which pushed the
+          status chip on the right entirely off-screen (invisible, not
+          just clipped) rather than letting it shrink. */}
+      <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2">
         <div />
-        <div className="flex items-center justify-center gap-4">
+        <div className="flex items-center justify-center gap-2 sm:gap-4">
           <button
             type="button"
             onClick={handleBack}
@@ -93,9 +99,14 @@ export default function ShiftDateNav({
           >
             {/* Always shows one of these two words instead of the label
                 popping in and out — that was shifting how wide this whole
-                row measured out depending on which date was selected. */}
-            Report · {dateLabel}{" "}
-            <span className="text-gray-400">({isViewingLive ? "Today" : "Past"})</span>
+                row measured out depending on which date was selected.
+                Hidden below sm: there wasn't room for it on a narrow phone
+                without squeezing the status chip on the right into
+                invisibility — a responsive hide is fine here since it's
+                tied to viewport width, not app state, so it can't cause
+                the same kind of jump. */}
+            Report · {dateLabel}
+            <span className="hidden text-gray-400 sm:inline"> ({isViewingLive ? "Today" : "Past"})</span>
           </button>
           <input
             key={dateKey}

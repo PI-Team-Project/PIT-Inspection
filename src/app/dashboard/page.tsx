@@ -248,7 +248,7 @@ export default async function DashboardPage({
   }))
 
   return (
-    <main className="mx-auto max-w-lg px-4 py-8 sm:max-w-2xl lg:max-w-4xl">
+    <main className="mx-auto max-w-lg px-4 pt-4 pb-8 sm:max-w-2xl lg:max-w-4xl">
       <div className="flex items-center gap-3">
         <HomeLink />
         <h1 className="text-xl font-bold text-gray-900 sm:text-2xl">
@@ -637,7 +637,7 @@ function EquipmentCard({
             <span className="border-r border-b border-gray-200 px-2 py-1.5 text-gray-600">
               {latest.inspection.shift} Shift
             </span>
-            <span className="truncate border-r border-b border-gray-200 px-2 py-1.5 whitespace-nowrap text-gray-600">
+            <span className="border-r border-b border-gray-200 px-2 py-1.5 whitespace-nowrap text-gray-600">
               Inspected By: {latest.inspection.firstName} {latest.inspection.lastName}
             </span>
           </>
