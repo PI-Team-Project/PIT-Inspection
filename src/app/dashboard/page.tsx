@@ -502,13 +502,18 @@ function ShiftOverview({
             </Link>
           )
         })}
-        <span className="flex items-center justify-center gap-1 px-1 py-1 text-[10px] font-medium text-gray-400">
-          <span className="h-2 w-2 rounded-sm bg-green-100" />
-          Checked
-        </span>
-        <span className="flex items-center justify-center gap-1 px-1 py-1 text-[10px] font-medium text-gray-400">
-          <span className="h-2 w-2 rounded-sm border border-gray-300 bg-white" />
-          Not yet
+        {/* Both together in one cell, pinned to the last column — side by
+            side in separate cells read like they were labeling those
+            specific columns, not a legend for the whole grid. */}
+        <span className="col-start-3 flex flex-col items-center justify-center gap-0.5 px-1 py-1 text-[10px] font-medium text-gray-400">
+          <span className="flex items-center gap-1">
+            <span className="h-2 w-2 rounded-sm bg-green-100" />
+            Checked
+          </span>
+          <span className="flex items-center gap-1">
+            <span className="h-2 w-2 rounded-sm border border-gray-300 bg-white" />
+            Not yet
+          </span>
         </span>
       </div>
     </div>
