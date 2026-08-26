@@ -642,7 +642,7 @@ function InspectionReviewForm({
             name="noteText"
             placeholder="What did you check or change?"
             rows={2}
-            className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
+            className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-base"
           />
 
           <div className="mt-3">
@@ -657,7 +657,7 @@ function InspectionReviewForm({
                   defaultValue={savedManagerName}
                   placeholder="Name of the supervisor"
                   required
-                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
+                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-base"
                 />
               </div>
               <div>
