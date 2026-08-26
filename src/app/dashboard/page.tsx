@@ -246,7 +246,7 @@ export default async function DashboardPage({
   }))
 
   return (
-    <main className="mx-auto max-w-lg px-4 pt-4 pb-8 sm:max-w-2xl lg:max-w-4xl">
+    <main className="mx-auto max-w-lg px-4 pt-2 pb-8 sm:max-w-2xl lg:max-w-4xl">
       <div className="flex items-center gap-3">
         <HomeLink />
         <h1 className="text-xl font-bold text-gray-900 sm:text-2xl">
