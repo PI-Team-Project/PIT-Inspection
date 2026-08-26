@@ -58,7 +58,7 @@ export default function EquipmentSearch({ equipment }: { equipment: SearchableEq
         type="button"
         onClick={() => setOpen(true)}
         aria-label="Search vehicles"
-        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-gray-200 text-gray-500 active:scale-95 active:bg-gray-100"
+        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-gray-500 active:scale-95 active:bg-gray-100"
       >
         <svg
           xmlns="http://www.w3.org/2000/svg"

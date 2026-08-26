@@ -5,7 +5,7 @@ export default function HomeLink() {
     <Link
       href="/"
       aria-label="Home"
-      className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-brand/30 text-brand transition-transform duration-100 hover:bg-brand/5 active:scale-95 active:bg-brand/10"
+      className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-brand transition-transform duration-100 hover:bg-brand/5 active:scale-95 active:bg-brand/10"
     >
       <svg
         viewBox="0 0 24 24"
