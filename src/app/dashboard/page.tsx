@@ -22,7 +22,6 @@ import HomeLink from "./HomeLink"
 import StatusDot from "./StatusDot"
 import EquipmentSearch from "./EquipmentSearch"
 import EquipmentBrowser from "./EquipmentBrowser"
-import InspectedChip from "./InspectedChip"
 import ShiftDateNav from "./ShiftDateNav"
 import WeeklyReport from "./WeeklyReport"
 import {
@@ -290,7 +289,6 @@ export default async function DashboardPage({
           todayKey={todayKey}
           isViewingLive={isViewingLive}
           rows={equipmentRows}
-          shiftInspectionFor={shiftInspectionFor}
           inspectedThisShift={inspectedThisShift}
           statusChip={
             <Link
@@ -396,7 +394,6 @@ function ShiftOverview({
   todayKey,
   isViewingLive,
   rows,
-  shiftInspectionFor,
   inspectedThisShift,
   statusChip,
 }: {
@@ -407,26 +404,21 @@ function ShiftOverview({
   todayKey: string
   isViewingLive: boolean
   rows: EquipmentRow[]
-  shiftInspectionFor: (row: EquipmentRow) => InspectionRow | undefined
   inspectedThisShift: (row: EquipmentRow) => boolean
   statusChip: ReactNode
 }) {
   const inspected = rows.filter(inspectedThisShift)
-  // Unresolved (red) ones lead this list too, same as the fleet-wide sort —
-  // whoever's picking up work next shift should see the most urgent vehicle
-  // first, not have to scan past it. Within the same severity, the longest-
-  // outstanding issue (oldest `since`) comes first; rows with no open issue
-  // at all sort last.
-  const notInspected = rows
-    .filter((row) => !inspectedThisShift(row))
-    .sort((a, b) => {
-      const severityDiff = Number(b.stage === "unresolved") - Number(a.stage === "unresolved")
-      if (severityDiff !== 0) return severityDiff
-      if (a.since && b.since) return a.since.localeCompare(b.since)
-      if (a.since) return -1
-      if (b.since) return 1
-      return 0
-    })
+  // Not-inspected tiles first — those are the actionable ones for whoever's
+  // picking up this shift. Within each group, the longest-outstanding
+  // issue (oldest `since`) comes first; rows with no open issue sort last.
+  const shiftRows = [...rows].sort((a, b) => {
+    const doneDiff = Number(inspectedThisShift(a)) - Number(inspectedThisShift(b))
+    if (doneDiff !== 0) return doneDiff
+    if (a.since && b.since) return a.since.localeCompare(b.since)
+    if (a.since) return -1
+    if (b.since) return 1
+    return 0
+  })
 
   const dateLabel = new Intl.DateTimeFormat("en-US", {
     timeZone: FLEET_TIME_ZONE,
@@ -471,82 +463,35 @@ function ShiftOverview({
           )
         })}
       </div>
-      {/* Stacked full-width on mobile — splitting these two panels side by
-          side there left each one only half the screen, which meant the
-          2-column chip grid inside effectively became 4 columns across the
-          phone, too narrow for a full FL# without truncating. Side by side
-          only once there's room (sm+). */}
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-        <div className="rounded-lg border border-green-200 bg-green-50 p-3 shadow-sm">
-          <p className="pb-1.5 text-sm font-semibold text-green-800">
-            Inspected ({inspected.length}/{rows.length})
-          </p>
-          {/* 4 columns, not 2 — each chip is just a short FL# code, so 2
-              per row left most of the panel's width empty. */}
-          <div className="grid grid-cols-4 gap-1.5 border-t border-green-200/60 pt-2">
-            {inspected.length > 0 &&
-              inspected.map((row) => {
-                // The chip reflects THIS shift's inspection specifically —
-                // not row.stage/row.latest, which is the vehicle's overall
-                // most-recent state and could be from a different shift
-                // entirely when viewing a past date.
-                const shiftInspection = shiftInspectionFor(row)
-                const isPendingConfirm = shiftInspection?.stage === "pending-confirm"
-                const inspectorName = shiftInspection
-                  ? `${shiftInspection.inspection.firstName} ${shiftInspection.inspection.lastName}`
-                  : "Unknown"
-                return (
-                  <InspectedChip
-                    key={row.equipment.serial}
-                    href={`/dashboard/equipment/${row.equipment.serial}`}
-                    label={row.equipment.flNumber}
-                    inspectorName={inspectorName}
-                    className={`truncate rounded-md px-0.5 py-0.5 text-center text-[10px] font-medium ${
-                      isPendingConfirm
-                        ? "bg-amber-100 text-amber-700"
-                        : "border border-green-200 bg-white text-green-700"
-                    }`}
-                  />
-                )
-              })}
-          </div>
-        </div>
-        <div className="rounded-lg border border-gray-300 bg-gray-50 p-3 shadow-sm">
-          <p className="pb-1.5 text-sm font-semibold text-gray-700">
-            Not Inspected ({notInspected.length}/{rows.length})
-          </p>
-          {notInspected.length > 0 && (
-            <div className="grid grid-cols-4 gap-1.5 border-t border-gray-200 pt-2">
-              {notInspected.map((row) => (
-                <a
-                  key={row.equipment.serial}
-                  href={`/dashboard/equipment/${row.equipment.serial}`}
-                  className={`truncate rounded-md px-0.5 py-0.5 text-center text-[10px] font-medium ${
-                    row.stage === "unresolved"
-                      ? "bg-red-100 text-red-700"
-                      : row.stage === "pending-confirm"
-                        ? "bg-amber-100 text-amber-700"
-                        : "border border-gray-200 bg-white text-gray-600"
-                  }`}
-                >
-                  {row.equipment.flNumber}
-                </a>
-              ))}
-            </div>
-          )}
-          {notInspected.some((row) => row.stage === "unresolved" || row.stage === "pending-confirm") && (
-            <div className="mt-3 flex flex-wrap items-center justify-end gap-x-3 gap-y-1 border-t border-gray-200 pt-2 text-[10px] font-medium text-gray-400">
-              <span className="flex items-center gap-1">
-                <span className="h-1.5 w-1.5 rounded-full bg-red-400" />
-                inspection requested
-              </span>
-              <span className="flex items-center gap-1">
-                <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
-                needs attention
-              </span>
-            </div>
-          )}
-        </div>
+      {/* One grid instead of two separate colored boxes — inspected or not
+          is a style on the same tile, not which box you're in, so
+          switching Day/Night just changes which tiles are filled in
+          rather than swapping between two differently-shaped panels. No
+          per-tile border box beyond the grid gap itself (each tile is
+          already the tap target), and no status icon — this view is
+          deliberately binary (done vs. not), not the full red/amber/green
+          breakdown the vehicle detail page already shows. Not-inspected
+          tiles sort first since they're the actionable ones. */}
+      <p className="mb-1.5 text-xs font-medium text-gray-400">
+        {inspected.length}/{rows.length} inspected this shift
+      </p>
+      <div className="grid grid-cols-4 gap-1.5">
+        {shiftRows.map((row) => {
+          const done = inspectedThisShift(row)
+          return (
+            <Link
+              key={row.equipment.serial}
+              href={`/dashboard/equipment/${row.equipment.serial}`}
+              className={`truncate rounded-md px-0.5 py-1 text-center text-[10px] font-medium transition-colors duration-100 active:scale-95 ${
+                done
+                  ? "bg-green-100 text-green-700"
+                  : "border border-gray-200 bg-white text-gray-600"
+              }`}
+            >
+              {row.equipment.flNumber}
+            </Link>
+          )
+        })}
       </div>
     </div>
   )
