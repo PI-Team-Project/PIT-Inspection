@@ -271,7 +271,7 @@ export default function EquipmentBrowser({ cards }: { cards: Card[] }) {
           {statusDots}
         </div>
 
-        <div className="slide-down mt-1 flex gap-1 overflow-x-auto rounded-lg border border-gray-200 bg-gray-100/70 p-1.5 text-xs font-medium">
+        <div className="slide-down mt-1 flex flex-wrap gap-1 rounded-lg border border-gray-200 bg-gray-100/70 p-1.5 text-xs font-medium">
           <button
             type="button"
             onClick={() => setActiveLocation(null)}

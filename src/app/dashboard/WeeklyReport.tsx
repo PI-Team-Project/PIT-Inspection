@@ -305,7 +305,7 @@ export default function WeeklyReport({
               </th>
               <th
                 rowSpan={2}
-                className="sticky left-20 z-10 w-20 border-b border-r border-gray-200 bg-gray-50 px-1.5 py-1 text-center text-xs font-semibold text-gray-600 sm:left-28 sm:text-sm"
+                className="sticky left-20 z-10 w-20 border-b border-r border-gray-200 bg-gray-50 px-1.5 py-1 text-center text-xs font-semibold text-gray-600 sm:left-28 sm:w-28 sm:text-sm"
               >
                 FL#
               </th>
@@ -390,13 +390,13 @@ export default function WeeklyReport({
                   <td
                     onMouseEnter={() => setHovered({ kind: "row", key: row.serial })}
                     onMouseLeave={() => setHovered(null)}
-                    className={`sticky left-20 z-10 h-7 w-20 truncate border-r border-t border-gray-200 bg-white p-0 text-xs font-medium sm:left-28 sm:h-8 sm:text-sm ${
+                    className={`sticky left-20 z-10 h-7 w-20 truncate border-r border-t border-gray-200 bg-white p-0 text-xs font-medium sm:left-28 sm:h-8 sm:w-28 sm:text-sm ${
                       rowHighlighted ? HIGHLIGHT : ""
                     }`}
                   >
                     <Link
                       href={`/dashboard/equipment/${row.serial}`}
-                      className="flex h-full items-center justify-center truncate px-1.5 text-brand underline-offset-2 active:bg-gray-50 active:underline"
+                      className="flex h-full items-center justify-center truncate px-0.5 text-brand underline-offset-2 active:bg-gray-50 active:underline"
                     >
                       {row.flNumber}
                     </Link>
