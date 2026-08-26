@@ -406,7 +406,6 @@ function ShiftOverview({
   checkedThisShift: (row: EquipmentRow) => boolean
   statusChip: ReactNode
 }) {
-  const inspected = rows.filter(checkedThisShift)
   // Not-inspected tiles first — those are the actionable ones for whoever's
   // picking up this shift. Within each group, the longest-outstanding
   // issue (oldest `since`) comes first; rows with no open issue sort last.
@@ -471,10 +470,7 @@ function ShiftOverview({
           deliberately binary (done vs. not), not the full red/amber/green
           breakdown the vehicle detail page already shows. Not-inspected
           tiles sort first since they're the actionable ones. */}
-      <p className="mb-1.5 text-xs font-medium text-gray-400">
-        {inspected.length}/{rows.length} inspected this shift
-      </p>
-      <div className="grid grid-cols-4 gap-1.5">
+      <div className="mt-1.5 grid grid-cols-4 gap-1.5">
         {shiftRows.map((row) => {
           const done = checkedThisShift(row)
           return (
