@@ -458,7 +458,10 @@ function ShiftOverview({
                 i === 0 ? "border-r border-gray-200" : ""
               } ${selected ? "bg-brand font-semibold text-white" : "text-gray-500"}`}
             >
-              {label} ({label === "Day" ? "5am–5pm" : "5pm–5am"}){isLive && " · Now"}
+              {label} ({label === "Day" ? "5am–5pm" : "5pm–5am"})
+              {isLive && (
+                <span className="animate-[status-blink_3s_ease-in-out_infinite]"> · Now</span>
+              )}
             </Link>
           )
         })}
