@@ -45,7 +45,7 @@ export default function RootLayout({
           <ScrollPreserver />
           {children}
         </div>
-        <footer className="flex shrink-0 justify-center border-t border-gray-100 bg-white py-1.5">
+        <footer className="flex shrink-0 justify-center border-t border-gray-100 bg-white py-0.5">
           <Image
             src="/lx-pantos-logo.png"
             alt="LX Pantos"
