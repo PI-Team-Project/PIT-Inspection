@@ -257,7 +257,7 @@ export default async function DashboardPage({
         </div>
       </div>
 
-      <div className="mt-3 border-t border-gray-100" />
+      <div className="mt-1.5 border-t border-gray-100" />
 
       <div className="mt-2 flex items-center justify-between gap-3">
         <div className="flex items-center gap-3">
