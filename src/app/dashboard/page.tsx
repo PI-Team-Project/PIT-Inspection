@@ -297,7 +297,7 @@ export default async function DashboardPage({
                 filter === "working" ? "bg-green-100 text-green-800" : "text-gray-700"
               }`}
             >
-              <span className="h-2.5 w-2.5 rounded-full bg-green-500 shadow-[0_0_3px_0.5px_rgba(34,197,94,0.9),0_0_6px_1px_rgba(34,197,94,0.5)]" />
+              <span className="h-[6.7px] w-[6.7px] rounded-full bg-green-500 shadow-[0_0_3px_0.5px_rgba(34,197,94,0.9),0_0_6px_1px_rgba(34,197,94,0.5)]" />
               {workingCount}/{equipmentList.length}
             </Link>
           }
