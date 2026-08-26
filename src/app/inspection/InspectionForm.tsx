@@ -25,7 +25,16 @@ import {
   type EquipmentCategory,
   type EquipmentType,
 } from "@/lib/equipment"
-import { SHIFTS } from "@/lib/shifts"
+import { SHIFTS, FLEET_TIME_ZONE, getShiftForDate } from "@/lib/shifts"
+
+function formatEasternTime(date: Date) {
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone: FLEET_TIME_ZONE,
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  }).format(date)
+}
 
 function isHeicFile(file: File): boolean {
   const type = file.type.toLowerCase()
@@ -137,6 +146,13 @@ export default function InspectionForm({
     date: today,
   })
   const [duplicateWarningSerial, setDuplicateWarningSerial] = useState<string | null>(null)
+  // Set when someone picks a shift that doesn't match the actual clock —
+  // e.g. it's 9am and they pick Night. Real mixups like this are how
+  // Date/Shift ends up disagreeing with the actual submission timestamp
+  // (see the CSV export's "Submitted At" column). Only checked against
+  // "today" — a deliberately backdated entry for a past date isn't a
+  // mistake, so it skips this check entirely.
+  const [shiftMismatchPick, setShiftMismatchPick] = useState<string | null>(null)
   // Tapping a greyed-out Continue/Submit does nothing by default — no native
   // feedback tells you *why*. This flips on to highlight whichever required
   // field is actually missing, and clears whenever the step changes.
@@ -226,6 +242,17 @@ export default function InspectionForm({
   function selectAndAdvance(name: string, value: string) {
     set(name, value)
     advance()
+  }
+
+  // Only checked against "today" — someone deliberately backdating an entry
+  // for a past date isn't making a mistake, so that skips the check.
+  function pickShift(name: string) {
+    if (values.date === today && name !== getShiftForDate(new Date())) {
+      setShiftMismatchPick(name)
+      return
+    }
+    setShiftMismatchPick(null)
+    selectAndAdvance("shift", name)
   }
 
   function setPhotoPreview(questionId: string, index: number, file: File | null) {
@@ -561,9 +588,9 @@ export default function InspectionForm({
                     name="shift"
                     value={s.name}
                     checked={isChecked}
-                    onChange={() => selectAndAdvance("shift", s.name)}
+                    onChange={() => pickShift(s.name)}
                     onClick={() => {
-                      if (isChecked) selectAndAdvance("shift", s.name)
+                      if (isChecked) pickShift(s.name)
                     }}
                     className="sr-only"
                   />
@@ -593,6 +620,36 @@ export default function InspectionForm({
               )
             })}
           </div>
+
+          {shiftMismatchPick && (
+            <div className="mt-3 rounded-lg border border-amber-300 bg-amber-50 p-3">
+              <p className="text-sm text-amber-800">
+                ⚠ Current time is <strong>{formatEasternTime(new Date())}</strong> — that&apos;s{" "}
+                {getShiftForDate(new Date())} shift right now. Submit this as{" "}
+                <strong>{shiftMismatchPick}</strong> shift anyway?
+              </p>
+              <div className="mt-2 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShiftMismatchPick(null)}
+                  className="flex-1 rounded-lg border border-gray-300 bg-white py-2 text-xs font-semibold text-gray-700 active:scale-95"
+                >
+                  Pick the Other Shift
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const shift = shiftMismatchPick
+                    setShiftMismatchPick(null)
+                    selectAndAdvance("shift", shift)
+                  }}
+                  className="flex-1 rounded-lg bg-amber-600 py-2 text-xs font-semibold text-white active:scale-95"
+                >
+                  Continue Anyway
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Equipment */}

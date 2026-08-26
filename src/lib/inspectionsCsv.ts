@@ -1,8 +1,30 @@
 import type { Inspection } from "@/generated/prisma/client"
 import { QUESTIONS } from "@/lib/questions"
 import { parseReview, getStage, criticalFlaggedIds, flaggedIssueIds } from "@/lib/review"
+import { FLEET_TIME_ZONE } from "@/lib/shifts"
 
 type Answers = Record<string, { value: string; specify?: string }>
+
+// Raw createdAt.toISOString() reads as "2026-08-14T16:10:35.033Z" — millisecond
+// precision nobody needs, in UTC, disconnected from the Date/Shift columns
+// next to it (which are Eastern business-day values). This is the same
+// moment, just in the timezone the sheet is already using and without the
+// clutter — seconds are kept (not just minutes) since this column is also
+// how near-duplicate submissions get told apart.
+function formatSubmittedAt(date: Date): string {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: FLEET_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "numeric",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: true,
+  }).formatToParts(date)
+  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? ""
+  return `${get("year")}-${get("month")}-${get("day")} ${get("hour")}:${get("minute")}:${get("second")} ${get("dayPeriod")}`
+}
 
 function csvCell(value: string): string {
   if (/[",\n]/.test(value)) {
@@ -24,7 +46,7 @@ const STAGE_LABEL: Record<string, string> = {
 
 export function buildInspectionsCsv(inspections: Inspection[]): string {
   const headers = [
-    "Submitted At",
+    "Submitted At (ET)",
     "Type",
     "Date",
     "Shift",
@@ -80,7 +102,7 @@ export function buildInspectionsCsv(inspections: Inspection[]): string {
       .join(" | ")
 
     return toCsvRow([
-      inspection.createdAt.toISOString(),
+      formatSubmittedAt(inspection.createdAt),
       inspection.type,
       inspection.date,
       inspection.shift,
