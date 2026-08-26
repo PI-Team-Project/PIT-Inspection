@@ -488,14 +488,14 @@ function ShiftOverview({
           Not yet
         </span>
       </div>
-      <div className="mt-1.5 grid grid-cols-4 gap-0.5">
+      <div className="mt-1.5 grid grid-cols-3 gap-1">
         {shiftRows.map((row) => {
           const done = checkedThisShift(row)
           return (
             <Link
               key={row.equipment.serial}
               href={`/dashboard/equipment/${row.equipment.serial}`}
-              className={`truncate rounded-md px-px py-0.5 text-center text-xs font-medium transition-colors duration-100 active:scale-95 ${
+              className={`truncate rounded-md px-1 py-1 text-center text-sm font-medium transition-colors duration-100 active:scale-95 ${
                 done
                   ? "bg-green-100 text-green-700"
                   : "border border-gray-200 bg-white text-gray-600"
