@@ -454,7 +454,7 @@ function ShiftOverview({
               scroll={false}
               className={`flex flex-1 items-center justify-center gap-1.5 py-1 text-center transition-colors duration-100 active:scale-95 ${
                 i === 0 ? "border-r border-gray-200" : ""
-              } ${selected ? "bg-gray-100 text-gray-900" : "text-gray-500"}`}
+              } ${selected ? "bg-brand font-semibold text-white" : "text-gray-500"}`}
             >
               {label} ({label === "Day" ? "5am–5pm" : "5pm–5am"}){isLive && " · Now"}
             </Link>
