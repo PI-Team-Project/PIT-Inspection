@@ -374,10 +374,12 @@ export default function InspectionForm({
               trimmed per-line before rendering) — explicit {`{" "}`}
               expressions on both sides of <strong> avoid that. */}
           You have answers saved from{" "}
-          <strong className="font-semibold text-gray-700">{savedAtLabel}</strong>{" "}
-          that didn&apos;t get submitted.
+          <strong className="font-semibold text-gray-700">{savedAtLabel}</strong> — not
+          submitted yet.
           <br />
-          Any photos will need to be re-attached.
+          <strong className="font-semibold text-gray-700">
+            Any photos will need to be re-attached.
+          </strong>
         </p>
         <div className="mt-6 flex w-full max-w-xs flex-col gap-3">
           <button
