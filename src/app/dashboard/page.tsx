@@ -213,13 +213,12 @@ export default async function DashboardPage({
       (h) => h.inspection.createdAt >= shiftWindow.start && h.inspection.createdAt < shiftWindow.end
     )
 
-  const inspectedThisShift = (row: EquipmentRow) => {
-    const match = shiftInspectionFor(row)
-    // Unresolved (red) means out of service until fixed — being inspected
-    // this shift doesn't make it ready to use, so it never counts as
-    // "Inspected" regardless of timing.
-    return match !== undefined && match.stage !== "unresolved"
-  }
+  // Whether a vehicle got physically checked this shift — a real inspection
+  // that turned up a problem still counts (it WAS checked, just found
+  // something), so this only looks at whether an inspection record exists,
+  // not its stage. "Is it currently working" is a separate question,
+  // answered by isWorking(row.stage) below, not this.
+  const checkedThisShift = (row: EquipmentRow) => shiftInspectionFor(row) !== undefined
 
   const rows =
     filter === "working"
@@ -289,7 +288,7 @@ export default async function DashboardPage({
           todayKey={todayKey}
           isViewingLive={isViewingLive}
           rows={equipmentRows}
-          inspectedThisShift={inspectedThisShift}
+          checkedThisShift={checkedThisShift}
           statusChip={
             <Link
               href={filter === "working" ? "/dashboard" : "/dashboard?filter=working"}
@@ -394,7 +393,7 @@ function ShiftOverview({
   todayKey,
   isViewingLive,
   rows,
-  inspectedThisShift,
+  checkedThisShift,
   statusChip,
 }: {
   shiftWindow: { label: string; start: Date; end: Date }
@@ -404,15 +403,15 @@ function ShiftOverview({
   todayKey: string
   isViewingLive: boolean
   rows: EquipmentRow[]
-  inspectedThisShift: (row: EquipmentRow) => boolean
+  checkedThisShift: (row: EquipmentRow) => boolean
   statusChip: ReactNode
 }) {
-  const inspected = rows.filter(inspectedThisShift)
+  const inspected = rows.filter(checkedThisShift)
   // Not-inspected tiles first — those are the actionable ones for whoever's
   // picking up this shift. Within each group, the longest-outstanding
   // issue (oldest `since`) comes first; rows with no open issue sort last.
   const shiftRows = [...rows].sort((a, b) => {
-    const doneDiff = Number(inspectedThisShift(a)) - Number(inspectedThisShift(b))
+    const doneDiff = Number(checkedThisShift(a)) - Number(checkedThisShift(b))
     if (doneDiff !== 0) return doneDiff
     if (a.since && b.since) return a.since.localeCompare(b.since)
     if (a.since) return -1
@@ -477,7 +476,7 @@ function ShiftOverview({
       </p>
       <div className="grid grid-cols-4 gap-1.5">
         {shiftRows.map((row) => {
-          const done = inspectedThisShift(row)
+          const done = checkedThisShift(row)
           return (
             <Link
               key={row.equipment.serial}
