@@ -442,7 +442,7 @@ function ShiftOverview({
           inside a box — the outer frame plus a separately-boxed selected
           pill was the same "double boxing" look already fixed elsewhere on
           this page. */}
-      <div className="mb-2 flex overflow-hidden rounded-lg border border-gray-200 text-sm font-medium">
+      <div className="mb-2 flex overflow-hidden rounded-md border border-gray-200 text-sm font-medium">
         {(["Day", "Night"] as const).map((label, i) => {
           const selected = selectedShiftLabel === label
           const isLive = currentShiftLabel === label

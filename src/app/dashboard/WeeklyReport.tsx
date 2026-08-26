@@ -217,7 +217,7 @@ export default function WeeklyReport({
   const groups = groupRows(rows, groupBy)
 
   return (
-    <div className="rounded-lg border border-gray-200 shadow-sm">
+    <div className="rounded-md border border-gray-200">
       <div className="border-b border-gray-200 px-3 py-2.5">
         <div className="flex items-center justify-center gap-4">
           <Link

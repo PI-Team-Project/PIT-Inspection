@@ -105,7 +105,7 @@ export default function ShiftDateNav({
                 invisibility — a responsive hide is fine here since it's
                 tied to viewport width, not app state, so it can't cause
                 the same kind of jump. */}
-            Report · {dateLabel}
+            Daily Report · {dateLabel}
             <span className="hidden text-gray-400 sm:inline"> ({isViewingLive ? "Today" : "Past"})</span>
           </button>
           <input
