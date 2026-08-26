@@ -469,7 +469,20 @@ function ShiftOverview({
           already the tap target), and no status icon — this view is
           deliberately binary (done vs. not), not the full red/amber/green
           breakdown the vehicle detail page already shows. Not-inspected
-          tiles sort first since they're the actionable ones. */}
+          tiles sort first since they're the actionable ones. The legend
+          below is what actually tells green from "not yet" apart — the
+          fill alone isn't self-explanatory on a first look, same reason
+          the Weekly Report has one below it too. */}
+      <div className="mt-1.5 flex items-center gap-3 text-[10px] font-medium text-gray-400">
+        <span className="flex items-center gap-1">
+          <span className="h-2 w-2 rounded-sm bg-green-100" />
+          Checked
+        </span>
+        <span className="flex items-center gap-1">
+          <span className="h-2 w-2 rounded-sm border border-gray-300 bg-white" />
+          Not yet
+        </span>
+      </div>
       <div className="mt-1.5 grid grid-cols-4 gap-1.5">
         {shiftRows.map((row) => {
           const done = checkedThisShift(row)
