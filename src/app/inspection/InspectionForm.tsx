@@ -373,9 +373,8 @@ export default function InspectionForm({
               trimming (each text run between expressions/elements is
               trimmed per-line before rendering) — explicit {`{" "}`}
               expressions on both sides of <strong> avoid that. */}
-          You have answers saved from{" "}
-          <strong className="font-semibold text-gray-700">{savedAtLabel}</strong> — not
-          submitted yet.
+          Saved <strong className="font-semibold text-gray-700">{savedAtLabel}</strong> ·{" "}
+          <span className="font-semibold text-amber-600">Not submitted yet.</span>
           <br />
           <strong className="font-semibold text-gray-700">
             Any photos will need to be re-attached.
