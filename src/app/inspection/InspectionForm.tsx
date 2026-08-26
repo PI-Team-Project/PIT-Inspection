@@ -368,8 +368,16 @@ export default function InspectionForm({
           Resume your unfinished inspection?
         </h1>
         <p className="mt-2 max-w-xs text-sm text-gray-500">
-          You have answers saved from {savedAtLabel} that didn&apos;t get
-          submitted. Any photos will need to be re-attached.
+          {/* A space right after a {`{jsxExpression}`} on the same line as
+              more text gets silently dropped by JSX's own whitespace
+              trimming (each text run between expressions/elements is
+              trimmed per-line before rendering) — explicit {`{" "}`}
+              expressions on both sides of <strong> avoid that. */}
+          You have answers saved from{" "}
+          <strong className="font-semibold text-gray-700">{savedAtLabel}</strong>{" "}
+          that didn&apos;t get submitted.
+          <br />
+          Any photos will need to be re-attached.
         </p>
         <div className="mt-6 flex w-full max-w-xs flex-col gap-3">
           <button
