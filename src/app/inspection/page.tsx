@@ -6,6 +6,7 @@ import {
   getCurrentShiftWindow,
   getMostRecentShiftWindows,
   getShiftForDate,
+  easternDateKey,
   FLEET_TIME_ZONE,
 } from "@/lib/shifts"
 
@@ -20,8 +21,13 @@ export default async function InspectionPage({
   searchParams: Promise<{ error?: string }>
 }) {
   const { error } = await searchParams
-  const today = new Date().toISOString().slice(0, 10)
   const now = new Date()
+  // The fleet's Eastern calendar date, not the server's own — a plain
+  // `new Date().toISOString()` would silently roll over to tomorrow for
+  // roughly 4-5 hours every evening (8pm-midnight Eastern), so someone
+  // filling out an inspection then would see the form default to
+  // tomorrow's date instead of today's.
+  const today = easternDateKey(now)
   const shiftWindow = getCurrentShiftWindow(now)
   // Checking only the current shift missed the exact case this warning
   // exists for: someone inspects at 4:59pm (Day), someone else at 5:01pm

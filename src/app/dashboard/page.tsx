@@ -74,15 +74,22 @@ export default async function DashboardPage({
   }
 
   const filter = params.filter
-  const today = new Date().toISOString().slice(0, 10)
-  // `today` is a plain calendar-date string with no time zone of its own —
-  // formatting it as UTC (rather than the server's local zone) guarantees
-  // the displayed month/day always matches its digits, with no drift.
+  const now = new Date()
+  // The fleet's Eastern calendar date, not the server's own — Vercel runs
+  // in UTC, and a plain `new Date().toISOString()` would silently roll
+  // over to tomorrow for roughly 4-5 hours every evening (8pm-midnight
+  // Eastern), shifting every retention cutoff and "since"/days-passed
+  // calculation below a day early during that window. Whatever zone the
+  // server happens to run in, this always reflects Holland, MI's.
+  const todayKey = easternDateKey(now)
+  // Formatting as UTC (rather than the server's local zone) guarantees the
+  // displayed month/day always matches todayKey's own digits, with no
+  // further drift from re-parsing it.
   const todayDisplay = new Intl.DateTimeFormat("en-US", {
     timeZone: "UTC",
     month: "short",
     day: "numeric",
-  }).format(new Date(`${today}T00:00:00Z`))
+  }).format(new Date(`${todayKey}T00:00:00Z`))
 
   // No equipment's retention window (see RETENTION_YEARS) reaches back
   // further than the longest one — anything older is guaranteed to be
@@ -91,7 +98,7 @@ export default async function DashboardPage({
   // inspection ever recorded (photos included) on every dashboard load,
   // getting slower every month as the table grows.
   const maxRetentionYears = Math.max(...Object.values(RETENTION_YEARS))
-  const oldestPossibleCutoff = new Date(today)
+  const oldestPossibleCutoff = new Date(todayKey)
   oldestPossibleCutoff.setFullYear(oldestPossibleCutoff.getFullYear() - maxRetentionYears)
 
   const [allInspections, equipmentList, expiringRetired] = await Promise.all([
@@ -118,7 +125,7 @@ export default async function DashboardPage({
   }
 
   const equipmentRows = equipmentList.map((eq) => {
-    const cutoff = retentionCutoff(eq.type, today)
+    const cutoff = retentionCutoff(eq.type, todayKey)
     const history = (historyByEquipment.get(eq.serial) ?? []).filter(
       (row) => row.inspection.date >= cutoff
     )
@@ -128,7 +135,7 @@ export default async function DashboardPage({
     // happened to report — see findOpenIssue in ./inspectionRow.
     const openIssue = findOpenIssue(history)
     const stage = (openIssue?.stage ?? latest?.stage ?? "none") as Stage | "none"
-    const since = badSince(history, today)
+    const since = badSince(history, todayKey)
     return { equipment: eq, history, latest, stage, since, escalated: since !== null }
   }).sort(
     (a, b) => urgencyRank(a.stage, a.escalated) - urgencyRank(b.stage, b.escalated)
@@ -139,7 +146,6 @@ export default async function DashboardPage({
     stage === "unresolved" || stage === "pending-confirm"
   const isNotInspected = (stage: Stage | "none") => stage === "none"
 
-  const now = new Date()
   const timeLabel = new Intl.DateTimeFormat("en-US", {
     timeZone: FLEET_TIME_ZONE,
     hour: "2-digit",
@@ -166,7 +172,6 @@ export default async function DashboardPage({
       : recentShifts[selectedShiftLabel as "Day" | "Night"]
   const isViewingLive = shiftWindow.start.getTime() === currentShift.start.getTime()
 
-  const todayKey = easternDateKey(now)
   // One shared date drives both sections now — there's no separate weekly
   // calendar. Whatever day the Day/Night shift nav above is currently
   // showing (live or a past date/shift picked there) is the day the
@@ -333,7 +338,7 @@ export default async function DashboardPage({
             <EquipmentCard
               key={row.equipment.serial}
               row={row}
-              today={today}
+              today={todayKey}
               todayDisplay={todayDisplay}
             />
           ),

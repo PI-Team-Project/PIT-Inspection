@@ -17,7 +17,7 @@ import {
   EQUIPMENT_ADDED_DATE_TRACKING_STARTS_AT,
 } from "@/lib/equipmentLocations"
 import { isCriticalInspection, isCriticalFlag, type ActivityEntry, type Stage } from "@/lib/review"
-import { FLEET_TIME_ZONE } from "@/lib/shifts"
+import { FLEET_TIME_ZONE, easternDateKey } from "@/lib/shifts"
 import { DASHBOARD_COOKIE, MANAGER_NAME_COOKIE, dashboardSessionValue } from "@/lib/auth"
 import {
   buildRow,
@@ -62,7 +62,12 @@ export default async function EquipmentDetailPage({
   const { serial } = await params
   const { date: highlightDate, shift: highlightShift } = await searchParams
   const savedManagerName = cookieStore.get(MANAGER_NAME_COOKIE)?.value ?? ""
-  const today = new Date().toISOString().slice(0, 10)
+  // The fleet's Eastern calendar date, not the server's own — Vercel runs
+  // in UTC, and a plain `new Date().toISOString()` would silently roll
+  // over to tomorrow for roughly 4-5 hours every evening (8pm-midnight
+  // Eastern), shifting the retention cutoff and "since"/days-passed math
+  // below a day early during that window.
+  const today = easternDateKey(new Date())
   const todayDisplay = new Intl.DateTimeFormat("en-US", {
     timeZone: FLEET_TIME_ZONE,
     month: "short",
