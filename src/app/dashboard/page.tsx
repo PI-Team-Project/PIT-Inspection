@@ -480,19 +480,11 @@ function ShiftOverview({
           deliberately binary (done vs. not), not the full red/amber/green
           breakdown the vehicle detail page already shows. Not-inspected
           tiles sort first since they're the actionable ones. The legend
-          below is what actually tells green from "not yet" apart — the
-          fill alone isn't self-explanatory on a first look, same reason
-          the Weekly Report has one below it too. */}
-      <div className="mt-1.5 flex items-center gap-3 text-[10px] font-medium text-gray-400">
-        <span className="flex items-center gap-1">
-          <span className="h-2 w-2 rounded-sm bg-green-100" />
-          Checked
-        </span>
-        <span className="flex items-center gap-1">
-          <span className="h-2 w-2 rounded-sm border border-gray-300 bg-white" />
-          Not yet
-        </span>
-      </div>
+          is two separate grid items appended after the tiles (not a
+          standalone row) so it drops into whatever empty cells are left
+          over in the last row instead of costing its own line — falls to
+          its own row gracefully if the fleet count ever divides evenly
+          into 3 with no empty cells left. */}
       <div className="mt-1.5 grid grid-cols-3 gap-1">
         {shiftRows.map((row) => {
           const done = checkedThisShift(row)
@@ -510,6 +502,14 @@ function ShiftOverview({
             </Link>
           )
         })}
+        <span className="flex items-center justify-center gap-1 px-1 py-1 text-[10px] font-medium text-gray-400">
+          <span className="h-2 w-2 rounded-sm bg-green-100" />
+          Checked
+        </span>
+        <span className="flex items-center justify-center gap-1 px-1 py-1 text-[10px] font-medium text-gray-400">
+          <span className="h-2 w-2 rounded-sm border border-gray-300 bg-white" />
+          Not yet
+        </span>
       </div>
     </div>
   )
