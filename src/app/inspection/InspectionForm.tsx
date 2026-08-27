@@ -140,29 +140,6 @@ type StepDef =
   | { kind: "locationCheck" }
   | { kind: "question"; question: Question }
 
-// The short label a back-swipe's live preview shows for "where you're
-// headed" — matches each step's own StepHeading text below.
-function stepTitle(s: StepDef): string {
-  switch (s.kind) {
-    case "date":
-      return "Inspection Date"
-    case "name":
-      return "Your Name"
-    case "inspectionType":
-      return "Inspection Type"
-    case "repairDetails":
-      return "Describe the Problem"
-    case "shift":
-      return "Shift"
-    case "equipment":
-      return "Equipment"
-    case "locationCheck":
-      return "Location Check"
-    case "question":
-      return `${s.question.number}. ${s.question.label}`
-  }
-}
-
 export default function InspectionForm({
   questions,
   equipmentList,
@@ -405,128 +382,51 @@ export default function InspectionForm({
       target.scrollIntoView({ behavior: "smooth", block: "center" })
     }, 300)
   }
-  // A left swipe anywhere on the current question steps back, same as
-  // tapping "← Back" — this is a form someone is filling in one-handed
-  // while standing next to the forklift, so a thumb swipe is a lot easier
-  // to land than reaching for the small text link every time. The current
-  // question and a preview of the one being swiped back to both follow the
-  // finger live (not "wait for release, then jump"), and committing the
-  // swipe never requires dragging the full width of the screen.
-  //
-  // Built on Pointer Events with explicit setPointerCapture, not Touch
-  // Events — the touch-event version (this gesture's first iteration)
-  // still lost the race against the browser's own scroll handling on a
-  // real phone often enough to feel broken: even with a non-passive
-  // touchmove + preventDefault, iOS can commit to its native scroll before
-  // that handler runs, and once it does, no more touch events reach this
-  // listener at all. Pointer Events' setPointerCapture, once called,
-  // GUARANTEES every further pointermove/pointerup for this exact touch
-  // is delivered here regardless of what the browser's default handling
-  // would otherwise have done — the same technique already used
-  // successfully for pan/zoom in PhotoEditorModal below.
+  // A double-tap on the left side of the current question steps back, same
+  // as tapping "← Back" — swiping was the first attempt at this, but a
+  // horizontal drag on a real phone runs straight into Mobile Safari's own
+  // edge-swipe "go back in browser history" gesture, which a web page
+  // cannot reliably suppress — that's what was sending someone all the way
+  // back to the Home page instead of one question back. A tap sequence
+  // doesn't compete with that system gesture at all.
   const contentRef = useRef<HTMLDivElement>(null)
-  const sliderRef = useRef<HTMLDivElement>(null)
-  const previewRef = useRef<HTMLDivElement>(null)
-  const dragRef = useRef<{
-    pointerId: number
-    startX: number
-    startY: number
-    dx: number
-    lock: "horizontal" | "vertical" | null
-  } | null>(null)
-  const SWIPE_BACK_COMMIT_PX = 70
-  const SWIPE_LOCK_PX = 8
+  const lastTapRef = useRef<{ time: number; x: number; y: number } | null>(null)
+  const DOUBLE_TAP_MS = 400
+  const DOUBLE_TAP_MOVE_PX = 60
 
   useEffect(() => {
     const el = contentRef.current
     if (!el) return
-
-    // Re-bound to a name TypeScript can keep narrowed as non-null inside
-    // the nested function declarations below (control-flow narrowing on
-    // `el` itself doesn't carry into them).
     const container = el
 
-    function applyTransform(dx: number, live: boolean) {
-      const slider = sliderRef.current
-      const preview = previewRef.current
-      if (slider) {
-        slider.style.transition = live ? "none" : ""
-        slider.style.transform = dx ? `translateX(${dx}px)` : ""
-      }
-      if (preview) {
-        preview.style.transition = live ? "none" : ""
-        // Always set explicitly (never cleared to "") — Tailwind's
-        // translate-x-full utility (its own `translate` CSS property, not
-        // `transform`) would otherwise compose ON TOP of this rather than
-        // being overridden by it, doubling the offset. Setting it here at
-        // every rest and every drag tick keeps this the single source of
-        // truth for the preview panel's position.
-        preview.style.transform = `translateX(calc(100% + ${dx}px))`
-      }
-    }
-
-    function onPointerDown(e: PointerEvent) {
-      if (e.pointerType !== "touch") return
+    function onClick(e: MouseEvent) {
+      if (step === 0) return
+      // Only counts on empty space (padding, headings, gaps) — a tap that
+      // actually hits a button/label/input just does that control's own
+      // job, twice, same as any other double-click on a real control would.
       const target = e.target as HTMLElement
-      if (step === 0 || target.closest("textarea, input, [data-swipe-ignore]")) {
-        dragRef.current = null
+      if (target.closest("button, a, label, input, textarea, select, [data-swipe-ignore]")) return
+
+      const rect = container.getBoundingClientRect()
+      if (e.clientX - rect.left >= rect.width / 2) return // right side — ignore
+
+      const now = Date.now()
+      const last = lastTapRef.current
+      if (
+        last &&
+        now - last.time < DOUBLE_TAP_MS &&
+        Math.abs(e.clientX - last.x) < DOUBLE_TAP_MOVE_PX &&
+        Math.abs(e.clientY - last.y) < DOUBLE_TAP_MOVE_PX
+      ) {
+        lastTapRef.current = null
+        handleBack()
         return
       }
-      dragRef.current = {
-        pointerId: e.pointerId,
-        startX: e.clientX,
-        startY: e.clientY,
-        dx: 0,
-        lock: null,
-      }
+      lastTapRef.current = { time: now, x: e.clientX, y: e.clientY }
     }
 
-    function onPointerMove(e: PointerEvent) {
-      const drag = dragRef.current
-      if (!drag || e.pointerId !== drag.pointerId) return
-      const dx = e.clientX - drag.startX
-      const dy = e.clientY - drag.startY
-
-      if (drag.lock === null) {
-        if (Math.abs(dx) < SWIPE_LOCK_PX && Math.abs(dy) < SWIPE_LOCK_PX) return
-        // Mostly vertical — this is a scroll, not a back-swipe. Let go and
-        // leave the native scroll alone.
-        drag.lock = Math.abs(dx) > Math.abs(dy) * 1.2 ? "horizontal" : "vertical"
-        if (drag.lock === "vertical") {
-          dragRef.current = null
-          return
-        }
-        // Claim the gesture now that it's confirmed horizontal — from here
-        // on, every move/up for this exact touch is guaranteed to reach
-        // this element even if it moves off it.
-        container.setPointerCapture(e.pointerId)
-      }
-
-      e.preventDefault()
-      drag.dx = Math.min(0, dx)
-      applyTransform(drag.dx, true)
-    }
-
-    function onPointerUp(e: PointerEvent) {
-      const drag = dragRef.current
-      if (!drag || e.pointerId !== drag.pointerId) return
-      dragRef.current = null
-      if (drag.lock !== "horizontal") return
-      if (container.hasPointerCapture(e.pointerId)) container.releasePointerCapture(e.pointerId)
-      if (drag.dx <= -SWIPE_BACK_COMMIT_PX) handleBack()
-      applyTransform(0, false)
-    }
-
-    el.addEventListener("pointerdown", onPointerDown)
-    el.addEventListener("pointermove", onPointerMove, { passive: false })
-    el.addEventListener("pointerup", onPointerUp)
-    el.addEventListener("pointercancel", onPointerUp)
-    return () => {
-      el.removeEventListener("pointerdown", onPointerDown)
-      el.removeEventListener("pointermove", onPointerMove)
-      el.removeEventListener("pointerup", onPointerUp)
-      el.removeEventListener("pointercancel", onPointerUp)
-    }
+    el.addEventListener("click", onClick)
+    return () => el.removeEventListener("click", onClick)
   }, [step])
 
   const errorBanner = submitError && (
@@ -613,17 +513,7 @@ export default function InspectionForm({
         )}
       </div>
 
-      <div
-        ref={contentRef}
-        // pan-y (not the default "auto") tells the browser up front that
-        // only vertical panning is ever handled natively here — horizontal
-        // movement is never even offered to the browser's own scroll
-        // gesture, closing the gap the pointer-capture logic below would
-        // otherwise still have to win a race against.
-        className="relative flex-1 touch-pan-y overflow-hidden"
-        onFocus={handleContentFocus}
-      >
-        <div ref={sliderRef} className="px-4 pt-6 pb-6 transition-transform duration-200 ease-out">
+      <div ref={contentRef} className="flex-1 px-4 pt-6 pb-6" onFocus={handleContentFocus}>
         {/* Date */}
         <div hidden={current.kind !== "date"}>
           <StepHeading text="Inspection Date" />
@@ -1305,30 +1195,6 @@ export default function InspectionForm({
             )}
           </div>
         ))}
-        </div>
-
-        {/* A lightweight, read-only preview — not a duplicate of the real
-            form fields on the previous step (that would mean two elements
-            sharing the same `name`, corrupting the submitted FormData) —
-            just enough to show where a back-swipe is headed while it's still
-            in progress. Parked off-screen via its own transform (kept in
-            sync with the slider above) whenever nothing's being dragged. */}
-        {step > 0 && (
-          <div
-            ref={previewRef}
-            aria-hidden="true"
-            // The resting position is set via the `transform` property here
-            // (not Tailwind's translate-x-full utility) deliberately — that
-            // utility applies to the separate `translate` CSS property,
-            // which COMPOSES with `transform` instead of being overridden by
-            // it, so the two together were doubling the drag's live offset.
-            style={{ transform: "translateX(100%)" }}
-            className="pointer-events-none absolute inset-0 flex flex-col justify-center bg-white px-4 transition-transform duration-200 ease-out"
-          >
-            <p className="text-xs font-medium text-gray-400">← Back to</p>
-            <p className="mt-1 text-lg font-bold text-gray-900">{stepTitle(steps[step - 1])}</p>
-          </div>
-        )}
       </div>
 
       <div className="sticky bottom-0 z-10 border-t border-gray-100 bg-white px-4 py-4">
