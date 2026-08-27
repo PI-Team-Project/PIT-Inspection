@@ -75,7 +75,7 @@ const SUBMIT_ERROR_MESSAGES: Record<string, string> = {
 // called from a component rendered *inside* it — reading it in the same
 // component that renders the <form> tag itself always sees pending=false,
 // which is why this is split out rather than inlined at the call site.
-function SubmitButton({ blocked, onBlocked }: { blocked: boolean; onBlocked: () => void }) {
+function SubmitButton({ blocked }: { blocked: boolean }) {
   const { pending } = useFormStatus()
   return (
     <button
@@ -83,10 +83,7 @@ function SubmitButton({ blocked, onBlocked }: { blocked: boolean; onBlocked: () 
       disabled={pending}
       aria-disabled={blocked}
       onClick={(e) => {
-        if (blocked) {
-          e.preventDefault()
-          onBlocked()
-        }
+        if (blocked) e.preventDefault()
       }}
       className={`flex-1 rounded-lg px-4 py-4 text-lg font-semibold text-white transition-transform duration-100 active:scale-95 ${
         blocked || pending
@@ -153,10 +150,6 @@ export default function InspectionForm({
   // "today" — a deliberately backdated entry for a past date isn't a
   // mistake, so it skips this check entirely.
   const [shiftMismatchPick, setShiftMismatchPick] = useState<string | null>(null)
-  // Tapping a greyed-out Continue/Submit does nothing by default — no native
-  // feedback tells you *why*. This flips on to highlight whichever required
-  // field is actually missing, and clears whenever the step changes.
-  const [missingFieldNudge, setMissingFieldNudge] = useState(false)
 
   // Offer to resume an autosaved draft instead of silently overwriting it —
   // `pendingDraft` gates the autosave effect below until the user picks
@@ -213,7 +206,6 @@ export default function InspectionForm({
   function resumeDraft() {
     if (!pendingDraft) return
     setValues(pendingDraft.values)
-    setMissingFieldNudge(false)
     setStep(pendingDraft.step)
     setLoadedDraft(null)
   }
@@ -233,7 +225,6 @@ export default function InspectionForm({
   }
 
   function advance() {
-    setMissingFieldNudge(false)
     setStep((s) => Math.min(s + 1, total - 1))
   }
 
@@ -296,8 +287,10 @@ export default function InspectionForm({
   const canAdvance = stepIsAnswered(current)
   const currentAnswer = current.kind === "question" ? values[current.question.id] : undefined
   const currentQuestionId = current.kind === "question" ? current.question.id : undefined
+  // Shows red the moment a bad answer makes Note required, not only after a
+  // failed Continue tap — otherwise the required field looks just like an
+  // optional one until someone gets blocked with no idea why.
   const noteMissing =
-    missingFieldNudge &&
     current.kind === "question" &&
     Boolean(currentAnswer) &&
     needsAttention(currentAnswer ?? "") &&
@@ -312,15 +305,11 @@ export default function InspectionForm({
         needsAttention(values[current.question.id])))
 
   function handleNext() {
-    if (!canAdvance) {
-      setMissingFieldNudge(true)
-      return
-    }
+    if (!canAdvance) return
     advance()
   }
 
   function handleBack() {
-    setMissingFieldNudge(false)
     setStep((s) => Math.max(s - 1, 0))
   }
 
@@ -1077,7 +1066,7 @@ export default function InspectionForm({
             </button>
           )}
           {isLast ? (
-            <SubmitButton blocked={!canAdvance} onBlocked={() => setMissingFieldNudge(true)} />
+            <SubmitButton blocked={!canAdvance} />
           ) : (
             showContinue && (
               <button
