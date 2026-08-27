@@ -485,7 +485,7 @@ function ShiftOverview({
           over in the last row instead of costing its own line — falls to
           its own row gracefully if the fleet count ever divides evenly
           into 3 with no empty cells left. */}
-      <div className="mt-1.5 grid grid-cols-3 gap-1">
+      <div className="mt-1.5 grid grid-cols-[repeat(3,minmax(0,1fr))] gap-1">
         {shiftRows.map((row) => {
           const done = checkedThisShift(row)
           return (
@@ -504,14 +504,19 @@ function ShiftOverview({
         })}
         {/* Both together in one cell, pinned to the last column — side by
             side in separate cells read like they were labeling those
-            specific columns, not a legend for the whole grid. */}
-        <span className="col-start-3 flex flex-col items-center justify-center gap-0.5 px-1 py-1 text-[10px] font-medium text-gray-400">
-          <span className="flex items-center gap-1">
-            <span className="h-2 w-2 rounded-sm bg-green-100" />
+            specific columns, not a legend for the whole grid. flex-wrap on
+            the outer span plus whitespace-nowrap on each item means if
+            "Not yet" doesn't fit next to "Checked" it drops to its own
+            line as a whole unit, never splitting a word in half — and the
+            grid's own minmax(0, 1fr) columns (see above) keep this from
+            forcing the whole grid wider the way a bare nowrap track did. */}
+        <span className="col-start-3 flex min-w-0 flex-wrap items-center justify-center gap-x-1.5 gap-y-0.5 px-0.5 py-1 text-[9px] font-medium text-gray-400">
+          <span className="flex items-center gap-1 whitespace-nowrap">
+            <span className="h-1.5 w-1.5 shrink-0 rounded-sm bg-green-100" />
             Checked
           </span>
-          <span className="flex items-center gap-1">
-            <span className="h-2 w-2 rounded-sm border border-gray-300 bg-white" />
+          <span className="flex items-center gap-1 whitespace-nowrap">
+            <span className="h-1.5 w-1.5 shrink-0 rounded-sm border border-gray-300 bg-white" />
             Not yet
           </span>
         </span>
