@@ -374,6 +374,7 @@ export default async function DashboardPage({
         </Link>
         <ExportOptions
           exportPath="/dashboard/export"
+          excelPath="/dashboard/export-excel"
           showScope
           triggerClassName="shrink-0 rounded-lg border border-brand/30 px-3 py-2 text-sm font-medium text-brand transition-transform duration-100 active:scale-95 active:bg-brand/10"
         />

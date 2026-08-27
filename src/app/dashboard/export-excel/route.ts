@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { cookies } from "next/headers"
 import { DASHBOARD_COOKIE, dashboardSessionValue } from "@/lib/auth"
-import { buildInspectionsCsv } from "@/lib/inspectionsCsv"
+import { buildInspectionsExcel } from "@/lib/inspectionsExcel"
 import { fetchInspectionsForExport, type ExportRange, type ExportScope } from "@/lib/exportFilter"
 
 export async function GET(request: NextRequest) {
@@ -24,12 +24,12 @@ export async function GET(request: NextRequest) {
     customTo,
   })
 
-  const csv = buildInspectionsCsv(inspections)
+  const buffer = await buildInspectionsExcel(inspections)
 
-  return new NextResponse(csv, {
+  return new NextResponse(new Uint8Array(buffer), {
     headers: {
-      "Content-Type": "text/csv; charset=utf-8",
-      "Content-Disposition": `attachment; filename="pit-inspections${suffix ? `-${suffix}` : ""}-${todayKey}.csv"`,
+      "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "Content-Disposition": `attachment; filename="pit-inspections${suffix ? `-${suffix}` : ""}-${todayKey}.xlsx"`,
     },
   })
 }

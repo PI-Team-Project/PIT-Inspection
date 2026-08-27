@@ -4,6 +4,7 @@ import { useState } from "react"
 
 type DateRange = "all" | "week" | "month" | "custom"
 type Scope = "all" | "open" | "resolved"
+type Format = "csv" | "excel"
 
 const RANGE_OPTIONS: { value: DateRange; label: string }[] = [
   { value: "all", label: "All Time" },
@@ -18,21 +19,30 @@ const SCOPE_OPTIONS: { value: Scope; label: string; hint: string }[] = [
   { value: "resolved", label: "Resolved Issues Only", hint: "Had an issue that's since been fixed and confirmed" },
 ]
 
+const FORMAT_OPTIONS: { value: Format; label: string; hint: string }[] = [
+  { value: "csv", label: "Summary (CSV)", hint: "One row per inspection, every vehicle in one sheet" },
+  { value: "excel", label: "Detail (Excel)", hint: "One tab per vehicle, its full history top to bottom" },
+]
+
 const DEFAULT_TRIGGER_CLASS =
   "font-medium text-gray-400 transition-colors duration-100 hover:text-brand hover:underline active:text-brand-dark active:underline"
 
-// Fleet-wide export gets a scope choice (which vehicles); the per-vehicle
-// export on the equipment detail page doesn't — there's only one vehicle,
-// so `showScope` is false there. `triggerClassName` lets each call site
-// match its own surrounding buttons (a bordered brand button next to
-// "Manage Vehicles" on the dashboard, a plain text link on the equipment
-// detail page) instead of forcing one look everywhere.
+// Fleet-wide export gets a scope choice (which vehicles) and a format
+// choice (flat CSV vs. a per-vehicle Excel workbook, via excelPath); the
+// per-vehicle export on the equipment detail page gets neither — there's
+// only one vehicle, so scope is moot and a multi-tab workbook has nothing
+// to split across tabs. `triggerClassName` lets each call site match its
+// own surrounding buttons (a bordered brand button next to "Manage
+// Vehicles" on the dashboard, a plain text link on the equipment detail
+// page) instead of forcing one look everywhere.
 export default function ExportOptions({
   exportPath,
+  excelPath,
   showScope,
   triggerClassName = DEFAULT_TRIGGER_CLASS,
 }: {
   exportPath: string
+  excelPath?: string
   showScope: boolean
   triggerClassName?: string
 }) {
@@ -41,8 +51,13 @@ export default function ExportOptions({
   const [customFrom, setCustomFrom] = useState("")
   const [customTo, setCustomTo] = useState("")
   const [scope, setScope] = useState<Scope>("all")
+  const [format, setFormat] = useState<Format>("csv")
+
+  const showFormat = showScope && Boolean(excelPath)
+  const triggerLabel = showFormat ? "Export" : "Export CSV"
 
   function buildHref() {
+    const path = format === "excel" && excelPath ? excelPath : exportPath
     const params = new URLSearchParams()
     params.set("range", range)
     if (range === "custom") {
@@ -50,7 +65,7 @@ export default function ExportOptions({
       if (customTo) params.set("to", customTo)
     }
     if (showScope) params.set("scope", scope)
-    return `${exportPath}?${params.toString()}`
+    return `${path}?${params.toString()}`
   }
 
   const customIncomplete = range === "custom" && (!customFrom || !customTo)
@@ -58,7 +73,7 @@ export default function ExportOptions({
   if (!open) {
     return (
       <button type="button" onClick={() => setOpen(true)} className={triggerClassName}>
-        Export CSV
+        {triggerLabel}
       </button>
     )
   }
@@ -73,7 +88,7 @@ export default function ExportOptions({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-3 flex items-center justify-between">
-          <h3 className="text-base font-bold text-gray-900">Export CSV</h3>
+          <h3 className="text-base font-bold text-gray-900">{triggerLabel}</h3>
           <button
             type="button"
             onClick={() => setOpen(false)}
@@ -152,6 +167,29 @@ export default function ExportOptions({
             </div>
           )}
 
+          {showFormat && (
+            <div>
+              <p className="mb-1.5 text-xs font-semibold text-gray-500">Format</p>
+              <div className="space-y-1.5">
+                {FORMAT_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setFormat(opt.value)}
+                    className={`flex w-full flex-col items-start rounded-lg border px-3 py-2 text-left transition-colors duration-100 active:scale-95 ${
+                      format === opt.value ? "border-brand bg-brand/10" : "border-gray-300"
+                    }`}
+                  >
+                    <span className={`text-sm ${format === opt.value ? "font-semibold text-brand" : "text-gray-800"}`}>
+                      {opt.label}
+                    </span>
+                    <span className="text-xs text-gray-500">{opt.hint}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           <a
             href={customIncomplete ? undefined : buildHref()}
             aria-disabled={customIncomplete}
@@ -166,7 +204,7 @@ export default function ExportOptions({
               customIncomplete ? "cursor-not-allowed bg-gray-300" : "bg-brand active:bg-brand-dark"
             }`}
           >
-            Download CSV
+            Download {format === "excel" && showFormat ? "Excel" : "CSV"}
           </a>
         </div>
       </div>
