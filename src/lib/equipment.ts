@@ -38,6 +38,13 @@ export type Equipment = {
   makeColor: string
   contractType: "Rent" | "Leasing" | "Own"
   location: Location
+  // An inspector-reported location that hasn't been approved by a
+  // supervisor yet — `location` above stays the trusted, displayed value
+  // everywhere until then. Optional (not just nullable) so the old
+  // hardcoded EQUIPMENT_LIST below doesn't need every entry touched.
+  pendingLocation?: Location | null
+  pendingLocationReportedBy?: string | null
+  pendingLocationReportedAt?: Date | null
 }
 
 export function equipmentCategory(type: EquipmentType): EquipmentCategory {

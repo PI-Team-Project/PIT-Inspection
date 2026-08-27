@@ -30,6 +30,7 @@ import {
 import StatusDot from "../../StatusDot"
 import PhotoGallery from "../../PhotoGallery"
 import LocationChangeControl from "../../LocationChangeControl"
+import PendingLocationApproval from "../../PendingLocationApproval"
 import SignConfirmButton from "../../SignConfirmButton"
 import { saveActivity } from "../../actions"
 import VehicleHistory, { type LogEntry } from "./VehicleHistory"
@@ -62,6 +63,20 @@ function dateHeading(dateKey: string): string {
     day: "numeric",
     year: "numeric",
   }).format(new Date(`${dateKey}T00:00:00Z`))
+}
+
+// For an actual moment in time (not a date key) — a pending location
+// report's timestamp, so a supervisor can tell "just now" from "three days
+// ago" while deciding whether to approve it.
+function shortDateTime(date: Date): string {
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone: FLEET_TIME_ZONE,
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  }).format(date)
 }
 
 export default async function EquipmentDetailPage({
@@ -351,6 +366,16 @@ export default async function EquipmentDetailPage({
             <span className="col-span-2 border-b border-gray-200 px-2 py-1.5 text-gray-600">
               Serial#: {equipment.serial}
             </span>
+
+            {equipment.pendingLocation && equipment.pendingLocationReportedAt && (
+              <PendingLocationApproval
+                serial={equipment.serial}
+                pendingLocation={equipment.pendingLocation}
+                reportedBy={equipment.pendingLocationReportedBy ?? "Unknown"}
+                reportedAtDisplay={shortDateTime(equipment.pendingLocationReportedAt)}
+                savedManagerName={savedManagerName}
+              />
+            )}
 
             {addedAt && addedAt > EQUIPMENT_ADDED_DATE_TRACKING_STARTS_AT && (
               <span className="col-span-3 border-b border-gray-200 px-2 py-1 text-xs text-gray-400">
@@ -748,6 +773,16 @@ function ActivityLine({ entry }: { entry: ActivityEntry }) {
           {q?.label ?? entry.questionId} marked {label}
         </span>{" "}
         by <span className="font-medium text-gray-800">{entry.authorName}</span> — {when}
+      </>
+    )
+  }
+
+  if (entry.type === "location-pending") {
+    return (
+      <>
+        📍 <span className="font-medium text-gray-800">{entry.authorName}</span> reported location
+        may be <span className="font-medium text-gray-800">{entry.location}</span> (pending
+        approval) — {when}
       </>
     )
   }

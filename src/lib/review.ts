@@ -21,6 +21,17 @@ export type ActivityEntry =
       authorName: string
       timestamp: string
     }
+  | {
+      id: string
+      // An inspector's report, not yet approved by a supervisor — kept
+      // distinct from "location" (which only ever records an already-
+      // trusted, applied change) so the trail shows what was reported even
+      // if it's later dismissed rather than approved.
+      type: "location-pending"
+      location: string
+      authorName: string
+      timestamp: string
+    }
 
 export type Review = {
   issueStatus: Record<string, IssueStatusValue>

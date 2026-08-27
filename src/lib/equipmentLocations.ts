@@ -13,6 +13,9 @@ function toEquipment(row: {
   makeColor: string
   contractType: string
   location: string
+  pendingLocation: string | null
+  pendingLocationReportedBy: string | null
+  pendingLocationReportedAt: Date | null
 }): Equipment {
   return {
     serial: row.serial,
@@ -21,6 +24,9 @@ function toEquipment(row: {
     makeColor: row.makeColor,
     contractType: row.contractType as Equipment["contractType"],
     location: row.location as Location,
+    pendingLocation: row.pendingLocation as Location | null,
+    pendingLocationReportedBy: row.pendingLocationReportedBy,
+    pendingLocationReportedAt: row.pendingLocationReportedAt,
   }
 }
 

@@ -133,12 +133,19 @@ export async function submitInspection(formData: FormData) {
 
   try {
     if (locationMatches === "No" && actualLocation) {
-      // Persists so every future inspection (and the dashboard) shows this
-      // as the equipment's current location instead of repeating the same
-      // "wrong" default every time.
+      // An inspector's report is a single unverified observation — it
+      // becomes the trusted `location` everywhere (dashboard, Weekly
+      // Report, exports) only once a supervisor approves it, not
+      // immediately. Overwrites any earlier still-pending report rather
+      // than stacking them; only the latest observation is worth a
+      // supervisor's attention.
       await prisma.equipment.update({
         where: { serial: equipmentSerial },
-        data: { location: actualLocation },
+        data: {
+          pendingLocation: actualLocation,
+          pendingLocationReportedBy: `${firstName} ${lastName}`,
+          pendingLocationReportedAt: new Date(),
+        },
       })
     }
 
@@ -153,6 +160,26 @@ export async function submitInspection(formData: FormData) {
         equipmentSerial,
         answers,
         photos: { create: photoRecords },
+        // Recorded here (not just on Equipment) so the report survives in
+        // this vehicle's permanent activity trail/export even if it's later
+        // dismissed rather than approved.
+        ...(locationMatches === "No" && actualLocation
+          ? {
+              review: {
+                issueStatus: {},
+                confirmedResolved: false,
+                activity: [
+                  {
+                    id: crypto.randomUUID(),
+                    type: "location-pending",
+                    location: actualLocation,
+                    authorName: `${firstName} ${lastName}`,
+                    timestamp: new Date().toISOString(),
+                  },
+                ],
+              },
+            }
+          : {}),
       },
     })
   } catch (err) {

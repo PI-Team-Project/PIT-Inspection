@@ -594,6 +594,18 @@ function EquipmentCard({
           ) : (
             equipment.location
           )}
+          {/* A pending report never changes what's shown as the location
+              above (that's the whole point — it's not trusted yet), but
+              needs to be discoverable from the fleet grid too, not just to
+              whoever happens to open this specific vehicle's own page. */}
+          {equipment.pendingLocation && (
+            <span
+              title={`${equipment.pendingLocationReportedBy ?? "Someone"} reported this may be at ${equipment.pendingLocation}`}
+              className="ml-1 inline-flex items-center gap-0.5 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800"
+            >
+              ⏳ pending
+            </span>
+          )}
         </span>
         <span className="col-span-2 border-r border-b border-gray-200 px-2 py-1.5 text-gray-600">
           Serial#: {equipment.serial}

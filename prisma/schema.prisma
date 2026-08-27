@@ -70,4 +70,17 @@ model Equipment {
   notes        String?
   retiredAt    DateTime?
   retiredBy    String?
+
+  // An inspector reporting "this isn't where it's supposed to be" is a
+  // single unverified claim from whoever happened to be doing that day's
+  // inspection — location drives real decisions elsewhere (where to send
+  // someone to find a vehicle), so it only becomes the trusted `location`
+  // once a supervisor approves it. A supervisor's own direct edit (through
+  // LocationChangeControl or Manage Vehicles) is trusted immediately and
+  // clears these instead, since they're a step above an inspector-observed
+  // report. All three null together, or all three set together — never a
+  // subset.
+  pendingLocation           String?
+  pendingLocationReportedBy String?
+  pendingLocationReportedAt DateTime?
 }

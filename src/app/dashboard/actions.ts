@@ -180,7 +180,10 @@ export async function updateEquipmentLocation(
 
   await prisma.equipment.update({
     where: { serial },
-    data: { location },
+    // A supervisor's own direct edit is trusted immediately and is a step
+    // above an inspector's observation, so it also clears (supersedes) any
+    // still-unapproved location report rather than leaving it dangling.
+    data: { location, pendingLocation: null, pendingLocationReportedBy: null, pendingLocationReportedAt: null },
   })
 
   // Log the change on the equipment's most recent inspection so it shows up
@@ -211,6 +214,88 @@ export async function updateEquipmentLocation(
   revalidatePath("/dashboard")
   revalidatePath("/dashboard/equipment/[serial]", "page")
   revalidatePath("/inspection")
+  return null
+}
+
+// The supervisor-approval half of an inspector-reported location change —
+// promotes pendingLocation to the trusted `location` everyone else reads,
+// and logs it the same way updateEquipmentLocation's own direct edit does
+// (same ActivityEntry shape) so approved-via-report and approved-via-manual
+// changes read identically in the Activity trail/export.
+export async function approvePendingLocation(
+  _prevState: null,
+  formData: FormData
+): Promise<null> {
+  const serial = String(formData.get("serial") ?? "")
+  const managerName = String(formData.get("managerName") ?? "").trim() || "Unknown"
+  if (!serial) return null
+
+  const cookieStore = await cookies()
+  cookieStore.set(MANAGER_NAME_COOKIE, managerName, {
+    httpOnly: true,
+    sameSite: "lax",
+    maxAge: 60 * 60 * 24 * 30,
+  })
+
+  const equipment = await prisma.equipment.findUnique({ where: { serial } })
+  if (!equipment?.pendingLocation) return null
+
+  await prisma.equipment.update({
+    where: { serial },
+    data: {
+      location: equipment.pendingLocation,
+      pendingLocation: null,
+      pendingLocationReportedBy: null,
+      pendingLocationReportedAt: null,
+    },
+  })
+
+  const latest = await prisma.inspection.findFirst({
+    where: { equipmentSerial: serial },
+    orderBy: { createdAt: "desc" },
+  })
+  if (latest) {
+    const review = parseReview(latest.review)
+    const activity: ActivityEntry[] = [
+      ...review.activity,
+      {
+        id: crypto.randomUUID(),
+        type: "location",
+        location: equipment.pendingLocation,
+        authorName: managerName,
+        timestamp: new Date().toISOString(),
+      },
+    ]
+    await prisma.inspection.update({
+      where: { id: latest.id },
+      data: { review: { ...review, activity } },
+    })
+  }
+
+  revalidatePath("/dashboard")
+  revalidatePath("/dashboard/equipment/[serial]", "page")
+  revalidatePath("/inspection")
+  return null
+}
+
+// The reject half — a supervisor decided the reported location wasn't
+// right, so it's cleared with no effect on the trusted `location`. The
+// original report stays visible forever in the Activity trail (recorded as
+// its own "location-pending" entry at submission time), just never applied.
+export async function dismissPendingLocation(
+  _prevState: null,
+  formData: FormData
+): Promise<null> {
+  const serial = String(formData.get("serial") ?? "")
+  if (!serial) return null
+
+  await prisma.equipment.update({
+    where: { serial },
+    data: { pendingLocation: null, pendingLocationReportedBy: null, pendingLocationReportedAt: null },
+  })
+
+  revalidatePath("/dashboard")
+  revalidatePath("/dashboard/equipment/[serial]", "page")
   return null
 }
 

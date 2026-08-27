@@ -115,7 +115,19 @@ export async function updateVehicle(
   await rememberManagerName(managerName)
   await prisma.equipment.update({
     where: { serial },
-    data: { type, flNumber, makeColor, contractType, location, notes: notes || null },
+    data: {
+      type,
+      flNumber,
+      makeColor,
+      contractType,
+      location,
+      notes: notes || null,
+      // A supervisor editing the vehicle record directly supersedes any
+      // still-unapproved location report, same as the quick-change control.
+      pendingLocation: null,
+      pendingLocationReportedBy: null,
+      pendingLocationReportedAt: null,
+    },
   })
 
   refreshManagePaths()

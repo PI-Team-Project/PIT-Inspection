@@ -93,6 +93,8 @@ export function buildExportRow(inspection: Inspection): ExportRow {
       if (entry.type === "confirmed") return `[${when}] Confirmed all clear by ${entry.authorName}`
       if (entry.type === "location")
         return `[${when}] Location set to ${entry.location} by ${entry.authorName}`
+      if (entry.type === "location-pending")
+        return `[${when}] ${entry.authorName} reported location may be ${entry.location} (pending supervisor approval)`
       const q = QUESTIONS.find((x) => x.id === entry.questionId)
       const label = entry.status === "complete" ? "Complete" : "In Review"
       return `[${when}] ${q?.label ?? entry.questionId} marked ${label} by ${entry.authorName}`
