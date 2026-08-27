@@ -412,18 +412,22 @@ export default function InspectionForm({
   // finger live (not "wait for release, then jump"), and committing the
   // swipe never requires dragging the full width of the screen.
   //
-  // Plain onTouchStart/onTouchEnd (the first version of this) wasn't
-  // reliable on a real phone: React attaches touch listeners as passive, so
-  // there's no way to stop the browser from also reading a slightly
-  // diagonal drag as a page scroll — and once it commits to that, iOS fires
-  // touchcancel instead of touchend and the gesture silently never
-  // completes. Attaching touchmove natively here (not passive) is what lets
-  // this call preventDefault() the instant a drag reads as horizontal,
-  // locking out that scroll takeover before it can start.
+  // Built on Pointer Events with explicit setPointerCapture, not Touch
+  // Events — the touch-event version (this gesture's first iteration)
+  // still lost the race against the browser's own scroll handling on a
+  // real phone often enough to feel broken: even with a non-passive
+  // touchmove + preventDefault, iOS can commit to its native scroll before
+  // that handler runs, and once it does, no more touch events reach this
+  // listener at all. Pointer Events' setPointerCapture, once called,
+  // GUARANTEES every further pointermove/pointerup for this exact touch
+  // is delivered here regardless of what the browser's default handling
+  // would otherwise have done — the same technique already used
+  // successfully for pan/zoom in PhotoEditorModal below.
   const contentRef = useRef<HTMLDivElement>(null)
   const sliderRef = useRef<HTMLDivElement>(null)
   const previewRef = useRef<HTMLDivElement>(null)
   const dragRef = useRef<{
+    pointerId: number
     startX: number
     startY: number
     dx: number
@@ -435,6 +439,11 @@ export default function InspectionForm({
   useEffect(() => {
     const el = contentRef.current
     if (!el) return
+
+    // Re-bound to a name TypeScript can keep narrowed as non-null inside
+    // the nested function declarations below (control-flow narrowing on
+    // `el` itself doesn't carry into them).
+    const container = el
 
     function applyTransform(dx: number, live: boolean) {
       const slider = sliderRef.current
@@ -455,22 +464,27 @@ export default function InspectionForm({
       }
     }
 
-    function onTouchStart(e: TouchEvent) {
+    function onPointerDown(e: PointerEvent) {
+      if (e.pointerType !== "touch") return
       const target = e.target as HTMLElement
       if (step === 0 || target.closest("textarea, input, [data-swipe-ignore]")) {
         dragRef.current = null
         return
       }
-      const t = e.touches[0]
-      dragRef.current = { startX: t.clientX, startY: t.clientY, dx: 0, lock: null }
+      dragRef.current = {
+        pointerId: e.pointerId,
+        startX: e.clientX,
+        startY: e.clientY,
+        dx: 0,
+        lock: null,
+      }
     }
 
-    function onTouchMove(e: TouchEvent) {
+    function onPointerMove(e: PointerEvent) {
       const drag = dragRef.current
-      if (!drag) return
-      const t = e.touches[0]
-      const dx = t.clientX - drag.startX
-      const dy = t.clientY - drag.startY
+      if (!drag || e.pointerId !== drag.pointerId) return
+      const dx = e.clientX - drag.startX
+      const dy = e.clientY - drag.startY
 
       if (drag.lock === null) {
         if (Math.abs(dx) < SWIPE_LOCK_PX && Math.abs(dy) < SWIPE_LOCK_PX) return
@@ -481,6 +495,10 @@ export default function InspectionForm({
           dragRef.current = null
           return
         }
+        // Claim the gesture now that it's confirmed horizontal — from here
+        // on, every move/up for this exact touch is guaranteed to reach
+        // this element even if it moves off it.
+        container.setPointerCapture(e.pointerId)
       }
 
       e.preventDefault()
@@ -488,23 +506,25 @@ export default function InspectionForm({
       applyTransform(drag.dx, true)
     }
 
-    function onTouchEnd() {
+    function onPointerUp(e: PointerEvent) {
       const drag = dragRef.current
+      if (!drag || e.pointerId !== drag.pointerId) return
       dragRef.current = null
-      if (!drag || drag.lock !== "horizontal") return
+      if (drag.lock !== "horizontal") return
+      if (container.hasPointerCapture(e.pointerId)) container.releasePointerCapture(e.pointerId)
       if (drag.dx <= -SWIPE_BACK_COMMIT_PX) handleBack()
       applyTransform(0, false)
     }
 
-    el.addEventListener("touchstart", onTouchStart, { passive: true })
-    el.addEventListener("touchmove", onTouchMove, { passive: false })
-    el.addEventListener("touchend", onTouchEnd, { passive: true })
-    el.addEventListener("touchcancel", onTouchEnd, { passive: true })
+    el.addEventListener("pointerdown", onPointerDown)
+    el.addEventListener("pointermove", onPointerMove, { passive: false })
+    el.addEventListener("pointerup", onPointerUp)
+    el.addEventListener("pointercancel", onPointerUp)
     return () => {
-      el.removeEventListener("touchstart", onTouchStart)
-      el.removeEventListener("touchmove", onTouchMove)
-      el.removeEventListener("touchend", onTouchEnd)
-      el.removeEventListener("touchcancel", onTouchEnd)
+      el.removeEventListener("pointerdown", onPointerDown)
+      el.removeEventListener("pointermove", onPointerMove)
+      el.removeEventListener("pointerup", onPointerUp)
+      el.removeEventListener("pointercancel", onPointerUp)
     }
   }, [step])
 
@@ -592,7 +612,16 @@ export default function InspectionForm({
         )}
       </div>
 
-      <div ref={contentRef} className="relative flex-1 overflow-hidden" onFocus={handleContentFocus}>
+      <div
+        ref={contentRef}
+        // pan-y (not the default "auto") tells the browser up front that
+        // only vertical panning is ever handled natively here — horizontal
+        // movement is never even offered to the browser's own scroll
+        // gesture, closing the gap the pointer-capture logic below would
+        // otherwise still have to win a race against.
+        className="relative flex-1 touch-pan-y overflow-hidden"
+        onFocus={handleContentFocus}
+      >
         <div ref={sliderRef} className="px-4 pt-6 pb-6 transition-transform duration-200 ease-out">
         {/* Date */}
         <div hidden={current.kind !== "date"}>
