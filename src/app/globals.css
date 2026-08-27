@@ -56,6 +56,40 @@
   animation: text-sweep 2.8s ease-in-out infinite;
 }
 
+/* A rubber stamp coming down onto paper — starts big/faint (as if still
+   above the page), overshoots slightly smaller on impact, then settles.
+   `both` fill mode holds that settled rotate+scale as the element's final
+   state, so nothing else needs to declare the resting transform. */
+@keyframes stamp-press {
+  0% {
+    opacity: 0;
+    transform: rotate(-8deg) scale(2.4);
+  }
+  60% {
+    opacity: 1;
+    transform: rotate(-8deg) scale(0.92);
+  }
+  80% {
+    transform: rotate(-8deg) scale(1.06);
+  }
+  100% {
+    opacity: 1;
+    transform: rotate(-8deg) scale(1);
+  }
+}
+
+.stamp-press {
+  animation: stamp-press 0.55s cubic-bezier(0.22, 0.9, 0.32, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stamp-press {
+    animation: none;
+    opacity: 1;
+    transform: rotate(-8deg);
+  }
+}
+
 @keyframes slide-down {
   from {
     opacity: 0;
