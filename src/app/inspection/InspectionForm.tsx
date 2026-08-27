@@ -293,32 +293,45 @@ export default function InspectionForm({
     const v = values[s.question.id]
     if (!v) return false
     const isOther = v.startsWith("Other")
-    if (isOther && !values[`${s.question.id}_specify`]?.trim()) return false
     // A flagged item with no documentation defeats the point of flagging it —
-    // photos stay optional, but a note is required, same principle as the
-    // Repair Request flow already requiring at least one photo. "Other"
-    // already requires its own free-text explanation via Please Specify, so
-    // that alone satisfies it — the note is only additionally required for
-    // every other bad answer (Poor, Not working condition, etc.).
-    if (needsAttention(v) && !isOther && !values[`${s.question.id}_note`]?.trim()) return false
+    // photos stay optional, but some explanation is required, same principle
+    // as the Repair Request flow already requiring at least one photo. For
+    // "Other" specifically, either the small "Please Specify" field or the
+    // bigger Note field below satisfies it — people naturally reach for
+    // whichever one they see first (often Note, since it's the one that
+    // actually invites detail), and requiring one specific field over the
+    // other just meant an answer typed in the "wrong" box silently didn't
+    // count, with no obvious reason why.
+    const hasSpecify = Boolean(values[`${s.question.id}_specify`]?.trim())
+    const hasNote = Boolean(values[`${s.question.id}_note`]?.trim())
+    if (isOther && !hasSpecify && !hasNote) return false
+    if (needsAttention(v) && !isOther && !hasNote) return false
     return true
   }
 
   const canAdvance = stepIsAnswered(current)
   const currentAnswer = current.kind === "question" ? values[current.question.id] : undefined
   const currentQuestionId = current.kind === "question" ? current.question.id : undefined
+  const currentIsOther = Boolean(currentAnswer?.startsWith("Other"))
+  const currentHasSpecify = Boolean(values[`${currentQuestionId}_specify`]?.trim())
+  const currentHasNote = Boolean(values[`${currentQuestionId}_note`]?.trim())
+  // For "Other", either field satisfies the requirement, so both get the
+  // same nudge together (fill in whichever one) and both clear the instant
+  // either one has text — rather than pointing at one specific field as
+  // "the" required one when it isn't.
+  const otherExplanationMissing =
+    missingFieldNudge &&
+    current.kind === "question" &&
+    currentIsOther &&
+    !currentHasSpecify &&
+    !currentHasNote
   const noteMissing =
     missingFieldNudge &&
     current.kind === "question" &&
     Boolean(currentAnswer) &&
     needsAttention(currentAnswer ?? "") &&
-    !currentAnswer?.startsWith("Other") &&
-    !values[`${current.question.id}_note`]?.trim()
-  const specifyMissing =
-    missingFieldNudge &&
-    current.kind === "question" &&
-    Boolean(currentAnswer?.startsWith("Other")) &&
-    !values[`${current.question.id}_specify`]?.trim()
+    (currentIsOther ? otherExplanationMissing : !currentHasNote)
+  const specifyMissing = otherExplanationMissing
   const showContinue =
     !isLast &&
     (current.kind === "date" ||
