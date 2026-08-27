@@ -13,10 +13,21 @@ const RANGE_OPTIONS: { value: DateRange; label: string }[] = [
   { value: "custom", label: "Custom Range" },
 ]
 
-const SCOPE_OPTIONS: { value: Scope; label: string; hint: string }[] = [
+// Fleet-wide: which VEHICLES to include (a vehicle qualifies if ANY of its
+// history has an open/resolved issue — see fetchInspectionsForExport).
+const SCOPE_OPTIONS_FLEET: { value: Scope; label: string; hint: string }[] = [
   { value: "all", label: "All Vehicles", hint: "Every vehicle in the fleet" },
   { value: "open", label: "Open Issues Only", hint: "Still unresolved or needs attention right now" },
   { value: "resolved", label: "Resolved Issues Only", hint: "Had an issue that's since been fixed and confirmed" },
+]
+
+// Single-vehicle: same idea, but per INSPECTION — there's only one vehicle
+// here, so "which vehicles" isn't meaningful the same way; this filters
+// which of its own past inspections to include instead.
+const SCOPE_OPTIONS_VEHICLE: { value: Scope; label: string; hint: string }[] = [
+  { value: "all", label: "All Inspections", hint: "Every inspection on file for this vehicle" },
+  { value: "open", label: "Open Issues Only", hint: "Inspections still unresolved or needing attention" },
+  { value: "resolved", label: "Resolved Issues Only", hint: "Inspections that had an issue since fixed and confirmed" },
 ]
 
 const FORMAT_OPTIONS: { value: Format; label: string; hint: string }[] = [
@@ -27,28 +38,30 @@ const FORMAT_OPTIONS: { value: Format; label: string; hint: string }[] = [
 const DEFAULT_TRIGGER_CLASS =
   "font-medium text-gray-400 transition-colors duration-100 hover:text-brand hover:underline active:text-brand-dark active:underline"
 
-// Fleet-wide export gets a scope choice (which vehicles) and a format
-// choice (flat CSV vs. a per-vehicle Excel workbook, via excelPath); the
-// per-vehicle export on the equipment detail page gets neither — there's
-// only one vehicle, so scope is moot and a multi-tab workbook has nothing
-// to split across tabs. `triggerClassName` lets each call site match its
-// own surrounding buttons (a bordered brand button next to "Manage
-// Vehicles" on the dashboard, a plain text link on the equipment detail
-// page) instead of forcing one look everywhere.
+// Both fleet-wide and single-vehicle exports get a scope choice now (open
+// issues only / resolved only / everything) — just worded differently
+// (see SCOPE_OPTIONS_FLEET vs. SCOPE_OPTIONS_VEHICLE above), since one
+// filters which vehicles qualify and the other filters which of one
+// vehicle's own inspections do. Only the fleet-wide export additionally
+// gets a format choice (flat CSV vs. a per-vehicle Excel workbook, via
+// excelPath) — a single vehicle has nothing to split across workbook tabs.
+// `triggerClassName` lets each call site match its own surrounding buttons
+// (a bordered brand button next to "Manage Vehicles" on the dashboard, a
+// plain text link on the equipment detail page) instead of forcing one
+// look everywhere.
 export default function ExportOptions({
   exportPath,
   excelPath,
-  showScope,
   vehicleLabel,
   triggerClassName = DEFAULT_TRIGGER_CLASS,
 }: {
   exportPath: string
   excelPath?: string
-  showScope: boolean
   // The FL# to name in the trigger/heading on a single-vehicle export (this
   // page's equipment) — without it, "Export CSV" reads identically to the
   // fleet-wide export elsewhere, so there's nothing telling someone this
   // button only ever covers the one vehicle they're already looking at.
+  // Also selects the vehicle-flavored scope wording over the fleet-wide one.
   vehicleLabel?: string
   triggerClassName?: string
 }) {
@@ -59,7 +72,8 @@ export default function ExportOptions({
   const [scope, setScope] = useState<Scope>("all")
   const [format, setFormat] = useState<Format>("csv")
 
-  const showFormat = showScope && Boolean(excelPath)
+  const isVehicleExport = Boolean(vehicleLabel)
+  const showFormat = Boolean(excelPath)
   const triggerLabel = showFormat
     ? "Export"
     : vehicleLabel
@@ -74,7 +88,7 @@ export default function ExportOptions({
       if (customFrom) params.set("from", customFrom)
       if (customTo) params.set("to", customTo)
     }
-    if (showScope) params.set("scope", scope)
+    params.set("scope", scope)
     return `${path}?${params.toString()}`
   }
 
@@ -163,28 +177,28 @@ export default function ExportOptions({
             )}
           </div>
 
-          {showScope && (
-            <div>
-              <p className="mb-1.5 text-xs font-semibold text-gray-500">Which Vehicles</p>
-              <div className="space-y-1.5">
-                {SCOPE_OPTIONS.map((opt) => (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    onClick={() => setScope(opt.value)}
-                    className={`flex w-full flex-col items-start rounded-lg border px-3 py-2 text-left transition-colors duration-100 active:scale-95 ${
-                      scope === opt.value ? "border-brand bg-brand/10" : "border-gray-300"
-                    }`}
-                  >
-                    <span className={`text-sm ${scope === opt.value ? "font-semibold text-brand" : "text-gray-800"}`}>
-                      {opt.label}
-                    </span>
-                    <span className="text-xs text-gray-500">{opt.hint}</span>
-                  </button>
-                ))}
-              </div>
+          <div>
+            <p className="mb-1.5 text-xs font-semibold text-gray-500">
+              {isVehicleExport ? "Which Inspections" : "Which Vehicles"}
+            </p>
+            <div className="space-y-1.5">
+              {(isVehicleExport ? SCOPE_OPTIONS_VEHICLE : SCOPE_OPTIONS_FLEET).map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => setScope(opt.value)}
+                  className={`flex w-full flex-col items-start rounded-lg border px-3 py-2 text-left transition-colors duration-100 active:scale-95 ${
+                    scope === opt.value ? "border-brand bg-brand/10" : "border-gray-300"
+                  }`}
+                >
+                  <span className={`text-sm ${scope === opt.value ? "font-semibold text-brand" : "text-gray-800"}`}>
+                    {opt.label}
+                  </span>
+                  <span className="text-xs text-gray-500">{opt.hint}</span>
+                </button>
+              ))}
             </div>
-          )}
+          </div>
 
           {showFormat && (
             <div>

@@ -468,7 +468,6 @@ export default async function EquipmentDetailPage({
       <div className="mt-6 flex items-center justify-between border-t border-gray-100 pt-3 text-xs text-gray-400">
         <ExportOptions
           exportPath={`/dashboard/export/${equipment.serial}`}
-          showScope={false}
           vehicleLabel={equipment.flNumber}
         />
         <a href="/dashboard/manage" className="font-medium hover:text-gray-600 hover:underline">

@@ -5,9 +5,10 @@ import { DASHBOARD_COOKIE, dashboardSessionValue } from "@/lib/auth"
 import { buildInspectionsCsv } from "@/lib/inspectionsCsv"
 import { getEquipmentBySerial } from "@/lib/equipmentLocations"
 import { easternDateKey, exportRangeStart } from "@/lib/shifts"
-import { retentionCutoff } from "../../inspectionRow"
+import { retentionCutoff, buildRow } from "../../inspectionRow"
 
 type ExportRange = "all" | "week" | "month" | "custom"
+type ExportScope = "all" | "open" | "resolved"
 
 export async function GET(
   request: NextRequest,
@@ -28,6 +29,7 @@ export async function GET(
 
   const searchParams = request.nextUrl.searchParams
   const range = (searchParams.get("range") ?? "all") as ExportRange
+  const scope = (searchParams.get("scope") ?? "all") as ExportScope
   const customFrom = searchParams.get("from")
   const customTo = searchParams.get("to")
   const isValidDateKey = (v: string | null) => Boolean(v) && /^\d{4}-\d{2}-\d{2}$/.test(v!)
@@ -47,13 +49,31 @@ export async function GET(
   const startKey = rangeStartKey > retentionFloorKey ? rangeStartKey : retentionFloorKey
   const endKey = range === "custom" && isValidDateKey(customTo) ? customTo! : today
 
-  const inspections = await prisma.inspection.findMany({
+  const allInspections = await prisma.inspection.findMany({
     where: { equipmentSerial: serial, date: { gte: startKey, lte: endKey } },
     orderBy: { createdAt: "desc" },
   })
 
+  // Fleet-wide scope decides which VEHICLES qualify (does this vehicle have
+  // an open/resolved issue ANYWHERE in its history) — with only one vehicle
+  // here, that all-or-nothing gate would just return everything or nothing.
+  // This filters individual INSPECTIONS by their own stage instead, which is
+  // the useful version of the same idea for a single vehicle's own history.
+  const inspections =
+    scope === "all"
+      ? allInspections
+      : allInspections.filter((inspection) => {
+          const stage = buildRow(inspection).stage
+          return scope === "open"
+            ? stage === "unresolved" || stage === "pending-confirm"
+            : stage === "confirmed"
+        })
+
   const csv = buildInspectionsCsv(inspections)
-  const suffix = range !== "all" ? `-${range}` : ""
+  const suffix = [range !== "all" ? range : null, scope !== "all" ? scope : null]
+    .filter(Boolean)
+    .map((s) => `-${s}`)
+    .join("")
 
   return new NextResponse(csv, {
     headers: {
