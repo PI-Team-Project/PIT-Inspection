@@ -55,6 +55,25 @@ function shortDate(dateKey: string): string {
 // which is very often a different, more recent date than the one actually
 // selected — leaving no clear answer to "which day's questionnaire am I
 // looking at right now."
+// Two separate inspections landing on the same day/shift (a genuine
+// double-submission, or stale test data) are one and the same task for a
+// supervisor to go review — without this, each one earned its own "Also
+// review the inspection from Aug 14 (Day)" line, so the same date could
+// repeat many times over for what's really a single day's problem. Keeps
+// the first (worst/oldest — findAllOpenIssues already sorted that way) of
+// each date+shift group, same order otherwise.
+function dedupeByDateShift<T extends { inspection: { date: string; shift: string } }>(
+  rows: T[]
+): T[] {
+  const seen = new Set<string>()
+  return rows.filter((row) => {
+    const key = `${row.inspection.date}|${row.inspection.shift}`
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
+}
+
 function dateHeading(dateKey: string): string {
   return new Intl.DateTimeFormat("en-US", {
     timeZone: "UTC",
@@ -137,7 +156,7 @@ export default async function EquipmentDetailPage({
   // Repair Requests days apart, say) — confirming the newer one never
   // touches the older one, so a manager needs to know there's a second item
   // waiting even after clearing the one the badge below jumps to first.
-  const openIssues = findAllOpenIssues(allHistory)
+  const openIssues = dedupeByDateShift(findAllOpenIssues(allHistory))
   const openIssue = openIssues[0] ?? null
   const stage = (openIssue?.stage ?? latest?.stage ?? "none") as Stage | "none"
   const since = badSince(allHistory, today)
