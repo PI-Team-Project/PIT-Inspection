@@ -25,6 +25,11 @@ type WeeklyRow = {
   flNumber: string
   location: Location
   type: EquipmentType
+  // An inspector-reported location change awaiting supervisor approval —
+  // unrelated to any single day/shift cell (it's a standing fact about the
+  // vehicle itself), so it shows once next to the FL# rather than inside
+  // one of the colored cells below.
+  hasPendingLocation: boolean
   cells: { day: WeeklyCellData; night: WeeklyCellData }[]
 }
 
@@ -396,9 +401,24 @@ export default function WeeklyReport({
                   >
                     <Link
                       href={`/dashboard/equipment/${row.serial}`}
-                      className="flex h-full items-center justify-center truncate px-0.5 text-brand underline-offset-2 active:bg-gray-50 active:underline"
+                      className="flex h-full items-center justify-center gap-1 truncate px-0.5 text-brand underline-offset-2 active:bg-gray-50 active:underline"
                     >
-                      {row.flNumber}
+                      <span className="truncate">{row.flNumber}</span>
+                      {/* Shows regardless of the vehicle's own day/night
+                          cell colors below — a pending location report (or
+                          any future small thing needing a supervisor's own
+                          confirmation, not a real red/unresolved issue)
+                          still needs a look even on an otherwise all-green
+                          vehicle, which is exactly the case those cells
+                          alone can't say anything about. */}
+                      {row.hasPendingLocation && (
+                        <span
+                          title="Needs your confirmation"
+                          className="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full bg-amber-400 text-[9px] font-bold text-white"
+                        >
+                          ?
+                        </span>
+                      )}
                     </Link>
                   </td>
                   {row.cells.map((cell, ci) => {

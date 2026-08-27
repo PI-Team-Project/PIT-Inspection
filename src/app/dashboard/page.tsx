@@ -187,6 +187,7 @@ export default async function DashboardPage({
     flNumber: row.equipment.flNumber,
     location: row.equipment.location,
     type: row.equipment.type,
+    hasPendingLocation: Boolean(row.equipment.pendingLocation),
     cells: weekDays.map((dateKey) => ({
       day: weeklyCell(row.history, dateKey, "Day"),
       night: weeklyCell(row.history, dateKey, "Night"),
@@ -238,6 +239,15 @@ export default async function DashboardPage({
 
   const workingCount = equipmentRows.filter((row) => isWorking(row.stage)).length
   const noInspectionCount = equipmentRows.filter((row) => isNotInspected(row.stage)).length
+
+  // Surfaced as its own short list right on the Daily Report (not just the
+  // small "?" badge in the Weekly Report below) — an inspector-reported
+  // location sitting unconfirmed is easy to miss entirely on an otherwise
+  // all-green vehicle, so this names it directly rather than relying on
+  // someone noticing a badge while browsing.
+  const pendingLocationRows = equipmentRows
+    .filter((row) => row.equipment.pendingLocation)
+    .map((row) => ({ serial: row.equipment.serial, flNumber: row.equipment.flNumber }))
 
   // Lean, client-safe slice for the search popup — never pass `latest`/
   // `history` down since those carry full inspection answers (photos
@@ -310,6 +320,23 @@ export default async function DashboardPage({
           }
         />
       </div>
+
+      {pendingLocationRows.length > 0 && (
+        <div className="mt-4">
+          <p className="mb-1.5 text-xs font-semibold text-gray-500">Location Confirmation Needed</p>
+          <div className="space-y-1">
+            {pendingLocationRows.map((row) => (
+              <Link
+                key={row.serial}
+                href={`/dashboard/equipment/${row.serial}`}
+                className="block rounded-md border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-sm font-medium text-amber-800 transition-colors duration-100 hover:bg-amber-100 active:scale-95"
+              >
+                Confirm Location Change: {row.flNumber} →
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="mt-6 border-t border-gray-100" />
 
