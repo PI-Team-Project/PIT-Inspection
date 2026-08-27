@@ -47,6 +47,23 @@ function shortDate(dateKey: string): string {
   }).format(new Date(`${dateKey}T00:00:00Z`))
 }
 
+// Same UTC-anchored formatting as shortDate, with weekday and year added —
+// this sits directly above one specific inspection's own answers, so it has
+// to read unambiguously on its own. Without it, the only date on the page
+// was the vehicle's overall "Last inspected" date up in the status box —
+// which is very often a different, more recent date than the one actually
+// selected — leaving no clear answer to "which day's questionnaire am I
+// looking at right now."
+function dateHeading(dateKey: string): string {
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone: "UTC",
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  }).format(new Date(`${dateKey}T00:00:00Z`))
+}
+
 export default async function EquipmentDetailPage({
   params,
   searchParams,
@@ -383,10 +400,6 @@ export default async function EquipmentDetailPage({
               row={row}
               savedManagerName={savedManagerName}
               todayDisplay={todayDisplay}
-              // A day can hold both a Day and a Night inspection — when it
-              // does, each form needs its own shift label so the two don't
-              // read as one confusing merged form.
-              showShiftLabel={selectedRows.length > 1}
             />
           ))
         ) : highlightDate ? (
@@ -422,12 +435,10 @@ function InspectionReviewForm({
   row,
   savedManagerName,
   todayDisplay,
-  showShiftLabel,
 }: {
   row: InspectionRow
   savedManagerName: string
   todayDisplay: string
-  showShiftLabel: boolean
 }) {
   // Once a supervisor has signed and confirmed this specific inspection
   // (stage "confirmed"), every flagged item's Complete toggle becomes
@@ -437,11 +448,19 @@ function InspectionReviewForm({
 
   return (
     <div className="mt-4 border-t border-black/5 pt-4">
-      {showShiftLabel && (
-        <p className="mb-2 text-sm font-bold tracking-wide text-gray-400 uppercase">
+      {/* Always shown, even when this is the only inspection on the page —
+          previously this only appeared when a day held both a Day and a
+          Night inspection, so the single-inspection case (the common one)
+          had no date on the questionnaire itself at all, only the "Last
+          inspected" date up in the status box above, which names the
+          vehicle's overall latest inspection and is frequently a different
+          day than the one actually selected. */}
+      <p className="mb-2 flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-sm">
+        <span className="font-bold text-gray-900">{dateHeading(row.inspection.date)}</span>
+        <span className="font-medium text-gray-500">
           {row.inspection.shift} Shift · {row.inspection.firstName} {row.inspection.lastName}
-        </p>
-      )}
+        </span>
+      </p>
       {row.stage === "pending-confirm" &&
         !row.flagged.every((q) => row.review.issueStatus[q.id] === "complete") && (
           <div className="mb-4 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">
