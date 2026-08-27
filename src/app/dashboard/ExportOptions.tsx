@@ -3,7 +3,7 @@
 import { useState } from "react"
 
 type DateRange = "all" | "week" | "month" | "custom"
-type Scope = "all" | "open" | "resolved"
+type Scope = "all" | "open" | "resolved" | "specific"
 type Format = "csv" | "excel"
 
 const RANGE_OPTIONS: { value: DateRange; label: string }[] = [
@@ -19,6 +19,7 @@ const SCOPE_OPTIONS_FLEET: { value: Scope; label: string; hint: string }[] = [
   { value: "all", label: "All Vehicles", hint: "Every vehicle in the fleet" },
   { value: "open", label: "Open Issues Only", hint: "Still unresolved or needs attention right now" },
   { value: "resolved", label: "Resolved Issues Only", hint: "Had an issue that's since been fixed and confirmed" },
+  { value: "specific", label: "Specific Vehicles", hint: "Pick exactly which vehicles to include" },
 ]
 
 // Single-vehicle: same idea, but per INSPECTION — there's only one vehicle
@@ -53,6 +54,7 @@ export default function ExportOptions({
   exportPath,
   excelPath,
   vehicleLabel,
+  vehicleOptions,
   triggerClassName = DEFAULT_TRIGGER_CLASS,
 }: {
   exportPath: string
@@ -63,6 +65,10 @@ export default function ExportOptions({
   // button only ever covers the one vehicle they're already looking at.
   // Also selects the vehicle-flavored scope wording over the fleet-wide one.
   vehicleLabel?: string
+  // The full fleet, for the "Specific Vehicles" scope's checklist — only
+  // passed on the fleet-wide export (the single-vehicle export already IS
+  // one specific vehicle, so picking among a list makes no sense there).
+  vehicleOptions?: { serial: string; label: string }[]
   triggerClassName?: string
 }) {
   const [open, setOpen] = useState(false)
@@ -71,6 +77,8 @@ export default function ExportOptions({
   const [customTo, setCustomTo] = useState("")
   const [scope, setScope] = useState<Scope>("all")
   const [format, setFormat] = useState<Format>("csv")
+  const [selectedSerials, setSelectedSerials] = useState<string[]>([])
+  const [vehicleFilter, setVehicleFilter] = useState("")
 
   const isVehicleExport = Boolean(vehicleLabel)
   const showFormat = Boolean(excelPath)
@@ -79,6 +87,16 @@ export default function ExportOptions({
     : vehicleLabel
       ? `Export ${vehicleLabel} Only`
       : "Export CSV"
+
+  function toggleSerial(serial: string) {
+    setSelectedSerials((prev) =>
+      prev.includes(serial) ? prev.filter((s) => s !== serial) : [...prev, serial]
+    )
+  }
+
+  const filteredVehicleOptions = (vehicleOptions ?? []).filter((v) =>
+    v.label.toLowerCase().includes(vehicleFilter.trim().toLowerCase())
+  )
 
   function buildHref() {
     const path = format === "excel" && excelPath ? excelPath : exportPath
@@ -89,10 +107,13 @@ export default function ExportOptions({
       if (customTo) params.set("to", customTo)
     }
     params.set("scope", scope)
+    if (scope === "specific") params.set("serials", selectedSerials.join(","))
     return `${path}?${params.toString()}`
   }
 
   const customIncomplete = range === "custom" && (!customFrom || !customTo)
+  const noneSelected = scope === "specific" && selectedSerials.length === 0
+  const downloadBlocked = customIncomplete || noneSelected
 
   if (!open) {
     return (
@@ -198,6 +219,61 @@ export default function ExportOptions({
                 </button>
               ))}
             </div>
+
+            {scope === "specific" && vehicleOptions && (
+              <div className="mt-2 rounded-lg border border-gray-200 p-2">
+                <input
+                  type="text"
+                  value={vehicleFilter}
+                  onChange={(e) => setVehicleFilter(e.target.value)}
+                  placeholder="Filter by FL#…"
+                  className="mb-2 w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+                />
+                <div className="mb-1.5 flex items-center justify-between text-xs text-gray-500">
+                  <span>{selectedSerials.length} selected</span>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setSelectedSerials((prev) => [
+                          ...new Set([...prev, ...filteredVehicleOptions.map((v) => v.serial)]),
+                        ])
+                      }
+                      className="font-medium text-brand hover:underline"
+                    >
+                      Select {vehicleFilter ? "shown" : "all"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedSerials([])}
+                      className="font-medium text-gray-500 hover:underline"
+                    >
+                      Clear
+                    </button>
+                  </div>
+                </div>
+                <div className="max-h-40 space-y-0.5 overflow-y-auto">
+                  {filteredVehicleOptions.length === 0 ? (
+                    <p className="px-1 py-2 text-center text-xs text-gray-400">No vehicles match.</p>
+                  ) : (
+                    filteredVehicleOptions.map((v) => (
+                      <label
+                        key={v.serial}
+                        className="flex items-center gap-2 rounded-md px-1.5 py-1.5 text-sm text-gray-800 active:bg-gray-50"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedSerials.includes(v.serial)}
+                          onChange={() => toggleSerial(v.serial)}
+                          className="h-4 w-4 shrink-0 accent-brand"
+                        />
+                        <span className="truncate">{v.label}</span>
+                      </label>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
           </div>
 
           {showFormat && (
@@ -224,22 +300,29 @@ export default function ExportOptions({
           )}
         </div>
 
-        <a
-          href={customIncomplete ? undefined : buildHref()}
-          aria-disabled={customIncomplete}
-          onClick={(e) => {
-            if (customIncomplete) {
-              e.preventDefault()
-              return
-            }
-            setOpen(false)
-          }}
-          className={`mt-4 block shrink-0 rounded-lg py-3 text-center text-sm font-semibold text-white transition-transform duration-100 active:scale-95 ${
-            customIncomplete ? "cursor-not-allowed bg-gray-300" : "bg-brand active:bg-brand-dark"
-          }`}
-        >
-          Download {format === "excel" && showFormat ? "Excel" : "CSV"}
-        </a>
+        <div className="mt-4 shrink-0">
+          {noneSelected && (
+            <p className="mb-2 text-center text-xs text-gray-500">
+              Pick at least one vehicle above to enable download.
+            </p>
+          )}
+          <a
+            href={downloadBlocked ? undefined : buildHref()}
+            aria-disabled={downloadBlocked}
+            onClick={(e) => {
+              if (downloadBlocked) {
+                e.preventDefault()
+                return
+              }
+              setOpen(false)
+            }}
+            className={`block rounded-lg py-3 text-center text-sm font-semibold text-white transition-transform duration-100 active:scale-95 ${
+              downloadBlocked ? "cursor-not-allowed bg-gray-300" : "bg-brand active:bg-brand-dark"
+            }`}
+          >
+            Download {format === "excel" && showFormat ? "Excel" : "CSV"}
+          </a>
+        </div>
       </div>
     </div>
   )

@@ -16,12 +16,14 @@ export async function GET(request: NextRequest) {
   const scope = (params.get("scope") ?? "all") as ExportScope
   const customFrom = params.get("from")
   const customTo = params.get("to")
+  const serials = params.get("serials")?.split(",").filter(Boolean)
 
   const { inspections, todayKey, suffix } = await fetchInspectionsForExport({
     range,
     scope,
     customFrom,
     customTo,
+    serials,
   })
 
   const csv = buildInspectionsCsv(inspections)

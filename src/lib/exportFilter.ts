@@ -4,7 +4,7 @@ import { RETENTION_YEARS, buildRow, findAllOpenIssues } from "@/app/dashboard/in
 import { exportRangeStart, easternDateKey } from "@/lib/shifts"
 
 export type ExportRange = "all" | "week" | "month" | "custom"
-export type ExportScope = "all" | "open" | "resolved"
+export type ExportScope = "all" | "open" | "resolved" | "specific"
 
 const isValidDateKey = (v: string | null) => Boolean(v) && /^\d{4}-\d{2}-\d{2}$/.test(v!)
 
@@ -15,11 +15,16 @@ export async function fetchInspectionsForExport({
   scope,
   customFrom,
   customTo,
+  serials,
 }: {
   range: ExportRange
   scope: ExportScope
   customFrom: string | null
   customTo: string | null
+  // Only meaningful when scope === "specific" — the exact set of vehicles
+  // someone hand-picked, as opposed to "open"/"resolved" which are computed
+  // from each vehicle's own history below.
+  serials?: string[]
 }): Promise<{ inspections: Inspection[]; todayKey: string; suffix: string }> {
   const todayKey = easternDateKey(new Date())
 
@@ -46,7 +51,9 @@ export async function fetchInspectionsForExport({
   })
 
   let allowedSerials: Set<string> | null = null
-  if (scope !== "all") {
+  if (scope === "specific") {
+    allowedSerials = new Set(serials ?? [])
+  } else if (scope !== "all") {
     const bySerial = new Map<string, typeof allInspections>()
     for (const inspection of allInspections) {
       const list = bySerial.get(inspection.equipmentSerial)
