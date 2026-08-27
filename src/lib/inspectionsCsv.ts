@@ -1,9 +1,9 @@
 import type { Inspection } from "@/generated/prisma/client"
-import { QUESTIONS } from "@/lib/questions"
+import { QUESTIONS, REPAIR_REQUEST_ISSUE_ID } from "@/lib/questions"
 import { parseReview, getStage, criticalFlaggedIds, flaggedIssueIds } from "@/lib/review"
 import { FLEET_TIME_ZONE } from "@/lib/shifts"
 
-type Answers = Record<string, { value: string; specify?: string }>
+type Answers = Record<string, { value: string; specify?: string; note?: string }>
 
 // Raw createdAt.toISOString() reads as "2026-08-14T16:10:35.033Z" — millisecond
 // precision nobody needs, in UTC, disconnected from the Date/Shift columns
@@ -55,6 +55,7 @@ export function buildInspectionsCsv(inspections: Inspection[]): string {
     "Equipment",
     "Serial#",
     "Status",
+    "Repair Description",
     ...QUESTIONS.map((q) => `${q.number}. ${q.label}`),
     "Activity Log",
   ]
@@ -80,6 +81,15 @@ export function buildInspectionsCsv(inspections: Inspection[]): string {
       review.confirmedResolved,
       allFlaggedComplete
     )
+
+    // A Repair Request has no checklist — its whole point is the
+    // description of what's wrong, which lives in this answer's `note`
+    // (`value` is just the fixed string "Reported"). That description was
+    // previously dropped entirely: every checklist column below is blank
+    // for a Repair Request row, so without this a supervisor exporting to
+    // review repair requests would see rows with no indication of what's
+    // actually broken.
+    const repairDescription = answers[REPAIR_REQUEST_ISSUE_ID]?.note ?? ""
 
     const answerCells = QUESTIONS.map((q) => {
       const a = answers[q.id]
@@ -111,6 +121,7 @@ export function buildInspectionsCsv(inspections: Inspection[]): string {
       inspection.equipmentLabel,
       inspection.equipmentSerial,
       STAGE_LABEL[stage] ?? stage,
+      repairDescription,
       ...answerCells,
       activityLog,
     ])
