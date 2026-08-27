@@ -1,6 +1,6 @@
 "use client"
 
-import { useRef, useState, type ReactNode } from "react"
+import { useState, type ReactNode } from "react"
 import { useRouter } from "next/navigation"
 import { shiftDateKeyByDays } from "@/lib/shifts"
 import { shiftHasData } from "./actions"
@@ -21,7 +21,6 @@ export default function ShiftDateNav({
   statusChip: ReactNode
 }) {
   const router = useRouter()
-  const dateInputRef = useRef<HTMLInputElement>(null)
   const [checking, setChecking] = useState(false)
 
   async function goToDate(targetDateKey: string) {
@@ -75,50 +74,48 @@ export default function ShiftDateNav({
           >
             ‹
           </button>
-          {/* Both the icon and the date text open the same calendar picker —
-              two separate, explicit triggers (not an invisible input
-              overlaying either) so each one's own click reliably fires,
-              rather than one silently eating the other's clicks. */}
-          <button
-            type="button"
-            onClick={() => dateInputRef.current?.showPicker?.()}
-            disabled={checking}
-            aria-label="Pick a date"
-            className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-sm text-gray-400 transition-colors duration-100 hover:bg-gray-100 hover:text-gray-600 active:scale-90"
-          >
-            📅
-          </button>
-          <button
-            type="button"
-            onClick={() => dateInputRef.current?.showPicker?.()}
-            disabled={checking}
-            aria-label="Pick a date"
-            className="min-w-0 truncate rounded px-1.5 py-1 -mx-1.5 -my-1 text-sm font-semibold text-gray-700 transition-colors duration-100 hover:bg-gray-100 active:scale-95"
-          >
-            {/* Always shows one of these two words instead of the label
-                popping in and out — that was shifting how wide this whole
-                row measured out depending on which date was selected.
-                Hidden below sm: there wasn't room for it on a narrow phone
-                without squeezing the status chip on the right into
-                invisibility — a responsive hide is fine here since it's
-                tied to viewport width, not app state, so it can't cause
-                the same kind of jump. Truncates (rather than wrapping)
-                on a very narrow phone so it shrinks instead of pushing
-                into the status chip's space. */}
-            Daily Report · {dateLabel}
-            <span className="hidden text-gray-400 sm:inline"> ({isViewingLive ? "Today" : "Past"})</span>
-          </button>
-          <input
-            key={dateKey}
-            ref={dateInputRef}
-            type="date"
-            defaultValue={dateKey}
-            max={todayKey}
-            onChange={handlePick}
-            aria-hidden="true"
-            tabIndex={-1}
-            className="sr-only"
-          />
+          {/* The real date input sits directly on top of the icon+label
+              (an invisible, exact-size overlay), so a tap lands on the
+              actual native control instead of a JS `showPicker()` call
+              made from a separate button's onClick. showPicker() looked
+              fine in every test but turned out unreliable on a real phone
+              — the same class of "works in testing, not on iOS" gap this
+              app already hit once with a custom swipe gesture. A direct
+              tap on the real input is what a plain, unstyled date input
+              would get anyway, so there's no browser-specific behavior
+              left to depend on. */}
+          <div className="relative flex min-w-0 items-center gap-2">
+            <span
+              aria-hidden="true"
+              className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-sm text-gray-400"
+            >
+              📅
+            </span>
+            <span className="min-w-0 truncate rounded px-1.5 py-1 -mx-1.5 -my-1 text-sm font-semibold text-gray-700">
+              {/* Always shows one of these two words instead of the label
+                  popping in and out — that was shifting how wide this whole
+                  row measured out depending on which date was selected.
+                  Hidden below sm: there wasn't room for it on a narrow phone
+                  without squeezing the status chip on the right into
+                  invisibility — a responsive hide is fine here since it's
+                  tied to viewport width, not app state, so it can't cause
+                  the same kind of jump. Truncates (rather than wrapping)
+                  on a very narrow phone so it shrinks instead of pushing
+                  into the status chip's space. */}
+              Daily Report · {dateLabel}
+              <span className="hidden text-gray-400 sm:inline"> ({isViewingLive ? "Today" : "Past"})</span>
+            </span>
+            <input
+              key={dateKey}
+              type="date"
+              defaultValue={dateKey}
+              max={todayKey}
+              onChange={handlePick}
+              disabled={checking}
+              aria-label="Pick a date"
+              className="absolute inset-0 z-10 cursor-pointer opacity-0 disabled:cursor-default"
+            />
+          </div>
           {isViewingLive ? (
             <span
               aria-hidden="true"

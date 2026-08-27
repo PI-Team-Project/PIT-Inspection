@@ -331,7 +331,6 @@ export default function InspectionForm({
     setStep((s) => Math.max(s - 1, 0))
   }
 
-  const dateInputRef = useRef<HTMLInputElement>(null)
   const firstNameInputRef = useRef<HTMLInputElement>(null)
 
   // Each equipment pick (category → forklift type → color/make → FL#)
@@ -520,27 +519,31 @@ export default function InspectionForm({
           <p className="mb-5 text-sm text-gray-500">
             Let&apos;s get started — it only takes a couple of minutes.
           </p>
-          {/* The real <input type="date"> stays in the DOM (so its value
-              still submits with the form) but hidden — what's shown is a
-              button in a format we control, opening the same native picker.
-              See formatDateLabel above for why. */}
-          <button
-            type="button"
-            onClick={() => dateInputRef.current?.showPicker?.()}
-            className="block w-full max-w-full min-w-0 rounded-lg border border-gray-300 px-4 py-3 text-left text-base text-gray-900"
-          >
-            {formatDateLabel(values.date ?? "")}
-          </button>
-          <input
-            ref={dateInputRef}
-            type="date"
-            name="date"
-            value={values.date ?? ""}
-            onChange={(e) => set("date", e.target.value)}
-            required
-            aria-label="Inspection date"
-            className="sr-only"
-          />
+          {/* The real <input type="date"> sits directly on top of the
+              formatted label (an invisible, exact-size overlay) so a tap
+              lands on the actual native control — not a separate button
+              calling `showPicker()`. showPicker() looked fine in every
+              test but turned out unreliable on a real phone, the same
+              "works in testing, not on iOS" gap this app already hit once
+              with a custom swipe gesture. See formatDateLabel above for
+              why the label itself is still custom-formatted. */}
+          <div className="relative">
+            <div
+              aria-hidden="true"
+              className="block w-full max-w-full min-w-0 rounded-lg border border-gray-300 px-4 py-3 text-left text-base text-gray-900"
+            >
+              {formatDateLabel(values.date ?? "")}
+            </div>
+            <input
+              type="date"
+              name="date"
+              value={values.date ?? ""}
+              onChange={(e) => set("date", e.target.value)}
+              required
+              aria-label="Inspection date"
+              className="absolute inset-0 w-full cursor-pointer opacity-0"
+            />
+          </div>
         </div>
 
         {/* Name (last + first, one step, two sections) */}
