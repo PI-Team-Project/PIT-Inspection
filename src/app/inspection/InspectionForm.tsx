@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState, type TouchEvent as ReactTouchEvent } from "react"
+import { useEffect, useRef, useState, type FocusEvent as ReactFocusEvent } from "react"
 import { useFormStatus } from "react-dom"
 import NextImage from "next/image"
 import { submitInspection } from "./actions"
@@ -34,6 +34,24 @@ function formatEasternTime(date: Date) {
     minute: "2-digit",
     hour12: true,
   }).format(date)
+}
+
+// A native <input type="date">'s displayed value follows the DEVICE'S OWN
+// locale, not this app's — on a phone set to Korean (common for this
+// warehouse's workers), iOS renders a noticeably wider value than the
+// "mm/dd/yyyy" this was ever sized for, and the box just clips it instead
+// of reflowing. Formatting it ourselves, in one fixed format everyone gets
+// regardless of device locale, is what actually fixes that rather than
+// just guessing at more padding.
+function formatDateLabel(dateKey: string): string {
+  if (!dateKey) return "Select a date"
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone: "UTC",
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  }).format(new Date(`${dateKey}T00:00:00Z`))
 }
 
 function isHeicFile(file: File): boolean {
@@ -121,6 +139,29 @@ type StepDef =
   | { kind: "equipment" }
   | { kind: "locationCheck" }
   | { kind: "question"; question: Question }
+
+// The short label a back-swipe's live preview shows for "where you're
+// headed" — matches each step's own StepHeading text below.
+function stepTitle(s: StepDef): string {
+  switch (s.kind) {
+    case "date":
+      return "Inspection Date"
+    case "name":
+      return "Your Name"
+    case "inspectionType":
+      return "Inspection Type"
+    case "repairDetails":
+      return "Describe the Problem"
+    case "shift":
+      return "Shift"
+    case "equipment":
+      return "Equipment"
+    case "locationCheck":
+      return "Location Check"
+    case "question":
+      return `${s.question.number}. ${s.question.label}`
+  }
+}
 
 export default function InspectionForm({
   questions,
@@ -313,38 +354,159 @@ export default function InspectionForm({
     setStep((s) => Math.max(s - 1, 0))
   }
 
+  const dateInputRef = useRef<HTMLInputElement>(null)
+
+  // Each equipment pick (category → forklift type → color/make → FL#)
+  // reveals the next section right below it — on a small phone that new
+  // section routinely lands below the fold, so tapping the answer that was
+  // right in front of you can leave the next question invisible until you
+  // notice you need to scroll. Following each pick down fixes that the same
+  // way the Note textarea below needs to follow the keyboard up.
+  const equipmentTypeSectionRef = useRef<HTMLDivElement>(null)
+  const equipmentColorSectionRef = useRef<HTMLDivElement>(null)
+  const equipmentFlSectionRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (values.equipmentCategory) {
+      // "start" (not "nearest") so the whole new section — not just its
+      // top edge — has the best chance of landing inside what's left of
+      // the screen below the sticky header, since "nearest" is satisfied
+      // the instant any sliver of the section is visible, which was
+      // leaving the actual buttons still below the fold.
+      equipmentTypeSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
+    }
+  }, [values.equipmentCategory])
+
+  useEffect(() => {
+    if (values.equipmentType) {
+      equipmentColorSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
+    }
+  }, [values.equipmentType])
+
+  useEffect(() => {
+    if (values.equipmentMakeColor) {
+      equipmentFlSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
+    }
+  }, [values.equipmentMakeColor])
+
+  // Same idea for any text field — a focused input hidden behind the
+  // on-screen keyboard is what someone filling in the Note field (or any
+  // other text box) was running into. Delegated to one focus handler on the
+  // whole step area (via React's bubbling synthetic events) rather than
+  // wiring an onFocus onto every individual input/textarea in this form.
+  // The delay lets iOS finish animating the keyboard open first — scrolling
+  // immediately fights that animation and loses.
+  function handleContentFocus(e: ReactFocusEvent<HTMLDivElement>) {
+    const target = e.target
+    if (!(target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement)) return
+    if (target.type === "date" || target.type === "hidden" || target.type === "file") return
+    setTimeout(() => {
+      target.scrollIntoView({ behavior: "smooth", block: "center" })
+    }, 300)
+  }
   // A left swipe anywhere on the current question steps back, same as
   // tapping "← Back" — this is a form someone is filling in one-handed
   // while standing next to the forklift, so a thumb swipe is a lot easier
-  // to land than reaching for the small text link every time. Ignores
-  // touches that start inside a text field (selecting text there shouldn't
-  // double as page navigation) or inside the photo editor, which has its
-  // own pan/zoom drag gestures that would otherwise misfire this.
-  const swipeStart = useRef<{ x: number; y: number } | null>(null)
-  const SWIPE_BACK_THRESHOLD_PX = 60
+  // to land than reaching for the small text link every time. The current
+  // question and a preview of the one being swiped back to both follow the
+  // finger live (not "wait for release, then jump"), and committing the
+  // swipe never requires dragging the full width of the screen.
+  //
+  // Plain onTouchStart/onTouchEnd (the first version of this) wasn't
+  // reliable on a real phone: React attaches touch listeners as passive, so
+  // there's no way to stop the browser from also reading a slightly
+  // diagonal drag as a page scroll — and once it commits to that, iOS fires
+  // touchcancel instead of touchend and the gesture silently never
+  // completes. Attaching touchmove natively here (not passive) is what lets
+  // this call preventDefault() the instant a drag reads as horizontal,
+  // locking out that scroll takeover before it can start.
+  const contentRef = useRef<HTMLDivElement>(null)
+  const sliderRef = useRef<HTMLDivElement>(null)
+  const previewRef = useRef<HTMLDivElement>(null)
+  const dragRef = useRef<{
+    startX: number
+    startY: number
+    dx: number
+    lock: "horizontal" | "vertical" | null
+  } | null>(null)
+  const SWIPE_BACK_COMMIT_PX = 70
+  const SWIPE_LOCK_PX = 8
 
-  function handleContentTouchStart(e: ReactTouchEvent<HTMLDivElement>) {
-    const target = e.target as HTMLElement
-    if (target.closest("textarea, input, [data-swipe-ignore]")) {
-      swipeStart.current = null
-      return
+  useEffect(() => {
+    const el = contentRef.current
+    if (!el) return
+
+    function applyTransform(dx: number, live: boolean) {
+      const slider = sliderRef.current
+      const preview = previewRef.current
+      if (slider) {
+        slider.style.transition = live ? "none" : ""
+        slider.style.transform = dx ? `translateX(${dx}px)` : ""
+      }
+      if (preview) {
+        preview.style.transition = live ? "none" : ""
+        // Always set explicitly (never cleared to "") — Tailwind's
+        // translate-x-full utility (its own `translate` CSS property, not
+        // `transform`) would otherwise compose ON TOP of this rather than
+        // being overridden by it, doubling the offset. Setting it here at
+        // every rest and every drag tick keeps this the single source of
+        // truth for the preview panel's position.
+        preview.style.transform = `translateX(calc(100% + ${dx}px))`
+      }
     }
-    const t = e.touches[0]
-    swipeStart.current = { x: t.clientX, y: t.clientY }
-  }
 
-  function handleContentTouchEnd(e: ReactTouchEvent<HTMLDivElement>) {
-    const start = swipeStart.current
-    swipeStart.current = null
-    if (!start || step === 0) return
-    const t = e.changedTouches[0]
-    const dx = t.clientX - start.x
-    const dy = t.clientY - start.y
-    // Leftward and mostly horizontal — a vertical scroll through a long
-    // question shouldn't be mistaken for "go back."
-    if (dx > -SWIPE_BACK_THRESHOLD_PX || Math.abs(dx) < Math.abs(dy) * 1.5) return
-    handleBack()
-  }
+    function onTouchStart(e: TouchEvent) {
+      const target = e.target as HTMLElement
+      if (step === 0 || target.closest("textarea, input, [data-swipe-ignore]")) {
+        dragRef.current = null
+        return
+      }
+      const t = e.touches[0]
+      dragRef.current = { startX: t.clientX, startY: t.clientY, dx: 0, lock: null }
+    }
+
+    function onTouchMove(e: TouchEvent) {
+      const drag = dragRef.current
+      if (!drag) return
+      const t = e.touches[0]
+      const dx = t.clientX - drag.startX
+      const dy = t.clientY - drag.startY
+
+      if (drag.lock === null) {
+        if (Math.abs(dx) < SWIPE_LOCK_PX && Math.abs(dy) < SWIPE_LOCK_PX) return
+        // Mostly vertical — this is a scroll, not a back-swipe. Let go and
+        // leave the native scroll alone.
+        drag.lock = Math.abs(dx) > Math.abs(dy) * 1.2 ? "horizontal" : "vertical"
+        if (drag.lock === "vertical") {
+          dragRef.current = null
+          return
+        }
+      }
+
+      e.preventDefault()
+      drag.dx = Math.min(0, dx)
+      applyTransform(drag.dx, true)
+    }
+
+    function onTouchEnd() {
+      const drag = dragRef.current
+      dragRef.current = null
+      if (!drag || drag.lock !== "horizontal") return
+      if (drag.dx <= -SWIPE_BACK_COMMIT_PX) handleBack()
+      applyTransform(0, false)
+    }
+
+    el.addEventListener("touchstart", onTouchStart, { passive: true })
+    el.addEventListener("touchmove", onTouchMove, { passive: false })
+    el.addEventListener("touchend", onTouchEnd, { passive: true })
+    el.addEventListener("touchcancel", onTouchEnd, { passive: true })
+    return () => {
+      el.removeEventListener("touchstart", onTouchStart)
+      el.removeEventListener("touchmove", onTouchMove)
+      el.removeEventListener("touchend", onTouchEnd)
+      el.removeEventListener("touchcancel", onTouchEnd)
+    }
+  }, [step])
 
   const errorBanner = submitError && (
     <div className="mx-4 mt-4 flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-800">
@@ -430,24 +592,34 @@ export default function InspectionForm({
         )}
       </div>
 
-      <div
-        className="flex-1 px-4 pt-6 pb-6"
-        onTouchStart={handleContentTouchStart}
-        onTouchEnd={handleContentTouchEnd}
-      >
+      <div ref={contentRef} className="relative flex-1 overflow-hidden" onFocus={handleContentFocus}>
+        <div ref={sliderRef} className="px-4 pt-6 pb-6 transition-transform duration-200 ease-out">
         {/* Date */}
         <div hidden={current.kind !== "date"}>
           <StepHeading text="Inspection Date" />
           <p className="mb-5 text-sm text-gray-500">
             Let&apos;s get started — it only takes a couple of minutes.
           </p>
+          {/* The real <input type="date"> stays in the DOM (so its value
+              still submits with the form) but hidden — what's shown is a
+              button in a format we control, opening the same native picker.
+              See formatDateLabel above for why. */}
+          <button
+            type="button"
+            onClick={() => dateInputRef.current?.showPicker?.()}
+            className="block w-full max-w-full min-w-0 rounded-lg border border-gray-300 px-4 py-3 text-left text-base text-gray-900"
+          >
+            {formatDateLabel(values.date ?? "")}
+          </button>
           <input
+            ref={dateInputRef}
             type="date"
             name="date"
             value={values.date ?? ""}
             onChange={(e) => set("date", e.target.value)}
             required
-            className="block w-full max-w-full min-w-0 rounded-lg border border-gray-300 px-4 py-3 text-base"
+            aria-label="Inspection date"
+            className="sr-only"
           />
         </div>
 
@@ -710,7 +882,7 @@ export default function InspectionForm({
           </div>
 
           {values.equipmentCategory === "Forklift" && (
-            <div className="mt-4">
+            <div ref={equipmentTypeSectionRef} className="mt-4">
               <p className="mb-2 text-sm font-medium text-gray-700">
                 Select forklift type
               </p>
@@ -752,7 +924,7 @@ export default function InspectionForm({
           )}
 
           {values.equipmentType && (
-            <div className="mt-4">
+            <div ref={equipmentColorSectionRef} className="mt-4">
               <p className="mb-2 text-sm font-medium text-gray-700">
                 Select color / make
               </p>
@@ -800,7 +972,7 @@ export default function InspectionForm({
           )}
 
           {values.equipmentMakeColor && (
-            <div className="mt-4">
+            <div ref={equipmentFlSectionRef} className="mt-4">
               <label className="mb-2 block text-sm font-medium text-gray-700">
                 FL#
               </label>
@@ -1089,6 +1261,30 @@ export default function InspectionForm({
             )}
           </div>
         ))}
+        </div>
+
+        {/* A lightweight, read-only preview — not a duplicate of the real
+            form fields on the previous step (that would mean two elements
+            sharing the same `name`, corrupting the submitted FormData) —
+            just enough to show where a back-swipe is headed while it's still
+            in progress. Parked off-screen via its own transform (kept in
+            sync with the slider above) whenever nothing's being dragged. */}
+        {step > 0 && (
+          <div
+            ref={previewRef}
+            aria-hidden="true"
+            // The resting position is set via the `transform` property here
+            // (not Tailwind's translate-x-full utility) deliberately — that
+            // utility applies to the separate `translate` CSS property,
+            // which COMPOSES with `transform` instead of being overridden by
+            // it, so the two together were doubling the drag's live offset.
+            style={{ transform: "translateX(100%)" }}
+            className="pointer-events-none absolute inset-0 flex flex-col justify-center bg-white px-4 transition-transform duration-200 ease-out"
+          >
+            <p className="text-xs font-medium text-gray-400">← Back to</p>
+            <p className="mt-1 text-lg font-bold text-gray-900">{stepTitle(steps[step - 1])}</p>
+          </div>
+        )}
       </div>
 
       <div className="sticky bottom-0 z-10 border-t border-gray-100 bg-white px-4 py-4">
@@ -1563,7 +1759,13 @@ function PhotoEditorModal({
     <div data-swipe-ignore className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
       <div className="w-full max-w-xs rounded-lg bg-white p-4">
         <div
-          className="relative mx-auto touch-none overflow-hidden rounded-lg bg-gray-100"
+          // Drawing with the pen tool is a long, deliberate finger-drag right
+          // on top of an <img>/<canvas> — exactly what iOS reads as "select
+          // this content" and answers with the blue selection highlight +
+          // Copy/Look Up callout. touch-none alone (touch-action) stops the
+          // browser from panning/zooming here, but doesn't stop that
+          // selection callout, which needs these two properties explicitly.
+          className="relative mx-auto touch-none [-webkit-touch-callout:none] [-webkit-user-select:none] select-none overflow-hidden rounded-lg bg-gray-100"
           style={{ width: VIEWPORT, height: VIEWPORT }}
           onPointerDown={tool === "crop" ? handleCropPointerDown : handleDrawPointerDown}
           onPointerMove={tool === "crop" ? handleCropPointerMove : handleDrawPointerMove}
