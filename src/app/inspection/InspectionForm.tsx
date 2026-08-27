@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useRef, useState, type TouchEvent as ReactTouchEvent } from "react"
 import { useFormStatus } from "react-dom"
 import NextImage from "next/image"
 import { submitInspection } from "./actions"
@@ -313,6 +313,39 @@ export default function InspectionForm({
     setStep((s) => Math.max(s - 1, 0))
   }
 
+  // A left swipe anywhere on the current question steps back, same as
+  // tapping "← Back" — this is a form someone is filling in one-handed
+  // while standing next to the forklift, so a thumb swipe is a lot easier
+  // to land than reaching for the small text link every time. Ignores
+  // touches that start inside a text field (selecting text there shouldn't
+  // double as page navigation) or inside the photo editor, which has its
+  // own pan/zoom drag gestures that would otherwise misfire this.
+  const swipeStart = useRef<{ x: number; y: number } | null>(null)
+  const SWIPE_BACK_THRESHOLD_PX = 60
+
+  function handleContentTouchStart(e: ReactTouchEvent<HTMLDivElement>) {
+    const target = e.target as HTMLElement
+    if (target.closest("textarea, input, [data-swipe-ignore]")) {
+      swipeStart.current = null
+      return
+    }
+    const t = e.touches[0]
+    swipeStart.current = { x: t.clientX, y: t.clientY }
+  }
+
+  function handleContentTouchEnd(e: ReactTouchEvent<HTMLDivElement>) {
+    const start = swipeStart.current
+    swipeStart.current = null
+    if (!start || step === 0) return
+    const t = e.changedTouches[0]
+    const dx = t.clientX - start.x
+    const dy = t.clientY - start.y
+    // Leftward and mostly horizontal — a vertical scroll through a long
+    // question shouldn't be mistaken for "go back."
+    if (dx > -SWIPE_BACK_THRESHOLD_PX || Math.abs(dx) < Math.abs(dy) * 1.5) return
+    handleBack()
+  }
+
   const errorBanner = submitError && (
     <div className="mx-4 mt-4 flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-800">
       <span className="flex-1">{submitError}</span>
@@ -397,7 +430,11 @@ export default function InspectionForm({
         )}
       </div>
 
-      <div className="flex-1 px-4 pt-6 pb-6">
+      <div
+        className="flex-1 px-4 pt-6 pb-6"
+        onTouchStart={handleContentTouchStart}
+        onTouchEnd={handleContentTouchEnd}
+      >
         {/* Date */}
         <div hidden={current.kind !== "date"}>
           <StepHeading text="Inspection Date" />
@@ -1523,7 +1560,7 @@ function PhotoEditorModal({
     "flex h-7 w-7 items-center justify-center rounded-full bg-black/55 text-white transition-transform duration-100 active:scale-90 disabled:opacity-30"
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+    <div data-swipe-ignore className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
       <div className="w-full max-w-xs rounded-lg bg-white p-4">
         <div
           className="relative mx-auto touch-none overflow-hidden rounded-lg bg-gray-100"
