@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 
 type DateRange = "all" | "week" | "month" | "custom"
 type Scope = "all" | "open" | "resolved" | "specific"
@@ -79,6 +79,19 @@ export default function ExportOptions({
   const [format, setFormat] = useState<Format>("csv")
   const [selectedSerials, setSelectedSerials] = useState<string[]>([])
   const [vehicleFilter, setVehicleFilter] = useState("")
+  const checklistRef = useRef<HTMLDivElement>(null)
+
+  // Picking "Specific Vehicles" reveals the checklist right below the
+  // scope buttons that were just tapped — on a phone that new section
+  // routinely lands below the modal's own scrollable area (the same class
+  // of "reveals more content, nothing scrolls it into view" gap already
+  // fixed once for the inspection form's equipment picker), so without
+  // this it looked like the scope choice did nothing at all.
+  useEffect(() => {
+    if (scope === "specific") {
+      checklistRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" })
+    }
+  }, [scope])
 
   const isVehicleExport = Boolean(vehicleLabel)
   const showFormat = Boolean(excelPath)
@@ -221,7 +234,7 @@ export default function ExportOptions({
             </div>
 
             {scope === "specific" && vehicleOptions && (
-              <div className="mt-2 rounded-lg border border-gray-200 p-2">
+              <div ref={checklistRef} className="mt-2 rounded-lg border border-gray-200 p-2">
                 <input
                   type="text"
                   value={vehicleFilter}
