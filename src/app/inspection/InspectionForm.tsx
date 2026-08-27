@@ -202,21 +202,19 @@ export default function InspectionForm({
   const [photoPreviews, setPhotoPreviews] = useState<
     Record<string, (string | null)[]>
   >({})
-  const [photoNotes, setPhotoNotes] = useState<Record<string, string[]>>({})
 
   // Skipped while a draft is awaiting Resume/Start Over so the fresh blank
   // state doesn't overwrite the very draft being offered.
   useEffect(() => {
     if (!draftChecked || pendingDraft) return
-    saveInspectionDraft({ values, step, photoNotes, savedAt: new Date().toISOString() })
-  }, [values, step, photoNotes, draftChecked, pendingDraft])
+    saveInspectionDraft({ values, step, savedAt: new Date().toISOString() })
+  }, [values, step, draftChecked, pendingDraft])
 
   function resumeDraft() {
     if (!pendingDraft) return
     setValues(pendingDraft.values)
     setMissingFieldNudge(false)
     setStep(pendingDraft.step)
-    setPhotoNotes(pendingDraft.photoNotes)
     setLoadedDraft(null)
   }
 
@@ -263,14 +261,6 @@ export default function InspectionForm({
     })
   }
 
-  function setPhotoNote(questionId: string, index: number, note: string) {
-    setPhotoNotes((prev) => {
-      const slots = [...(prev[questionId] ?? [])]
-      slots[index] = note
-      return { ...prev, [questionId]: slots }
-    })
-  }
-
   function stepIsAnswered(s: StepDef): boolean {
     if (s.kind === "date") return Boolean(values.date)
     if (s.kind === "name")
@@ -292,46 +282,26 @@ export default function InspectionForm({
     }
     const v = values[s.question.id]
     if (!v) return false
-    const isOther = v.startsWith("Other")
     // A flagged item with no documentation defeats the point of flagging it —
-    // photos stay optional, but some explanation is required, same principle
-    // as the Repair Request flow already requiring at least one photo. For
-    // "Other" specifically, either the small "Please Specify" field or the
-    // bigger Note field below satisfies it — people naturally reach for
-    // whichever one they see first (often Note, since it's the one that
-    // actually invites detail), and requiring one specific field over the
-    // other just meant an answer typed in the "wrong" box silently didn't
-    // count, with no obvious reason why.
-    const hasSpecify = Boolean(values[`${s.question.id}_specify`]?.trim())
-    const hasNote = Boolean(values[`${s.question.id}_note`]?.trim())
-    if (isOther && !hasSpecify && !hasNote) return false
-    if (needsAttention(v) && !isOther && !hasNote) return false
+    // photos stay optional, but a note is required, same principle as the
+    // Repair Request flow already requiring at least one photo. One rule for
+    // every bad answer including "Other" — there used to be a separate
+    // "Please Specify" field just for Other, but that meant two boxes doing
+    // the same job, and whichever one someone didn't happen to fill in
+    // silently blocked them with no obvious reason why.
+    if (needsAttention(v) && !values[`${s.question.id}_note`]?.trim()) return false
     return true
   }
 
   const canAdvance = stepIsAnswered(current)
   const currentAnswer = current.kind === "question" ? values[current.question.id] : undefined
   const currentQuestionId = current.kind === "question" ? current.question.id : undefined
-  const currentIsOther = Boolean(currentAnswer?.startsWith("Other"))
-  const currentHasSpecify = Boolean(values[`${currentQuestionId}_specify`]?.trim())
-  const currentHasNote = Boolean(values[`${currentQuestionId}_note`]?.trim())
-  // For "Other", either field satisfies the requirement, so both get the
-  // same nudge together (fill in whichever one) and both clear the instant
-  // either one has text — rather than pointing at one specific field as
-  // "the" required one when it isn't.
-  const otherExplanationMissing =
-    missingFieldNudge &&
-    current.kind === "question" &&
-    currentIsOther &&
-    !currentHasSpecify &&
-    !currentHasNote
   const noteMissing =
     missingFieldNudge &&
     current.kind === "question" &&
     Boolean(currentAnswer) &&
     needsAttention(currentAnswer ?? "") &&
-    (currentIsOther ? otherExplanationMissing : !currentHasNote)
-  const specifyMissing = otherExplanationMissing
+    !values[`${currentQuestionId}_note`]?.trim()
   const showContinue =
     !isLast &&
     (current.kind === "date" ||
@@ -573,16 +543,12 @@ export default function InspectionForm({
                 {Array.from({ length: REPAIR_REQUEST_PHOTO_SLOTS }, (_, i) => (
                   <PhotoSlot
                     key={i}
+                    number={i + 1}
                     name={`repairRequest_photo_${i}`}
                     preview={photoPreviews[REPAIR_REQUEST_ISSUE_ID]?.[i] ?? null}
                     onChange={(file) =>
                       setPhotoPreview(REPAIR_REQUEST_ISSUE_ID, i, file)
                     }
-                    note={photoNotes[REPAIR_REQUEST_ISSUE_ID]?.[i] ?? ""}
-                    onNoteChange={(note) =>
-                      setPhotoNote(REPAIR_REQUEST_ISSUE_ID, i, note)
-                    }
-                    noteFieldName={`repairRequest_photo_note_${i}`}
                   />
                 ))}
               </div>
@@ -1053,20 +1019,6 @@ export default function InspectionForm({
                 )
               })}
             </div>
-            {values[q.id]?.startsWith("Other") && (
-              <input
-                type="text"
-                name={`${q.id}_specify`}
-                value={values[`${q.id}_specify`] ?? ""}
-                onChange={(e) => set(`${q.id}_specify`, e.target.value)}
-                placeholder="Please specify"
-                className={`mt-2 w-full rounded-lg border px-4 py-3 text-base ${
-                  specifyMissing && q.id === currentQuestionId
-                    ? "border-red-400 placeholder:text-red-800"
-                    : "border-gray-300"
-                }`}
-              />
-            )}
             {Boolean(values[q.id]) && needsAttention(values[q.id]) && (
               <div className="mt-4 space-y-3">
                 <div>
@@ -1077,12 +1029,10 @@ export default function InspectionForm({
                     {Array.from({ length: CHECKLIST_PHOTO_SLOTS }, (_, i) => (
                       <PhotoSlot
                         key={i}
+                        number={i + 1}
                         name={`${q.id}_photo_${i}`}
                         preview={photoPreviews[q.id]?.[i] ?? null}
                         onChange={(file) => setPhotoPreview(q.id, i, file)}
-                        note={photoNotes[q.id]?.[i] ?? ""}
-                        onNoteChange={(note) => setPhotoNote(q.id, i, note)}
-                        noteFieldName={`${q.id}_photo_note_${i}`}
                       />
                     ))}
                   </div>
@@ -1202,22 +1152,21 @@ function CropIcon({ className }: { className?: string }) {
 // <input> itself (via setInputFiles) so the native form submission picks
 // up the processed version rather than the raw picked file.
 // Every photo upload in the app (checklist answers and Repair Request
-// alike) goes through this one slot, so crop/highlight/notes/undo-redo
-// behave identically everywhere rather than varying by section.
+// alike) goes through this one slot, so crop/highlight/undo-redo behave
+// identically everywhere rather than varying by section. Each slot shows
+// its own number (1-4) at all times, not just once a photo's attached —
+// that's how someone points at a specific photo from the one shared Note
+// field ("see photo 2") instead of needing a caption on every photo.
 function PhotoSlot({
+  number,
   name,
   preview,
   onChange,
-  note,
-  onNoteChange,
-  noteFieldName,
 }: {
+  number: number
   name: string
   preview: string | null
   onChange: (file: File | null) => void
-  note: string
-  onNoteChange: (note: string) => void
-  noteFieldName: string
 }) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [busy, setBusy] = useState(false)
@@ -1248,13 +1197,11 @@ function PhotoSlot({
     e.preventDefault()
     setInputFiles(inputRef.current, null)
     onChange(null)
-    onNoteChange("")
   }
 
-  function handleEditApply(file: File, newNote: string) {
+  function handleEditApply(file: File) {
     setInputFiles(inputRef.current, file)
     onChange(file)
-    onNoteChange(newNote)
     setEditing(false)
     setPendingSrc(null)
   }
@@ -1292,6 +1239,15 @@ function PhotoSlot({
         )}
       </label>
 
+      <span
+        aria-hidden="true"
+        className={`pointer-events-none absolute top-1 left-1 flex h-4 w-4 items-center justify-center rounded-full text-[10px] font-bold ${
+          preview ? "bg-black/60 text-white" : "bg-gray-200 text-gray-500"
+        }`}
+      >
+        {number}
+      </span>
+
       {preview && !busy && (
         <>
           <button
@@ -1319,27 +1275,12 @@ function PhotoSlot({
           >
             <CropIcon className="h-3 w-3" />
           </button>
-          {note && (
-            <span
-              title={note}
-              className="absolute bottom-1 left-1 flex h-4 w-4 items-center justify-center rounded-full bg-brand text-[9px] font-bold text-white"
-            >
-              i
-            </span>
-          )}
         </>
       )}
 
       {editing && editorSrc && (
-        <PhotoEditorModal
-          src={editorSrc}
-          note={note}
-          onCancel={handleEditCancel}
-          onApply={handleEditApply}
-        />
+        <PhotoEditorModal src={editorSrc} onCancel={handleEditCancel} onApply={handleEditApply} />
       )}
-
-      <input type="hidden" name={noteFieldName} value={note} />
     </div>
   )
 }
@@ -1391,14 +1332,12 @@ function loadDataUrlIntoCanvas(canvas: HTMLCanvasElement, dataUrl: string) {
 // capped at 10 like a normal editor's history.
 function PhotoEditorModal({
   src,
-  note,
   onCancel,
   onApply,
 }: {
   src: string
-  note: string
   onCancel: () => void
-  onApply: (file: File, note: string) => void
+  onApply: (file: File) => void
 }) {
   const VIEWPORT = 280
   const imgRef = useRef<HTMLImageElement>(null)
@@ -1410,7 +1349,6 @@ function PhotoEditorModal({
   const [penColor, setPenColor] = useState<keyof typeof HIGHLIGHT_COLORS | "eraser">(
     "red"
   )
-  const [noteText, setNoteText] = useState(note)
   const [history, setHistory] = useState<{ stack: EditSnapshot[]; index: number }>({
     stack: [],
     index: -1,
@@ -1582,7 +1520,7 @@ function PhotoEditorModal({
     }
     canvas.toBlob(
       (blob) => {
-        if (blob) onApply(new File([blob], "photo.jpg", { type: "image/jpeg" }), noteText)
+        if (blob) onApply(new File([blob], "photo.jpg", { type: "image/jpeg" }))
       },
       "image/jpeg",
       0.9
@@ -1717,20 +1655,6 @@ function PhotoEditorModal({
             </button>
           </div>
         )}
-
-        <div className="mt-4">
-          <label htmlFor="photo-editor-note" className="mb-1 block text-xs font-medium text-gray-700">
-            Note (optional)
-          </label>
-          <textarea
-            id="photo-editor-note"
-            value={noteText}
-            onChange={(e) => setNoteText(e.target.value)}
-            rows={2}
-            placeholder="Add detail about this photo"
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-base"
-          />
-        </div>
 
         <div className="mt-4 flex gap-2">
           <button

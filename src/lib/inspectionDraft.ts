@@ -8,7 +8,6 @@
 export type InspectionDraft = {
   values: Record<string, string>
   step: number
-  photoNotes: Record<string, string[]>
   savedAt: string
 }
 

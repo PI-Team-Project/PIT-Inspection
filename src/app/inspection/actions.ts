@@ -5,7 +5,6 @@ import sharp from "sharp"
 import { prisma } from "@/lib/prisma"
 import {
   QUESTIONS,
-  needsSpecify,
   needsAttention,
   REPAIR_REQUEST_ISSUE_ID,
   REPAIR_REQUEST_PHOTO_SLOTS,
@@ -101,13 +100,7 @@ export async function submitInspection(formData: FormData) {
       const file = formData.get(`repairRequest_photo_${i}`)
       if (file instanceof File && file.size > 0) {
         const [uri] = await filesToDataUris([file])
-        const note = String(formData.get(`repairRequest_photo_note_${i}`) ?? "").trim()
-        photoRecords.push({
-          questionId: REPAIR_REQUEST_ISSUE_ID,
-          order: i,
-          dataUri: uri,
-          ...(note ? { note } : {}),
-        })
+        photoRecords.push({ questionId: REPAIR_REQUEST_ISSUE_ID, order: i, dataUri: uri })
       }
     }
     answers[REPAIR_REQUEST_ISSUE_ID] = {
@@ -122,9 +115,6 @@ export async function submitInspection(formData: FormData) {
         specify?: string
         note?: string
       } = { value }
-      if (needsSpecify(value)) {
-        entry.specify = String(formData.get(`${q.id}_specify`) ?? "")
-      }
       if (needsAttention(value)) {
         const note = String(formData.get(`${q.id}_note`) ?? "").trim()
         if (note) entry.note = note
@@ -133,13 +123,7 @@ export async function submitInspection(formData: FormData) {
           const file = formData.get(`${q.id}_photo_${i}`)
           if (file instanceof File && file.size > 0) {
             const [uri] = await filesToDataUris([file])
-            const photoNote = String(formData.get(`${q.id}_photo_note_${i}`) ?? "").trim()
-            photoRecords.push({
-              questionId: q.id,
-              order: i,
-              dataUri: uri,
-              ...(photoNote ? { note: photoNote } : {}),
-            })
+            photoRecords.push({ questionId: q.id, order: i, dataUri: uri })
           }
         }
       }
