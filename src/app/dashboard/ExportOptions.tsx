@@ -39,11 +39,17 @@ export default function ExportOptions({
   exportPath,
   excelPath,
   showScope,
+  vehicleLabel,
   triggerClassName = DEFAULT_TRIGGER_CLASS,
 }: {
   exportPath: string
   excelPath?: string
   showScope: boolean
+  // The FL# to name in the trigger/heading on a single-vehicle export (this
+  // page's equipment) — without it, "Export CSV" reads identically to the
+  // fleet-wide export elsewhere, so there's nothing telling someone this
+  // button only ever covers the one vehicle they're already looking at.
+  vehicleLabel?: string
   triggerClassName?: string
 }) {
   const [open, setOpen] = useState(false)
@@ -54,7 +60,11 @@ export default function ExportOptions({
   const [format, setFormat] = useState<Format>("csv")
 
   const showFormat = showScope && Boolean(excelPath)
-  const triggerLabel = showFormat ? "Export" : "Export CSV"
+  const triggerLabel = showFormat
+    ? "Export"
+    : vehicleLabel
+      ? `Export ${vehicleLabel} Only`
+      : "Export CSV"
 
   function buildHref() {
     const path = format === "excel" && excelPath ? excelPath : exportPath
@@ -84,10 +94,16 @@ export default function ExportOptions({
       onClick={() => setOpen(false)}
     >
       <div
-        className="w-full max-w-sm rounded-t-2xl bg-white p-4 sm:rounded-2xl"
+        // Without a height cap, a shorter desktop window (a laptop with
+        // browser chrome eating vertical space, a non-maximized window) let
+        // this grow taller than the viewport with no way to scroll to what
+        // overflowed — including the Download button itself. max-h + its
+        // own overflow-y-auto means IT scrolls internally instead of
+        // silently extending past the screen.
+        className="flex max-h-[85vh] w-full max-w-sm flex-col rounded-t-2xl bg-white p-4 sm:rounded-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="mb-3 flex items-center justify-between">
+        <div className="mb-3 flex shrink-0 items-center justify-between">
           <h3 className="text-base font-bold text-gray-900">{triggerLabel}</h3>
           <button
             type="button"
@@ -101,7 +117,10 @@ export default function ExportOptions({
           </button>
         </div>
 
-        <div className="space-y-4">
+        {/* Only the option groups scroll — the Download button below stays
+            pinned in view no matter how tall this list gets, so it's never
+            the part that ends up needing a scroll to reach. */}
+        <div className="space-y-4 overflow-y-auto">
           <div>
             <p className="mb-1.5 text-xs font-semibold text-gray-500">Date Range</p>
             <div className="grid grid-cols-2 gap-1.5">
@@ -189,24 +208,24 @@ export default function ExportOptions({
               </div>
             </div>
           )}
-
-          <a
-            href={customIncomplete ? undefined : buildHref()}
-            aria-disabled={customIncomplete}
-            onClick={(e) => {
-              if (customIncomplete) {
-                e.preventDefault()
-                return
-              }
-              setOpen(false)
-            }}
-            className={`block rounded-lg py-3 text-center text-sm font-semibold text-white transition-transform duration-100 active:scale-95 ${
-              customIncomplete ? "cursor-not-allowed bg-gray-300" : "bg-brand active:bg-brand-dark"
-            }`}
-          >
-            Download {format === "excel" && showFormat ? "Excel" : "CSV"}
-          </a>
         </div>
+
+        <a
+          href={customIncomplete ? undefined : buildHref()}
+          aria-disabled={customIncomplete}
+          onClick={(e) => {
+            if (customIncomplete) {
+              e.preventDefault()
+              return
+            }
+            setOpen(false)
+          }}
+          className={`mt-4 block shrink-0 rounded-lg py-3 text-center text-sm font-semibold text-white transition-transform duration-100 active:scale-95 ${
+            customIncomplete ? "cursor-not-allowed bg-gray-300" : "bg-brand active:bg-brand-dark"
+          }`}
+        >
+          Download {format === "excel" && showFormat ? "Excel" : "CSV"}
+        </a>
       </div>
     </div>
   )
