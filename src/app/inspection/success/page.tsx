@@ -22,7 +22,11 @@ export default function InspectionSuccessPage() {
 
   return (
     <main className="mx-auto flex w-full max-w-lg flex-col items-center px-4 py-24 text-center">
-      <div className="text-6xl">🚜</div>
+      {/* Not a vehicle-specific icon on purpose — this same page follows
+          both a Forklift and a Pallet Jack submission, so anything more
+          specific than a plain checkmark would be the wrong equipment for
+          half of the people who land here. */}
+      <div className="text-6xl">✅</div>
       <h1 className="mt-4 text-2xl font-bold text-gray-900">
         Thank you for your submission!
       </h1>
