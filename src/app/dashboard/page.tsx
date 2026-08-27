@@ -23,6 +23,7 @@ import StatusDot from "./StatusDot"
 import EquipmentSearch from "./EquipmentSearch"
 import EquipmentBrowser from "./EquipmentBrowser"
 import ShiftDateNav from "./ShiftDateNav"
+import ShiftSwipeArea from "./ShiftSwipeArea"
 import WeeklyReport from "./WeeklyReport"
 import ExportOptions from "./ExportOptions"
 import {
@@ -434,94 +435,96 @@ function ShiftOverview({
   const dateKey = easternDateKey(shiftWindow.start)
 
   return (
-    <div>
-      <ShiftDateNav
-        dateKey={dateKey}
-        todayKey={todayKey}
-        label={shiftWindow.label as "Day" | "Night"}
-        dateLabel={dateLabel}
-        isViewingLive={isViewingLive}
-        statusChip={statusChip}
-      />
-      {/* One long box divided in two by a single border, not a box nested
-          inside a box — the outer frame plus a separately-boxed selected
-          pill was the same "double boxing" look already fixed elsewhere on
-          this page. */}
-      <div className="mb-2 flex overflow-hidden rounded-md border border-gray-200 text-sm font-medium">
-        {(["Day", "Night"] as const).map((label, i) => {
-          const selected = selectedShiftLabel === label
-          const isLive = currentShiftLabel === label
-          const href = dateParam
-            ? `/dashboard?shift=${label.toLowerCase()}&date=${dateParam}`
-            : `/dashboard?shift=${label.toLowerCase()}`
-          return (
-            <Link
-              key={label}
-              href={href}
-              scroll={false}
-              className={`flex flex-1 items-center justify-center gap-1.5 py-1 text-center transition-colors duration-100 active:scale-95 ${
-                i === 0 ? "border-r border-gray-200" : ""
-              } ${selected ? "bg-brand font-semibold text-white" : "text-gray-500"}`}
-            >
-              {label} ({label === "Day" ? "5am–5pm" : "5pm–5am"})
-              {isLive && (
-                <span className="animate-[status-blink_3s_ease-in-out_infinite]"> · Now</span>
-              )}
-            </Link>
-          )
-        })}
-      </div>
-      {/* One grid instead of two separate colored boxes — inspected or not
-          is a style on the same tile, not which box you're in, so
-          switching Day/Night just changes which tiles are filled in
-          rather than swapping between two differently-shaped panels. No
-          per-tile border box beyond the grid gap itself (each tile is
-          already the tap target), and no status icon — this view is
-          deliberately binary (done vs. not), not the full red/amber/green
-          breakdown the vehicle detail page already shows. Not-inspected
-          tiles sort first since they're the actionable ones. The legend
-          is two separate grid items appended after the tiles (not a
-          standalone row) so it drops into whatever empty cells are left
-          over in the last row instead of costing its own line — falls to
-          its own row gracefully if the fleet count ever divides evenly
-          into 3 with no empty cells left. */}
-      <div className="mt-1.5 grid grid-cols-[repeat(3,minmax(0,1fr))] gap-1">
-        {shiftRows.map((row) => {
-          const done = checkedThisShift(row)
-          return (
-            <Link
-              key={row.equipment.serial}
-              href={`/dashboard/equipment/${row.equipment.serial}`}
-              className={`truncate rounded-md px-1 py-1 text-center text-sm font-medium transition-colors duration-100 active:scale-95 ${
-                done
-                  ? "bg-green-100 text-green-700"
-                  : "border border-gray-200 bg-white text-gray-600"
-              }`}
-            >
-              {row.equipment.flNumber}
-            </Link>
-          )
-        })}
-        {/* Both together in one cell, pinned to the last column — side by
-            side in separate cells read like they were labeling those
-            specific columns, not a legend for the whole grid. flex-wrap on
-            the outer span plus whitespace-nowrap on each item means if
-            "Not yet" doesn't fit next to "Checked" it drops to its own
-            line as a whole unit, never splitting a word in half — and the
-            grid's own minmax(0, 1fr) columns (see above) keep this from
-            forcing the whole grid wider the way a bare nowrap track did. */}
-        <span className="col-start-3 flex min-w-0 flex-wrap items-center justify-center gap-x-1.5 gap-y-0.5 px-0.5 py-1 text-[9px] font-medium text-gray-400">
-          <span className="flex items-center gap-1 whitespace-nowrap">
-            <span className="h-1.5 w-1.5 shrink-0 rounded-sm bg-green-100" />
-            Checked
+    <ShiftSwipeArea selectedShiftLabel={selectedShiftLabel as "Day" | "Night"} dateParam={dateParam}>
+      <div>
+        <ShiftDateNav
+          dateKey={dateKey}
+          todayKey={todayKey}
+          label={shiftWindow.label as "Day" | "Night"}
+          dateLabel={dateLabel}
+          isViewingLive={isViewingLive}
+          statusChip={statusChip}
+        />
+        {/* One long box divided in two by a single border, not a box nested
+            inside a box — the outer frame plus a separately-boxed selected
+            pill was the same "double boxing" look already fixed elsewhere on
+            this page. */}
+        <div className="mb-2 flex overflow-hidden rounded-md border border-gray-200 text-sm font-medium">
+          {(["Day", "Night"] as const).map((label, i) => {
+            const selected = selectedShiftLabel === label
+            const isLive = currentShiftLabel === label
+            const href = dateParam
+              ? `/dashboard?shift=${label.toLowerCase()}&date=${dateParam}`
+              : `/dashboard?shift=${label.toLowerCase()}`
+            return (
+              <Link
+                key={label}
+                href={href}
+                scroll={false}
+                className={`flex flex-1 items-center justify-center gap-1.5 py-1 text-center transition-colors duration-100 active:scale-95 ${
+                  i === 0 ? "border-r border-gray-200" : ""
+                } ${selected ? "bg-brand font-semibold text-white" : "text-gray-500"}`}
+              >
+                {label} ({label === "Day" ? "5am–5pm" : "5pm–5am"})
+                {isLive && (
+                  <span className="animate-[status-blink_3s_ease-in-out_infinite]"> · Now</span>
+                )}
+              </Link>
+            )
+          })}
+        </div>
+        {/* One grid instead of two separate colored boxes — inspected or not
+            is a style on the same tile, not which box you're in, so
+            switching Day/Night just changes which tiles are filled in
+            rather than swapping between two differently-shaped panels. No
+            per-tile border box beyond the grid gap itself (each tile is
+            already the tap target), and no status icon — this view is
+            deliberately binary (done vs. not), not the full red/amber/green
+            breakdown the vehicle detail page already shows. Not-inspected
+            tiles sort first since they're the actionable ones. The legend
+            is two separate grid items appended after the tiles (not a
+            standalone row) so it drops into whatever empty cells are left
+            over in the last row instead of costing its own line — falls to
+            its own row gracefully if the fleet count ever divides evenly
+            into 3 with no empty cells left. */}
+        <div className="mt-1.5 grid grid-cols-[repeat(3,minmax(0,1fr))] gap-1">
+          {shiftRows.map((row) => {
+            const done = checkedThisShift(row)
+            return (
+              <Link
+                key={row.equipment.serial}
+                href={`/dashboard/equipment/${row.equipment.serial}`}
+                className={`truncate rounded-md px-1 py-1 text-center text-sm font-medium transition-colors duration-100 active:scale-95 ${
+                  done
+                    ? "bg-green-100 text-green-700"
+                    : "border border-gray-200 bg-white text-gray-600"
+                }`}
+              >
+                {row.equipment.flNumber}
+              </Link>
+            )
+          })}
+          {/* Both together in one cell, pinned to the last column — side by
+              side in separate cells read like they were labeling those
+              specific columns, not a legend for the whole grid. flex-wrap on
+              the outer span plus whitespace-nowrap on each item means if
+              "Not yet" doesn't fit next to "Checked" it drops to its own
+              line as a whole unit, never splitting a word in half — and the
+              grid's own minmax(0, 1fr) columns (see above) keep this from
+              forcing the whole grid wider the way a bare nowrap track did. */}
+          <span className="col-start-3 flex min-w-0 flex-wrap items-center justify-center gap-x-1.5 gap-y-0.5 px-0.5 py-1 text-[9px] font-medium text-gray-400">
+            <span className="flex items-center gap-1 whitespace-nowrap">
+              <span className="h-1.5 w-1.5 shrink-0 rounded-sm bg-green-100" />
+              Checked
+            </span>
+            <span className="flex items-center gap-1 whitespace-nowrap">
+              <span className="h-1.5 w-1.5 shrink-0 rounded-sm border border-gray-300 bg-white" />
+              Not yet
+            </span>
           </span>
-          <span className="flex items-center gap-1 whitespace-nowrap">
-            <span className="h-1.5 w-1.5 shrink-0 rounded-sm border border-gray-300 bg-white" />
-            Not yet
-          </span>
-        </span>
+        </div>
       </div>
-    </div>
+    </ShiftSwipeArea>
   )
 }
 
