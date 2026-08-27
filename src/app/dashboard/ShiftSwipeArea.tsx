@@ -1,16 +1,21 @@
 "use client"
 
 import { useRouter } from "next/navigation"
-import { useRef, type ReactNode, type TouchEvent } from "react"
+import { useEffect, useRef, type ReactNode } from "react"
 
-// A deliberate flick, not an accidental brush while scrolling the tile grid
-// below — both the minimum distance and the horizontal-over-vertical ratio
-// exist so a normal vertical scroll through the page never misfires this.
-const SWIPE_THRESHOLD_PX = 50
+// Was a left/right swipe (via onTouchStart/onTouchEnd) — replaced after the
+// inspection form's own swipe-back gesture turned out to collide with
+// Mobile Safari's own system "swipe back in browser history" gesture on a
+// real phone (confirmed root cause there: a horizontal drag can get
+// silently claimed by iOS before, or simultaneously with, this page's own
+// JS, and no fix to the JS side changes that — it's a conflict with the
+// browser itself). This carried the exact same risk: a real swipe here
+// could navigate a manager's whole browser tab away from the dashboard
+// instead of just toggling the shift. A double-tap doesn't compete with
+// any system gesture the way a drag does.
+const DOUBLE_TAP_MS = 400
+const DOUBLE_TAP_MOVE_PX = 60
 
-// Only two shifts exist, so swiping either direction always lands on "the
-// other one" — there's no separate forward/back case to handle, unlike the
-// date arrows next to it which step through many days.
 export default function ShiftSwipeArea({
   selectedShiftLabel,
   dateParam,
@@ -21,32 +26,43 @@ export default function ShiftSwipeArea({
   children: ReactNode
 }) {
   const router = useRouter()
-  const touchStart = useRef<{ x: number; y: number } | null>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
+  const lastTapRef = useRef<{ time: number; x: number; y: number } | null>(null)
 
-  function handleTouchStart(e: TouchEvent<HTMLDivElement>) {
-    const t = e.touches[0]
-    touchStart.current = { x: t.clientX, y: t.clientY }
-  }
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el) return
 
-  function handleTouchEnd(e: TouchEvent<HTMLDivElement>) {
-    const start = touchStart.current
-    touchStart.current = null
-    if (!start) return
-    const t = e.changedTouches[0]
-    const dx = t.clientX - start.x
-    const dy = t.clientY - start.y
-    if (Math.abs(dx) < SWIPE_THRESHOLD_PX || Math.abs(dx) < Math.abs(dy) * 1.5) return
+    function onClick(e: MouseEvent) {
+      // Only counts on empty space — a tap that actually hits a button/link
+      // (the Day/Night toggle itself, an equipment tile, the calendar
+      // icon...) just does that control's own job, same as any other
+      // double-click on a real control would.
+      const target = e.target as HTMLElement
+      if (target.closest("button, a, label, input, textarea, select")) return
 
-    const otherShift = selectedShiftLabel === "Day" ? "Night" : "Day"
-    const href = dateParam
-      ? `/dashboard?shift=${otherShift.toLowerCase()}&date=${dateParam}`
-      : `/dashboard?shift=${otherShift.toLowerCase()}`
-    router.push(href, { scroll: false })
-  }
+      const now = Date.now()
+      const last = lastTapRef.current
+      if (
+        last &&
+        now - last.time < DOUBLE_TAP_MS &&
+        Math.abs(e.clientX - last.x) < DOUBLE_TAP_MOVE_PX &&
+        Math.abs(e.clientY - last.y) < DOUBLE_TAP_MOVE_PX
+      ) {
+        lastTapRef.current = null
+        const otherShift = selectedShiftLabel === "Day" ? "Night" : "Day"
+        const href = dateParam
+          ? `/dashboard?shift=${otherShift.toLowerCase()}&date=${dateParam}`
+          : `/dashboard?shift=${otherShift.toLowerCase()}`
+        router.push(href, { scroll: false })
+        return
+      }
+      lastTapRef.current = { time: now, x: e.clientX, y: e.clientY }
+    }
 
-  return (
-    <div onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
-      {children}
-    </div>
-  )
+    el.addEventListener("click", onClick)
+    return () => el.removeEventListener("click", onClick)
+  }, [selectedShiftLabel, dateParam, router])
+
+  return <div ref={containerRef}>{children}</div>
 }
