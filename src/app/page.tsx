@@ -29,7 +29,7 @@ export default function Home() {
         us safe.
       </p>
 
-      <div className="mt-6 flex w-full flex-col gap-3">
+      <div className="mt-16 flex w-full flex-col gap-3">
         <Link
           href="/inspection"
           className="rounded-lg bg-brand px-6 py-3 font-semibold text-white transition-transform duration-100 active:scale-95 active:bg-brand-dark"
