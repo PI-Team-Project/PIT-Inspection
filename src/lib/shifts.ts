@@ -150,6 +150,24 @@ export function mondayOfWeek(dateKey: string): string {
   return `${dt.getUTCFullYear()}-${String(dt.getUTCMonth() + 1).padStart(2, "0")}-${String(dt.getUTCDate()).padStart(2, "0")}`
 }
 
+// Where an export's date range should start, as the same "YYYY-MM-DD"
+// business-day key used everywhere else. "This Week"/"This Month" are
+// real calendar boundaries (Monday / the 1st), not just "the last 7/30
+// days" — returns null for "all" (caller falls back to the retention
+// cutoff) and for an invalid/missing custom date.
+export function exportRangeStart(
+  range: "all" | "week" | "month" | "custom",
+  todayKey: string,
+  customFrom: string | null
+): string | null {
+  if (range === "week") return mondayOfWeek(todayKey)
+  if (range === "month") return `${todayKey.slice(0, 7)}-01`
+  if (range === "custom") {
+    return customFrom && /^\d{4}-\d{2}-\d{2}$/.test(customFrom) ? customFrom : null
+  }
+  return null
+}
+
 // The named shift for a specific Eastern calendar date — used when a
 // supervisor navigates to a past date instead of "whatever's most recent."
 export function getShiftWindowForDate(dateKey: string, label: "Day" | "Night"): ShiftWindow {

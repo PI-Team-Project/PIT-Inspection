@@ -33,6 +33,7 @@ import LocationChangeControl from "../../LocationChangeControl"
 import SignConfirmButton from "../../SignConfirmButton"
 import { saveActivity } from "../../actions"
 import VehicleHistory, { type LogEntry } from "./VehicleHistory"
+import ExportOptions from "../../ExportOptions"
 
 // A date KEY ("2026-08-07") has no time zone of its own — formatting as UTC
 // (not the server's local zone) guarantees the digits shown always match
@@ -408,12 +409,7 @@ export default async function EquipmentDetailPage({
       </div>
 
       <div className="mt-6 flex items-center justify-between border-t border-gray-100 pt-3 text-xs text-gray-400">
-        <a
-          href={`/dashboard/export/${equipment.serial}`}
-          className="font-medium hover:text-brand hover:underline"
-        >
-          Export CSV
-        </a>
+        <ExportOptions exportPath={`/dashboard/export/${equipment.serial}`} showScope={false} />
         <a href="/dashboard/manage" className="font-medium hover:text-gray-600 hover:underline">
           Manage this vehicle →
         </a>

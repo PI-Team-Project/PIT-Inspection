@@ -1,0 +1,175 @@
+"use client"
+
+import { useState } from "react"
+
+type DateRange = "all" | "week" | "month" | "custom"
+type Scope = "all" | "open" | "resolved"
+
+const RANGE_OPTIONS: { value: DateRange; label: string }[] = [
+  { value: "all", label: "All Time" },
+  { value: "week", label: "This Week" },
+  { value: "month", label: "This Month" },
+  { value: "custom", label: "Custom Range" },
+]
+
+const SCOPE_OPTIONS: { value: Scope; label: string; hint: string }[] = [
+  { value: "all", label: "All Vehicles", hint: "Every vehicle in the fleet" },
+  { value: "open", label: "Open Issues Only", hint: "Still unresolved or needs attention right now" },
+  { value: "resolved", label: "Resolved Issues Only", hint: "Had an issue that's since been fixed and confirmed" },
+]
+
+const DEFAULT_TRIGGER_CLASS =
+  "font-medium text-gray-400 transition-colors duration-100 hover:text-brand hover:underline active:text-brand-dark active:underline"
+
+// Fleet-wide export gets a scope choice (which vehicles); the per-vehicle
+// export on the equipment detail page doesn't — there's only one vehicle,
+// so `showScope` is false there. `triggerClassName` lets each call site
+// match its own surrounding buttons (a bordered brand button next to
+// "Manage Vehicles" on the dashboard, a plain text link on the equipment
+// detail page) instead of forcing one look everywhere.
+export default function ExportOptions({
+  exportPath,
+  showScope,
+  triggerClassName = DEFAULT_TRIGGER_CLASS,
+}: {
+  exportPath: string
+  showScope: boolean
+  triggerClassName?: string
+}) {
+  const [open, setOpen] = useState(false)
+  const [range, setRange] = useState<DateRange>("all")
+  const [customFrom, setCustomFrom] = useState("")
+  const [customTo, setCustomTo] = useState("")
+  const [scope, setScope] = useState<Scope>("all")
+
+  function buildHref() {
+    const params = new URLSearchParams()
+    params.set("range", range)
+    if (range === "custom") {
+      if (customFrom) params.set("from", customFrom)
+      if (customTo) params.set("to", customTo)
+    }
+    if (showScope) params.set("scope", scope)
+    return `${exportPath}?${params.toString()}`
+  }
+
+  const customIncomplete = range === "custom" && (!customFrom || !customTo)
+
+  if (!open) {
+    return (
+      <button type="button" onClick={() => setOpen(true)} className={triggerClassName}>
+        Export CSV
+      </button>
+    )
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center"
+      onClick={() => setOpen(false)}
+    >
+      <div
+        className="w-full max-w-sm rounded-t-2xl bg-white p-4 sm:rounded-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="mb-3 flex items-center justify-between">
+          <h3 className="text-base font-bold text-gray-900">Export CSV</h3>
+          <button
+            type="button"
+            onClick={() => setOpen(false)}
+            aria-label="Close"
+            className="rounded-full p-1 text-gray-400 active:scale-95 active:bg-gray-100"
+          >
+            <svg viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5">
+              <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 10-1.06-1.06L10 8.94 6.28 5.22z" />
+            </svg>
+          </button>
+        </div>
+
+        <div className="space-y-4">
+          <div>
+            <p className="mb-1.5 text-xs font-semibold text-gray-500">Date Range</p>
+            <div className="grid grid-cols-2 gap-1.5">
+              {RANGE_OPTIONS.map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => setRange(opt.value)}
+                  className={`rounded-lg border px-3 py-2 text-sm transition-colors duration-100 active:scale-95 ${
+                    range === opt.value
+                      ? "border-brand bg-brand/10 font-semibold text-brand"
+                      : "border-gray-300 text-gray-700"
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+            {range === "custom" && (
+              <div className="mt-2 grid grid-cols-2 gap-2">
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-gray-700">From</label>
+                  <input
+                    type="date"
+                    value={customFrom}
+                    onChange={(e) => setCustomFrom(e.target.value)}
+                    className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-gray-700">To</label>
+                  <input
+                    type="date"
+                    value={customTo}
+                    onChange={(e) => setCustomTo(e.target.value)}
+                    className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+
+          {showScope && (
+            <div>
+              <p className="mb-1.5 text-xs font-semibold text-gray-500">Which Vehicles</p>
+              <div className="space-y-1.5">
+                {SCOPE_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setScope(opt.value)}
+                    className={`flex w-full flex-col items-start rounded-lg border px-3 py-2 text-left transition-colors duration-100 active:scale-95 ${
+                      scope === opt.value ? "border-brand bg-brand/10" : "border-gray-300"
+                    }`}
+                  >
+                    <span className={`text-sm ${scope === opt.value ? "font-semibold text-brand" : "text-gray-800"}`}>
+                      {opt.label}
+                    </span>
+                    <span className="text-xs text-gray-500">{opt.hint}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <a
+            href={customIncomplete ? undefined : buildHref()}
+            aria-disabled={customIncomplete}
+            onClick={(e) => {
+              if (customIncomplete) {
+                e.preventDefault()
+                return
+              }
+              setOpen(false)
+            }}
+            className={`block rounded-lg py-3 text-center text-sm font-semibold text-white transition-transform duration-100 active:scale-95 ${
+              customIncomplete ? "cursor-not-allowed bg-gray-300" : "bg-brand active:bg-brand-dark"
+            }`}
+          >
+            Download CSV
+          </a>
+        </div>
+      </div>
+    </div>
+  )
+}

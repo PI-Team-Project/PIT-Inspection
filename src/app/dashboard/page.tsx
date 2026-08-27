@@ -24,6 +24,7 @@ import EquipmentSearch from "./EquipmentSearch"
 import EquipmentBrowser from "./EquipmentBrowser"
 import ShiftDateNav from "./ShiftDateNav"
 import WeeklyReport from "./WeeklyReport"
+import ExportOptions from "./ExportOptions"
 import {
   buildRow,
   badSince,
@@ -371,13 +372,11 @@ export default async function DashboardPage({
         >
           Manage Vehicles
         </Link>
-        {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- CSV download endpoint, not a page */}
-        <a
-          href="/dashboard/export"
-          className="shrink-0 rounded-lg border border-brand/30 px-3 py-2 text-sm font-medium text-brand transition-transform duration-100 active:scale-95 active:bg-brand/10"
-        >
-          Export CSV
-        </a>
+        <ExportOptions
+          exportPath="/dashboard/export"
+          showScope
+          triggerClassName="shrink-0 rounded-lg border border-brand/30 px-3 py-2 text-sm font-medium text-brand transition-transform duration-100 active:scale-95 active:bg-brand/10"
+        />
       </div>
     </main>
   )
