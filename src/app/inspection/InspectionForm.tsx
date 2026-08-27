@@ -355,6 +355,7 @@ export default function InspectionForm({
   }
 
   const dateInputRef = useRef<HTMLInputElement>(null)
+  const firstNameInputRef = useRef<HTMLInputElement>(null)
 
   // Each equipment pick (category → forklift type → color/make → FL#)
   // reveals the next section right below it — on a small phone that new
@@ -668,6 +669,19 @@ export default function InspectionForm({
                 onChange={(e) => set("lastName", e.target.value)}
                 required
                 autoFocus={current.kind === "name"}
+                // enterKeyHint swaps the mobile keyboard's return key to
+                // say "Next" instead of the default "Go"/"Return" — the
+                // onKeyDown is what actually moves focus when it's tapped
+                // (the on-screen "Next"/→ key still dispatches a plain
+                // Enter keydown, same as a hardware keyboard's Enter).
+                // preventDefault so it advances focus instead of trying to
+                // submit the whole multi-step form early.
+                enterKeyHint="next"
+                onKeyDown={(e) => {
+                  if (e.key !== "Enter") return
+                  e.preventDefault()
+                  firstNameInputRef.current?.focus()
+                }}
                 className="w-full rounded-lg border border-gray-300 px-4 py-3 text-base"
               />
             </div>
@@ -676,6 +690,7 @@ export default function InspectionForm({
                 First Name
               </label>
               <input
+                ref={firstNameInputRef}
                 id="firstName"
                 type="text"
                 name="firstName"
