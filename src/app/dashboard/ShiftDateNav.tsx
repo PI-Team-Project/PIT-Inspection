@@ -55,19 +55,17 @@ export default function ShiftDateNav({
   return (
     <div className="mb-2">
       {/* Same size/spacing/arrow convention as WeeklyReport's header — one
-          shared visual language for both date-nav rows on this page. The
-          outer 3-column grid keeps the title truly centered regardless of
-          the status chip's width, instead of the chip's width dragging it
-          off-center. `minmax(0, 1fr)` on the outer tracks (rather than bare
-          1fr) is what actually matters on a narrow phone: the middle
-          column's content doesn't wrap or shrink (nowrap date text, fixed
-          icon buttons), so without an explicit 0 floor the grid blows out
-          past the viewport trying to give it room — which pushed the
-          status chip on the right entirely off-screen (invisible, not
-          just clipped) rather than letting it shrink. */}
-      <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2">
-        <div />
-        <div className="flex items-center justify-center gap-2 sm:gap-4">
+          shared visual language for both date-nav rows on this page.
+          Left-aligned (not centered) so the nav never fights the status
+          chip for the same space: centering it used to let the nav's own
+          box grow wide enough on a narrow phone that its text visually
+          overlapped the chip — and since the chip came later in the DOM,
+          it painted on top and silently ate taps meant for the calendar
+          icon/date text underneath it. `min-w-0` + `truncate` on the nav
+          side lets the date text give way before it ever reaches the
+          chip, instead of overflowing into it. */}
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex min-w-0 items-center gap-2 sm:gap-4">
           <button
             type="button"
             onClick={handleBack}
@@ -95,7 +93,7 @@ export default function ShiftDateNav({
             onClick={() => dateInputRef.current?.showPicker?.()}
             disabled={checking}
             aria-label="Pick a date"
-            className="rounded px-1.5 py-1 -mx-1.5 -my-1 text-sm font-semibold whitespace-nowrap text-gray-700 transition-colors duration-100 hover:bg-gray-100 active:scale-95"
+            className="min-w-0 truncate rounded px-1.5 py-1 -mx-1.5 -my-1 text-sm font-semibold text-gray-700 transition-colors duration-100 hover:bg-gray-100 active:scale-95"
           >
             {/* Always shows one of these two words instead of the label
                 popping in and out — that was shifting how wide this whole
@@ -104,7 +102,9 @@ export default function ShiftDateNav({
                 without squeezing the status chip on the right into
                 invisibility — a responsive hide is fine here since it's
                 tied to viewport width, not app state, so it can't cause
-                the same kind of jump. */}
+                the same kind of jump. Truncates (rather than wrapping)
+                on a very narrow phone so it shrinks instead of pushing
+                into the status chip's space. */}
             Daily Report · {dateLabel}
             <span className="hidden text-gray-400 sm:inline"> ({isViewingLive ? "Today" : "Past"})</span>
           </button>
@@ -138,7 +138,7 @@ export default function ShiftDateNav({
             </button>
           )}
         </div>
-        <div className="flex justify-end">{statusChip}</div>
+        <div className="shrink-0">{statusChip}</div>
       </div>
     </div>
   )
