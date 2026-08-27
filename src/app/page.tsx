@@ -15,12 +15,12 @@ export default function Home() {
       <p className="text-xs font-medium tracking-wide text-gray-400">
         📍 Holland, Michigan
       </p>
-      <h1 className="mt-1 text-3xl font-bold text-gray-900">PIT Inspection</h1>
+      <h1 className="mt-2 text-3xl font-bold text-gray-900">PIT Inspection</h1>
       <p className="mt-2 text-gray-600">
         Warehouse vehicle pre-shift inspection.
       </p>
 
-      <p className="mt-4 text-sm text-gray-600">
+      <p className="mt-4 text-base text-gray-600">
         Inspection{" "}
         <span className="text-sweep-highlight rounded px-0.5 font-medium text-gray-700">
           must be completed at beginning of every shift
