@@ -18,6 +18,10 @@ export type ActivityEntry =
       id: string
       type: "location"
       location: string
+      // Optional — entries recorded before this field existed won't have
+      // it, so the rendered line falls back to the older "set to X"
+      // wording rather than showing a blank/undefined "from".
+      fromLocation?: string
       authorName: string
       timestamp: string
     }
@@ -29,6 +33,7 @@ export type ActivityEntry =
       // if it's later dismissed rather than approved.
       type: "location-pending"
       location: string
+      fromLocation?: string
       authorName: string
       timestamp: string
     }

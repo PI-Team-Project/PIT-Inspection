@@ -178,6 +178,12 @@ export async function updateEquipmentLocation(
     maxAge: 60 * 60 * 24 * 30,
   })
 
+  // Read before overwriting — this is the only chance to know what the
+  // location is changing FROM, needed for the Activity trail's "from X to
+  // Y" wording below.
+  const existing = await prisma.equipment.findUnique({ where: { serial } })
+  if (!existing) return null
+
   await prisma.equipment.update({
     where: { serial },
     // A supervisor's own direct edit is trusted immediately and is a step
@@ -201,6 +207,7 @@ export async function updateEquipmentLocation(
         id: crypto.randomUUID(),
         type: "location",
         location,
+        fromLocation: existing.location,
         authorName: managerName,
         timestamp: new Date().toISOString(),
       },
@@ -262,6 +269,7 @@ export async function approvePendingLocation(
         id: crypto.randomUUID(),
         type: "location",
         location: equipment.pendingLocation,
+        fromLocation: equipment.location,
         authorName: managerName,
         timestamp: new Date().toISOString(),
       },

@@ -389,6 +389,7 @@ export default async function EquipmentDetailPage({
             {equipment.pendingLocation && equipment.pendingLocationReportedAt && (
               <PendingLocationApproval
                 serial={equipment.serial}
+                currentLocation={equipment.location}
                 pendingLocation={equipment.pendingLocation}
                 reportedBy={equipment.pendingLocationReportedBy ?? "Unknown"}
                 reportedAtDisplay={shortDateTime(equipment.pendingLocationReportedAt)}
@@ -777,11 +778,21 @@ function ActivityLine({ entry }: { entry: ActivityEntry }) {
   }
 
   if (entry.type === "location") {
+    const hasFrom = entry.fromLocation && entry.fromLocation !== entry.location
     return (
       <>
-        📍 Location set to{" "}
-        <span className="font-medium text-gray-800">{entry.location}</span> by{" "}
-        <span className="font-medium text-gray-800">{entry.authorName}</span> — {when}
+        📍 Location{" "}
+        {hasFrom ? (
+          <>
+            changed from <span className="font-medium text-gray-800">{entry.fromLocation}</span> to{" "}
+            <span className="font-medium text-gray-800">{entry.location}</span>
+          </>
+        ) : (
+          <>
+            set to <span className="font-medium text-gray-800">{entry.location}</span>
+          </>
+        )}{" "}
+        by <span className="font-medium text-gray-800">{entry.authorName}</span> — {when}
       </>
     )
   }
@@ -800,11 +811,23 @@ function ActivityLine({ entry }: { entry: ActivityEntry }) {
   }
 
   if (entry.type === "location-pending") {
+    const hasFrom = entry.fromLocation && entry.fromLocation !== entry.location
     return (
       <>
-        📍 <span className="font-medium text-gray-800">{entry.authorName}</span> reported location
-        may be <span className="font-medium text-gray-800">{entry.location}</span> (pending
-        approval) — {when}
+        📍 <span className="font-medium text-gray-800">{entry.authorName}</span> reported
+        {hasFrom ? (
+          <>
+            {" "}
+            this may have moved from <span className="font-medium text-gray-800">{entry.fromLocation}</span>{" "}
+            to <span className="font-medium text-gray-800">{entry.location}</span>
+          </>
+        ) : (
+          <>
+            {" "}
+            location may be <span className="font-medium text-gray-800">{entry.location}</span>
+          </>
+        )}{" "}
+        (pending approval) — {when}
       </>
     )
   }

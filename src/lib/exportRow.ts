@@ -92,9 +92,13 @@ export function buildExportRow(inspection: Inspection): ExportRow {
       if (entry.type === "viewed") return `[${when}] Reviewed by ${entry.authorName}`
       if (entry.type === "confirmed") return `[${when}] Confirmed all clear by ${entry.authorName}`
       if (entry.type === "location")
-        return `[${when}] Location set to ${entry.location} by ${entry.authorName}`
+        return entry.fromLocation && entry.fromLocation !== entry.location
+          ? `[${when}] Location changed from ${entry.fromLocation} to ${entry.location} by ${entry.authorName}`
+          : `[${when}] Location set to ${entry.location} by ${entry.authorName}`
       if (entry.type === "location-pending")
-        return `[${when}] ${entry.authorName} reported location may be ${entry.location} (pending supervisor approval)`
+        return entry.fromLocation && entry.fromLocation !== entry.location
+          ? `[${when}] ${entry.authorName} reported location may have changed from ${entry.fromLocation} to ${entry.location} (pending supervisor approval)`
+          : `[${when}] ${entry.authorName} reported location may be ${entry.location} (pending supervisor approval)`
       const q = QUESTIONS.find((x) => x.id === entry.questionId)
       const label = entry.status === "complete" ? "Complete" : "In Review"
       return `[${when}] ${q?.label ?? entry.questionId} marked ${label} by ${entry.authorName}`

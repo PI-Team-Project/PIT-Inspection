@@ -173,6 +173,7 @@ export async function submitInspection(formData: FormData) {
                     id: crypto.randomUUID(),
                     type: "location-pending",
                     location: actualLocation,
+                    fromLocation: equipment.location,
                     authorName: `${firstName} ${lastName}`,
                     timestamp: new Date().toISOString(),
                   },

@@ -630,7 +630,7 @@ function EquipmentCard({
               whoever happens to open this specific vehicle's own page. */}
           {equipment.pendingLocation && (
             <span
-              title={`${equipment.pendingLocationReportedBy ?? "Someone"} reported this may be at ${equipment.pendingLocation}`}
+              title={`${equipment.pendingLocationReportedBy ?? "Someone"} reported this moved from ${equipment.location} to ${equipment.pendingLocation}`}
               className="ml-1 inline-flex items-center gap-0.5 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800"
             >
               ⏳ pending

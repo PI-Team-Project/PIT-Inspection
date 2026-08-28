@@ -49,3 +49,6 @@ next-env.d.ts
 # static preview snapshots (throwaway, not app source)
 /preview-*.html
 /preview-*.png
+
+# local database backups (contain real inspection data + photos)
+/backup-before-wipe-*.json
