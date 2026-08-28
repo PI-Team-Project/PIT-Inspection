@@ -304,13 +304,13 @@ export default function WeeklyReport({
             <tr>
               <th
                 rowSpan={2}
-                className="sticky left-0 z-10 w-20 border-b border-r border-gray-200 bg-gray-50 px-1.5 py-1 text-left text-xs font-semibold text-gray-600 sm:w-28 sm:text-sm"
+                className="sticky left-0 z-10 w-18 border-b border-r border-gray-200 bg-gray-50 px-1.5 py-1 text-left text-xs font-semibold text-gray-600 sm:w-26 sm:text-sm"
               >
                 {groupBy === "location" ? "Loc" : "Type"}
               </th>
               <th
                 rowSpan={2}
-                className="sticky left-20 z-10 w-20 border-b border-r border-gray-200 bg-gray-50 px-1.5 py-1 text-center text-xs font-semibold text-gray-600 sm:left-28 sm:w-28 sm:text-sm"
+                className="sticky left-18 z-10 w-22 border-b border-r border-gray-200 bg-gray-50 px-1.5 py-1 text-center text-xs font-semibold text-gray-600 sm:left-26 sm:w-30 sm:text-sm"
               >
                 FL#
               </th>
@@ -373,7 +373,7 @@ export default function WeeklyReport({
                       // Electrode" could widen the whole table beyond what
                       // "By Type" ever needs, unless every cell in the
                       // column agrees on the same fixed width.
-                      className={`sticky left-0 z-10 w-20 border-r border-t border-gray-200 bg-white px-1.5 py-1 align-top text-xs font-medium text-gray-500 sm:w-28 sm:text-sm ${
+                      className={`sticky left-0 z-10 w-18 border-r border-t border-gray-200 bg-white px-1.5 py-1 align-top text-xs font-medium text-gray-500 sm:w-26 sm:text-sm ${
                         groupHighlighted ? HIGHLIGHT : ""
                       }`}
                     >
@@ -395,7 +395,7 @@ export default function WeeklyReport({
                   <td
                     onMouseEnter={() => setHovered({ kind: "row", key: row.serial })}
                     onMouseLeave={() => setHovered(null)}
-                    className={`sticky left-20 z-10 h-7 w-20 truncate border-r border-t border-gray-200 bg-white p-0 text-xs font-medium sm:left-28 sm:h-8 sm:w-28 sm:text-sm ${
+                    className={`sticky left-18 z-10 h-7 w-22 truncate border-r border-t border-gray-200 bg-white p-0 text-xs font-medium sm:left-26 sm:h-8 sm:w-30 sm:text-sm ${
                       rowHighlighted ? HIGHLIGHT : ""
                     }`}
                   >
