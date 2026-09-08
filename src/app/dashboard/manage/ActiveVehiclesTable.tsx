@@ -17,11 +17,15 @@ export default function ActiveVehiclesTable({
   savedManagerName,
   sort,
   dir,
+  todayKey,
 }: {
   active: EquipmentRecord[]
   savedManagerName: string
   sort: SortField
   dir: "asc" | "desc"
+  // Eastern fleet date, resolved on the server — a browser set to another
+  // timezone would otherwise default these date fields to the wrong day.
+  todayKey: string
 }) {
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [confirmingRetire, setConfirmingRetire] = useState(false)
@@ -76,7 +80,11 @@ export default function ActiveVehiclesTable({
             Clear
           </button>
         </div>
-        <AddVehicleForm savedManagerName={savedManagerName} duplicateSeed={duplicateSeed} />
+        <AddVehicleForm
+          savedManagerName={savedManagerName}
+          duplicateSeed={duplicateSeed}
+          todayKey={todayKey}
+        />
       </div>
 
       <div className="rounded-lg border border-gray-200">
@@ -201,11 +209,35 @@ export default function ActiveVehiclesTable({
                 setSelected(new Set())
                 setConfirmingRetire(false)
               }}
-              className="mt-4 flex gap-2"
+              className="mt-4"
             >
               {selectedEquipment.map((eq) => (
                 <input key={eq.serial} type="hidden" name="serial" value={eq.serial} />
               ))}
+              {/* A rented unit goes back on the day it physically leaves,
+                  which is rarely the day someone gets around to updating
+                  the system — so this is a real field, not today's date
+                  assumed. Left blank it still means now. No max: a return
+                  already scheduled for next week is worth recording up
+                  front, and the 2-year retention clock below runs from
+                  whatever date lands here. */}
+              <label
+                htmlFor="retiredOn"
+                className="mb-1.5 block text-sm font-medium text-gray-700"
+              >
+                Retired / return date
+              </label>
+              <input
+                id="retiredOn"
+                name="retiredOn"
+                type="date"
+                defaultValue={todayKey}
+                className="mb-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-base"
+              />
+              <p className="mb-4 text-xs text-gray-500">
+                History is kept for 2 years from this date.
+              </p>
+              <div className="flex gap-2">
               <button
                 type="button"
                 onClick={() => setConfirmingRetire(false)}
@@ -219,6 +251,7 @@ export default function ActiveVehiclesTable({
               >
                 Confirm
               </button>
+              </div>
             </form>
           </div>
         </div>

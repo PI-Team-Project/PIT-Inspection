@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache"
 import { MANAGER_NAME_COOKIE } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { LOCATIONS } from "@/lib/equipment"
+import { getShiftWindowForDate } from "@/lib/shifts"
 
 const EQUIPMENT_TYPES = ["Sit Down", "Propane", "Standup", "Pallet Jack"] as const
 const CONTRACT_TYPES = ["Rent", "Leasing", "Own"] as const
@@ -50,6 +51,7 @@ export async function addVehicles(
     makeColor: string
     contractType: string
     location: string
+    createdAt?: Date
   }[] = []
 
   for (let i = 0; i < rowCount; i++) {
@@ -60,6 +62,14 @@ export async function addVehicles(
     const makeColor = String(formData.get(`makeColor_${i}`) ?? "").trim()
     const contractType = String(formData.get(`contractType_${i}`) ?? "")
     const location = String(formData.get(`location_${i}`) ?? "")
+    // When this vehicle actually entered the fleet — the table already
+    // shows it as "Added <date>", and a vehicle entered into the system a
+    // week after it arrived should read as the day it arrived. Blank keeps
+    // the schema default (now).
+    const addedOn = String(formData.get(`addedOn_${i}`) ?? "").trim()
+    const createdAt = /^\d{4}-\d{2}-\d{2}$/.test(addedOn)
+      ? getShiftWindowForDate(addedOn, "Day").start
+      : undefined
 
     if (!isValidType(type) || !isValidContractType(contractType) || !isValidLocation(location)) {
       return { error: `Row ${i + 1}: please fill in every field with a valid option.` }
@@ -67,7 +77,7 @@ export async function addVehicles(
     if (!flNumber || !makeColor) {
       return { error: `Row ${i + 1}: FL# and Make/Color are required.` }
     }
-    rows.push({ serial, type, flNumber, makeColor, contractType, location })
+    rows.push({ serial, type, flNumber, makeColor, contractType, location, ...(createdAt ? { createdAt } : {}) })
   }
 
   if (rows.length === 0) {
@@ -134,6 +144,20 @@ export async function updateVehicle(
   return { error: null }
 }
 
+// A date the manager typed (YYYY-MM-DD) turned into an instant inside that
+// Eastern calendar day, rather than `new Date(dateKey)` — that parses as
+// UTC midnight, which is the previous evening in Michigan and would file a
+// return under the wrong day for anyone reading it back. 05:00 Eastern is
+// the same anchor the shift windows use, so a date shown here and a date
+// shown anywhere else in the app agree. Falls back to now when the field is
+// blank or malformed, which keeps every existing caller working unchanged.
+function retirementInstant(raw: FormDataEntryValue | null): Date {
+  const dateKey = String(raw ?? "").trim()
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) return new Date()
+  const parsed = getShiftWindowForDate(dateKey, "Day").start
+  return Number.isNaN(parsed.getTime()) ? new Date() : parsed
+}
+
 export async function retireVehicle(formData: FormData) {
   const serial = String(formData.get("serial") ?? "")
   if (!serial) return
@@ -143,7 +167,7 @@ export async function retireVehicle(formData: FormData) {
 
   await prisma.equipment.update({
     where: { serial },
-    data: { retiredAt: new Date(), retiredBy: managerName },
+    data: { retiredAt: retirementInstant(formData.get("retiredOn")), retiredBy: managerName },
   })
 
   refreshManagePaths()
@@ -158,7 +182,7 @@ export async function retireVehicles(formData: FormData) {
 
   await prisma.equipment.updateMany({
     where: { serial: { in: serials } },
-    data: { retiredAt: new Date(), retiredBy: managerName },
+    data: { retiredAt: retirementInstant(formData.get("retiredOn")), retiredBy: managerName },
   })
 
   refreshManagePaths()
