@@ -14,7 +14,8 @@
     "db:staging:migrate": "node scripts/with-env.mjs .env.staging -- prisma migrate deploy",
     "db:staging:seed": "node scripts/with-env.mjs .env.staging -- tsx scripts/seed-loadtest.ts",
     "dev:staging": "node scripts/with-env.mjs .env.staging -- next dev",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "db:staging:seed:year": "node scripts/with-env.mjs .env.staging -- tsx scripts/seed-year.ts"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.9.1",
