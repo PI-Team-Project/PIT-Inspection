@@ -27,15 +27,20 @@ export default function InspectionSuccessPage() {
     <main className="mx-auto flex w-full max-w-lg flex-col items-center px-4 py-24 text-center">
       {/* A rubber-stamp look, not a vehicle icon — this same page follows
           both a Forklift and a Pallet Jack submission, so nothing more
-          specific than "completed" fits both. Red (not the app's own taupe
-          brand color) is deliberate: a stamp reads as ink applied to the
-          page, not as UI chrome, so it's allowed to look like a different,
-          separate mark. */}
+          specific than "completed" fits both. Deliberately not the app's
+          own taupe brand color: a stamp reads as ink applied to the page,
+          not as UI chrome, so it's allowed to be its own separate mark.
+          Green rather than the red this used to be — globals.css reserves
+          red for critical/unresolved status, so a red stamp on a
+          successful submission was working against the one color rule the
+          rest of the app follows. green-700 (not the green-500 used for
+          status dots) keeps a stamp's darker ink weight, matching what
+          red-600 carried here before. */}
       <div
         aria-hidden="true"
-        className="stamp-press pointer-events-none inline-block rounded-lg border-[6px] border-double border-red-600/85 px-5 py-2.5 select-none"
+        className="stamp-press pointer-events-none inline-block rounded-lg border-[6px] border-double border-green-700/85 px-5 py-2.5 select-none"
       >
-        <p className="text-center text-xl leading-tight font-black tracking-widest text-red-600/85 uppercase sm:text-2xl">
+        <p className="text-center text-xl leading-tight font-black tracking-widest text-green-700/85 uppercase sm:text-2xl">
           Inspection
           <br />
           Completed
