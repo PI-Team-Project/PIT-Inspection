@@ -27,10 +27,14 @@ export default function AddVehicleForm({
   savedManagerName,
   duplicateSeed,
   hideTriggerButton,
+  todayKey,
 }: {
   savedManagerName: string
   duplicateSeed?: Equipment[] | null
   hideTriggerButton?: boolean
+  // Eastern fleet date, resolved on the server — a browser in another
+  // timezone would otherwise default the date field to the wrong day.
+  todayKey: string
 }) {
   const [open, setOpen] = useState(false)
   const [rows, setRows] = useState<{ key: number; prefill?: Prefill }[]>([{ key: 0 }])
@@ -186,6 +190,24 @@ export default function AddVehicleForm({
                   <option value={REPAIR_LOCATION}>{REPAIR_LOCATION}</option>
                 </optgroup>
               </select>
+              {/* The table lists each vehicle as "Added <date>", and a unit
+                  entered into the system days after it actually arrived
+                  should read as the day it arrived — so this is a real
+                  field rather than today's date assumed. Blank keeps the
+                  schema default (now). */}
+              <label
+                htmlFor={`addedOn_${index}`}
+                className="block text-xs font-medium text-gray-500"
+              >
+                Date added to fleet
+              </label>
+              <input
+                id={`addedOn_${index}`}
+                name={`addedOn_${index}`}
+                type="date"
+                defaultValue={todayKey}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+              />
             </div>
           ))}
 

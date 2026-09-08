@@ -3,6 +3,7 @@ import { redirect } from "next/navigation"
 import { equipmentTypeLabel, type Equipment } from "@/lib/equipment"
 import { getAllEquipmentIncludingRetired, RETENTION_DAYS } from "@/lib/equipmentLocations"
 import { DASHBOARD_COOKIE, MANAGER_NAME_COOKIE, dashboardSessionValue } from "@/lib/auth"
+import { easternDateKey } from "@/lib/shifts"
 import { restoreVehicle } from "./actions"
 import ActiveVehiclesTable from "./ActiveVehiclesTable"
 import BackLink from "./BackLink"
@@ -57,6 +58,7 @@ export default async function ManageVehiclesPage({
 
       <div className="mt-6">
         <ActiveVehiclesTable
+          todayKey={easternDateKey(new Date())}
           active={active}
           savedManagerName={savedManagerName}
           sort={sort}
