@@ -1,9 +1,8 @@
 "use client"
 
-import { useState, type ReactNode } from "react"
+import { type ReactNode } from "react"
 import { useRouter } from "next/navigation"
 import { shiftDateKeyByDays } from "@/lib/shifts"
-import { shiftHasData } from "./actions"
 
 export default function ShiftDateNav({
   dateKey,
@@ -21,34 +20,58 @@ export default function ShiftDateNav({
   statusChip: ReactNode
 }) {
   const router = useRouter()
-  const [checking, setChecking] = useState(false)
 
-  async function goToDate(targetDateKey: string) {
-    if (checking) return
-    setChecking(true)
-    const ok = await shiftHasData(targetDateKey, label)
-    setChecking(false)
-    if (!ok) {
-      window.alert("No inspection data for that shift yet.")
-      return false
-    }
+  // Navigation is unconditional now. It used to await shiftHasData() first
+  // and refuse any shift with no inspections on record, which made an empty
+  // day unreachable rather than merely empty — and since the arrow only ever
+  // steps ONE day, a single empty day walled off everything behind it. After
+  // the 2026-08-28 wipe that meant the back arrow did nothing at all from
+  // today, and the only day carrying data couldn't be reached from the nav
+  // by any number of clicks. An empty shift renders perfectly well (0/34,
+  // every tile "Not yet"), so there was nothing to protect anyone from.
+  //
+  // Dropping the check also removes the await that gated these handlers: the
+  // old `checking` flag was set before it and cleared after with no
+  // try/finally, so one rejected server action left the flag stuck true and
+  // permanently disabled both arrows AND the date input via `disabled`.
+  // Future dates stay blocked by max={todayKey} below, the forward arrow
+  // being hidden while isViewingLive, and the server's own window guard in
+  // page.tsx — none of which need a round trip.
+  function goToDate(targetDateKey: string) {
     router.push(`/dashboard?shift=${label.toLowerCase()}&date=${targetDateKey}`, { scroll: false })
-    return true
   }
 
   function handleBack() {
-    void goToDate(shiftDateKeyByDays(dateKey, -1))
+    goToDate(shiftDateKeyByDays(dateKey, -1))
   }
 
   function handleForward() {
-    void goToDate(shiftDateKeyByDays(dateKey, 1))
+    goToDate(shiftDateKeyByDays(dateKey, 1))
   }
 
-  async function handlePick(e: React.ChangeEvent<HTMLInputElement>) {
+  function handlePick(e: React.ChangeEvent<HTMLInputElement>) {
     const picked = e.target.value
     if (!picked || picked === dateKey) return
-    const ok = await goToDate(picked)
-    if (!ok) e.target.value = dateKey
+    goToDate(picked)
+  }
+
+  // The invisible native input below is what makes a tap work on iOS, and
+  // it stays the mechanism. But desktop Chrome/Edge only open the picker
+  // when the click lands on the input's own calendar indicator, which
+  // opacity-0 hides — so a click anywhere else merely focused the field and
+  // nothing appeared. showPicker() closes exactly that gap. It's an
+  // enhancement, not the trigger: feature-detected, and any rejection is
+  // swallowed so mobile still relies purely on the native tap that commit
+  // 4d86989 restored when it stopped depending on showPicker() alone.
+  function handlePickerClick(e: React.MouseEvent<HTMLInputElement>) {
+    const input = e.currentTarget
+    if (typeof input.showPicker !== "function") return
+    try {
+      input.showPicker()
+    } catch {
+      // Already-open pickers and non-user-activated calls throw in some
+      // browsers; the native tap covers both cases.
+    }
   }
 
   return (
@@ -68,7 +91,6 @@ export default function ShiftDateNav({
           <button
             type="button"
             onClick={handleBack}
-            disabled={checking}
             aria-label="Go back one day"
             className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-gray-400 transition-colors duration-100 hover:bg-gray-100 hover:text-gray-600 active:scale-90"
           >
@@ -111,9 +133,9 @@ export default function ShiftDateNav({
               defaultValue={dateKey}
               max={todayKey}
               onChange={handlePick}
-              disabled={checking}
+              onClick={handlePickerClick}
               aria-label="Pick a date"
-              className="absolute inset-0 z-10 cursor-pointer opacity-0 disabled:cursor-default"
+              className="absolute inset-0 z-10 cursor-pointer opacity-0"
             />
           </div>
           {isViewingLive ? (
@@ -127,7 +149,6 @@ export default function ShiftDateNav({
             <button
               type="button"
               onClick={handleForward}
-              disabled={checking}
               aria-label="Go forward one day"
               className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-gray-400 transition-colors duration-100 hover:bg-gray-100 hover:text-gray-600 active:scale-90"
             >
