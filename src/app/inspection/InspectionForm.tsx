@@ -276,11 +276,12 @@ export default function InspectionForm({
       return Boolean(values.lastName?.trim()) && Boolean(values.firstName?.trim())
     if (s.kind === "inspectionType") return Boolean(values.inspectionType)
     if (s.kind === "repairDetails") {
-      const hasDescription = Boolean(values.repairDescription?.trim())
-      const hasPhoto = (photoPreviews[REPAIR_REQUEST_ISSUE_ID] ?? []).some(
-        (p) => p !== null
-      )
-      return hasDescription && hasPhoto
+      // Description only. A photo used to be mandatory here, which meant a
+      // real fault someone couldn't photograph — a dead machine in a dark
+      // aisle, a phone with no storage left, or anything they'd already
+      // walked away from — couldn't be reported at all. A report with no
+      // picture beats no report.
+      return Boolean(values.repairDescription?.trim())
     }
     if (s.kind === "shift") return Boolean(values.shift)
     if (s.kind === "equipment") return Boolean(values.equipmentSerial)
@@ -292,9 +293,9 @@ export default function InspectionForm({
     const v = values[s.question.id]
     if (!v) return false
     // A flagged item with no documentation defeats the point of flagging it —
-    // photos stay optional, but a note is required, same principle as the
-    // Repair Request flow already requiring at least one photo. One rule for
-    // every bad answer including "Other" — there used to be a separate
+    // photos are optional but a note is required, which is now the same rule
+    // the Repair Request step follows (it used to demand a photo too). One
+    // rule for every bad answer including "Other" — there used to be a separate
     // "Please Specify" field just for Other, but that meant two boxes doing
     // the same job, and whichever one someone didn't happen to fill in
     // silently blocked them with no obvious reason why.
@@ -670,9 +671,7 @@ export default function InspectionForm({
             <div>
               <label className="mb-1.5 block text-sm font-medium text-gray-700">
                 Photos{" "}
-                <span className="font-normal text-gray-400">
-                  (at least 1 required)
-                </span>
+                <span className="font-normal text-gray-400">(optional)</span>
               </label>
               <div className="grid grid-cols-6 gap-1.5">
                 {Array.from({ length: REPAIR_REQUEST_PHOTO_SLOTS }, (_, i) => (
