@@ -1,6 +1,5 @@
 "use client"
 
-import { type ReactNode } from "react"
 import { useRouter } from "next/navigation"
 import { shiftDateKeyByDays } from "@/lib/shifts"
 
@@ -10,14 +9,12 @@ export default function ShiftDateNav({
   label,
   dateLabel,
   isViewingLive,
-  statusChip,
 }: {
   dateKey: string
   todayKey: string
   label: "Day" | "Night"
   dateLabel: string
   isViewingLive: boolean
-  statusChip: ReactNode
 }) {
   const router = useRouter()
 
@@ -77,17 +74,18 @@ export default function ShiftDateNav({
   return (
     <div className="mb-2">
       {/* Same size/spacing/arrow convention as WeeklyReport's header — one
-          shared visual language for both date-nav rows on this page.
-          Left-aligned (not centered) so the nav never fights the status
-          chip for the same space: centering it used to let the nav's own
-          box grow wide enough on a narrow phone that its text visually
-          overlapped the chip — and since the chip came later in the DOM,
-          it painted on top and silently ate taps meant for the calendar
-          icon/date text underneath it. `min-w-0` + `truncate` on the nav
-          side lets the date text give way before it ever reaches the
-          chip, instead of overflowing into it. */}
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex min-w-0 items-center gap-2 sm:gap-4">
+          shared visual language for both date-nav rows on this page, and
+          now the same centering too. This row was previously left-aligned
+          because it shared its width with the inspected-count chip:
+          centering it let the nav's box grow wide enough on a narrow phone
+          that its text visually overlapped the chip, and since the chip
+          came later in the DOM it painted on top and silently ate taps
+          meant for the calendar icon underneath. The chip now lives one
+          line up on the clock row, so this row owns its full width and
+          centering is safe. `min-w-0` + `truncate` still let the date text
+          give way rather than overflow on a narrow screen. */}
+      <div className="flex items-center justify-center gap-2">
+        <div className="flex min-w-0 items-center justify-center gap-2 sm:gap-4">
           <button
             type="button"
             onClick={handleBack}
@@ -156,7 +154,6 @@ export default function ShiftDateNav({
             </button>
           )}
         </div>
-        <div className="shrink-0">{statusChip}</div>
       </div>
     </div>
   )
