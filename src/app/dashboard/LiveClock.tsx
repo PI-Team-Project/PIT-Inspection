@@ -32,7 +32,11 @@ export default function LiveClock({
   }, [timeZone])
 
   return (
-    <span className="font-mono text-2xl font-semibold tracking-wide text-gray-900 tabular-nums">
+    // text-base, three steps down the scale from the text-2xl this used to
+    // be: at that size the clock read as the page's headline, competing with
+    // the actual title above it, when it's really just context for the shift
+    // being viewed.
+    <span className="font-mono text-base font-semibold tracking-wide text-gray-900 tabular-nums">
       {label}
     </span>
   )

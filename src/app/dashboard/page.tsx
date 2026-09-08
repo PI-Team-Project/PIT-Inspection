@@ -1,4 +1,3 @@
-import type { ReactNode } from "react"
 import Link from "next/link"
 import { cookies } from "next/headers"
 import { prisma } from "@/lib/prisma"
@@ -281,12 +280,33 @@ export default async function DashboardPage({
 
       <div className="mt-1.5 border-t border-gray-100" />
 
-      {/* Clock row only — the fleet-wide "N/34 never inspected" chip used to
-          sit at the right here, but it repeated what the shift nav's own
-          chip and the tile grid below already say. */}
-      <div className="mt-2 flex items-center gap-3">
-        <LiveClock timeZone={FLEET_TIME_ZONE} initialLabel={timeLabel} />
-        <span className="text-xs font-medium text-gray-400">Eastern Time — Holland, MI</span>
+      {/* The inspected count sits up here on the clock row rather than down
+          in the shift nav. Sharing that row meant the nav could only ever be
+          left-aligned — "Daily Report · Tue, Sep 8" had to keep clear of the
+          chip — so lifting it one line up is what lets the nav center. */}
+      <div className="mt-2 flex items-center justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-2">
+          <LiveClock timeZone={FLEET_TIME_ZONE} initialLabel={timeLabel} />
+          <span className="truncate text-xs font-medium text-gray-400">
+            Eastern Time — Holland, MI
+          </span>
+        </div>
+        {/* Plain text, not a link: it summarizes the checked/not-yet tile
+            grid below, and there's no "inspected this shift" filter for the
+            All Vehicles list to point at — the old link filtered by
+            fleet-wide working status, a different question than this one
+            answers. The dot only lights green once the shift is fully
+            covered, matching the grid's own Checked/Not-yet legend rather
+            than implying health. */}
+        <span className="flex shrink-0 items-center gap-1.5 text-sm font-medium text-gray-700">
+          {checkedThisShiftCount === equipmentList.length ? (
+            <span className="h-[6.7px] w-[6.7px] rounded-full bg-green-500 shadow-[0_0_3px_0.5px_rgba(34,197,94,0.9),0_0_6px_1px_rgba(34,197,94,0.5)]" />
+          ) : (
+            <span className="h-[6.7px] w-[6.7px] rounded-full border border-gray-300 bg-white" />
+          )}
+          {checkedThisShiftCount}/{equipmentList.length}
+          <span className="hidden sm:inline">&nbsp;inspected</span>
+        </span>
       </div>
 
       <div className="mt-6">
@@ -299,25 +319,6 @@ export default async function DashboardPage({
           isViewingLive={isViewingLive}
           rows={equipmentRows}
           checkedThisShift={checkedThisShift}
-          statusChip={
-            // Plain text, not a link: it summarizes the checked/not-yet
-            // tile grid immediately below it, and there's no "inspected
-            // this shift" filter for the All Vehicles list to point at —
-            // the old link filtered by fleet-wide working status, which is
-            // a different question than the one this chip now answers.
-            // The dot only lights up green once the shift is fully
-            // covered, matching the grid's own Checked/Not-yet legend
-            // rather than implying health.
-            <span className="flex items-center gap-1.5 rounded-full px-2 py-1 text-sm font-medium text-gray-700">
-              {checkedThisShiftCount === equipmentList.length ? (
-                <span className="h-[6.7px] w-[6.7px] rounded-full bg-green-500 shadow-[0_0_3px_0.5px_rgba(34,197,94,0.9),0_0_6px_1px_rgba(34,197,94,0.5)]" />
-              ) : (
-                <span className="h-[6.7px] w-[6.7px] rounded-full border border-gray-300 bg-white" />
-              )}
-              {checkedThisShiftCount}/{equipmentList.length}
-              <span className="hidden sm:inline">&nbsp;inspected</span>
-            </span>
-          }
         />
       </div>
 
@@ -432,7 +433,6 @@ function ShiftOverview({
   isViewingLive,
   rows,
   checkedThisShift,
-  statusChip,
 }: {
   shiftWindow: { label: string; start: Date; end: Date }
   selectedShiftLabel: string
@@ -442,7 +442,6 @@ function ShiftOverview({
   isViewingLive: boolean
   rows: EquipmentRow[]
   checkedThisShift: (row: EquipmentRow) => boolean
-  statusChip: ReactNode
 }) {
   // Not-inspected tiles first — those are the actionable ones for whoever's
   // picking up this shift. Within each group, the longest-outstanding
@@ -473,7 +472,6 @@ function ShiftOverview({
           label={shiftWindow.label as "Day" | "Night"}
           dateLabel={dateLabel}
           isViewingLive={isViewingLive}
-          statusChip={statusChip}
         />
         {/* One long box divided in two by a single border, not a box nested
             inside a box — the outer frame plus a separately-boxed selected
