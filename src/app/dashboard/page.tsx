@@ -237,8 +237,13 @@ export default async function DashboardPage({
           ? equipmentRows.filter((row) => isNotInspected(row.stage))
           : equipmentRows
 
-  const workingCount = equipmentRows.filter((row) => isWorking(row.stage)).length
-  const noInspectionCount = equipmentRows.filter((row) => isNotInspected(row.stage)).length
+  // How many vehicles actually got checked in the shift being VIEWED — not
+  // how many are currently healthy fleet-wide (isWorking, above). The
+  // chip carrying this sits in the shift nav right next to the Day/Night
+  // and date, so it can only honestly report something scoped to that
+  // shift: reading a fleet-wide historical count there said "5/34" on a
+  // shift where nothing had been inspected at all.
+  const checkedThisShiftCount = equipmentRows.filter(checkedThisShift).length
 
   // Surfaced as its own short list right on the Daily Report (not just the
   // small "?" badge in the Weekly Report below) — an inspector-reported
@@ -276,24 +281,12 @@ export default async function DashboardPage({
 
       <div className="mt-1.5 border-t border-gray-100" />
 
-      <div className="mt-2 flex items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <LiveClock timeZone={FLEET_TIME_ZONE} initialLabel={timeLabel} />
-          <span className="text-xs font-medium text-gray-400">Eastern Time — Holland, MI</span>
-        </div>
-        {noInspectionCount > 0 && (
-          <Link
-            href={filter === "not-inspected" ? "/dashboard" : "/dashboard?filter=not-inspected"}
-            scroll={false}
-            className={`flex items-center gap-1.5 rounded-full px-2 py-1 text-sm font-medium transition-colors duration-100 active:scale-95 ${
-              filter === "not-inspected" ? "bg-gray-200 text-gray-800" : "text-gray-500"
-            }`}
-          >
-            <span className="h-2.5 w-2.5 rounded-full bg-gray-300" />
-            {noInspectionCount}/{equipmentList.length}
-            <span className="hidden sm:inline">&nbsp;never inspected</span>
-          </Link>
-        )}
+      {/* Clock row only — the fleet-wide "N/34 never inspected" chip used to
+          sit at the right here, but it repeated what the shift nav's own
+          chip and the tile grid below already say. */}
+      <div className="mt-2 flex items-center gap-3">
+        <LiveClock timeZone={FLEET_TIME_ZONE} initialLabel={timeLabel} />
+        <span className="text-xs font-medium text-gray-400">Eastern Time — Holland, MI</span>
       </div>
 
       <div className="mt-6">
@@ -307,16 +300,23 @@ export default async function DashboardPage({
           rows={equipmentRows}
           checkedThisShift={checkedThisShift}
           statusChip={
-            <Link
-              href={filter === "working" ? "/dashboard" : "/dashboard?filter=working"}
-              scroll={false}
-              className={`flex items-center gap-1.5 rounded-full px-2 py-1 text-sm font-medium transition-colors duration-100 active:scale-95 ${
-                filter === "working" ? "bg-green-100 text-green-800" : "text-gray-700"
-              }`}
-            >
-              <span className="h-[6.7px] w-[6.7px] rounded-full bg-green-500 shadow-[0_0_3px_0.5px_rgba(34,197,94,0.9),0_0_6px_1px_rgba(34,197,94,0.5)]" />
-              {workingCount}/{equipmentList.length}
-            </Link>
+            // Plain text, not a link: it summarizes the checked/not-yet
+            // tile grid immediately below it, and there's no "inspected
+            // this shift" filter for the All Vehicles list to point at —
+            // the old link filtered by fleet-wide working status, which is
+            // a different question than the one this chip now answers.
+            // The dot only lights up green once the shift is fully
+            // covered, matching the grid's own Checked/Not-yet legend
+            // rather than implying health.
+            <span className="flex items-center gap-1.5 rounded-full px-2 py-1 text-sm font-medium text-gray-700">
+              {checkedThisShiftCount === equipmentList.length ? (
+                <span className="h-[6.7px] w-[6.7px] rounded-full bg-green-500 shadow-[0_0_3px_0.5px_rgba(34,197,94,0.9),0_0_6px_1px_rgba(34,197,94,0.5)]" />
+              ) : (
+                <span className="h-[6.7px] w-[6.7px] rounded-full border border-gray-300 bg-white" />
+              )}
+              {checkedThisShiftCount}/{equipmentList.length}
+              <span className="hidden sm:inline">&nbsp;inspected</span>
+            </span>
           }
         />
       </div>
