@@ -40,6 +40,12 @@ import ExportOptions from "../../ExportOptions"
 // (not the server's local zone) guarantees the digits shown always match
 // the digits in the key, with no drift. Used for the short, readable dates
 // in the "click to review" sentences below (e.g. "Aug 7").
+// How many of the *other* open issues get their own chip before the rest
+// collapse into a "+N more" pointing at the History list. Six fits one line
+// on a phone and two at most on desktop, which keeps this row from ever
+// becoming the tallest thing on the page again.
+const MAX_OTHER_OPEN_ISSUES = 6
+
 function shortDate(dateKey: string): string {
   return new Intl.DateTimeFormat("en-US", {
     timeZone: "UTC",
@@ -351,18 +357,49 @@ export default async function EquipmentDetailPage({
                   {openIssues.length > 1 ? ` (1 of ${openIssues.length})` : ""} →
                 </Link>
                 {/* Confirming the issue above never touches these — they're
-                    separate inspections that each need their own sign-off.
-                    Named explicitly so a manager can't mistake "cleared the
-                    top one" for "vehicle is clear." */}
-                {openIssues.slice(1).map((issue) => (
-                  <Link
-                    key={issue.inspection.id}
-                    href={`/dashboard/equipment/${serial}?date=${issue.inspection.date}&shift=${issue.inspection.shift}#selected-inspection`}
-                    className="col-span-3 border-b border-gray-200 px-2 py-1 text-xs font-medium text-gray-500 transition-colors duration-100 hover:bg-gray-50 hover:underline"
-                  >
-                    Also review the inspection from {shortDate(issue.inspection.date)} ({issue.inspection.shift}) →
-                  </Link>
-                ))}
+                    separate inspections that each need their own sign-off,
+                    so every one stays individually reachable and a manager
+                    can't mistake "cleared the top one" for "vehicle is
+                    clear."
+
+                    They used to be one full-sentence row each ("Also review
+                    the inspection from ... →"), which was fine at two or
+                    three and unusable past that: a vehicle carrying a year
+                    of unconfirmed reports rendered 175 near-identical lines
+                    and pushed the entire checklist off the screen. Dedupe by
+                    date+shift doesn't help — every one of those IS a
+                    distinct date+shift. So the sentence is said once and the
+                    dates become chips, capped, with the remainder pointing
+                    at the History list that already shows all of them. */}
+                {openIssues.length > 1 && (
+                  <div className="col-span-3 flex flex-wrap items-center gap-x-1.5 gap-y-1 border-b border-gray-200 px-2 py-1.5 text-xs">
+                    <span className="font-medium text-gray-500">Also open:</span>
+                    {openIssues.slice(1, 1 + MAX_OTHER_OPEN_ISSUES).map((issue) => (
+                      <Link
+                        key={issue.inspection.id}
+                        href={`/dashboard/equipment/${serial}?date=${issue.inspection.date}&shift=${issue.inspection.shift}#selected-inspection`}
+                        title={`Review the inspection from ${shortDate(issue.inspection.date)} (${issue.inspection.shift})`}
+                        className="rounded border border-gray-200 bg-white px-1.5 py-0.5 font-medium whitespace-nowrap text-gray-600 transition-colors duration-100 hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900"
+                      >
+                        {shortDate(issue.inspection.date)}
+                        {/* One letter, not "(Night)" — at chip size the
+                            full word doubles the width for a distinction
+                            D/N already makes unambiguously. */}
+                        <span className="ml-1 text-gray-400">
+                          {issue.inspection.shift === "Night" ? "N" : "D"}
+                        </span>
+                      </Link>
+                    ))}
+                    {openIssues.length - 1 > MAX_OTHER_OPEN_ISSUES && (
+                      <a
+                        href="#vehicle-history"
+                        className="font-medium text-gray-500 underline underline-offset-2 hover:text-gray-800"
+                      >
+                        +{openIssues.length - 1 - MAX_OTHER_OPEN_ISSUES} more
+                      </a>
+                    )}
+                  </div>
+                )}
               </>
             ) : null /* Nothing open (All Clear / No Inspections Yet) — no
                         badge here at all now. Both of those already get
@@ -462,7 +499,10 @@ export default async function EquipmentDetailPage({
         )}
       </div>
 
-      <div className="mt-6">
+      {/* Anchor target for the open-issues row's "+N more" — scroll-mt
+          matches #selected-inspection above so the heading isn't pinned
+          under the top of the viewport on arrival. */}
+      <div id="vehicle-history" className="mt-6 scroll-mt-4">
         <VehicleHistory serial={serial} todayKey={today} entries={logEntries} />
       </div>
 
