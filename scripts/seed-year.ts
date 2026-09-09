@@ -7,6 +7,7 @@
 // .env.staging — never from .env, so there is no path by which this touches
 // the real (production-shared) database. The localhost assertion below is a
 // second, independent guard.
+import { randomUUID } from "crypto"
 import sharp from "sharp"
 import { PrismaClient } from "../src/generated/prisma/client"
 import { PrismaPg } from "@prisma/adapter-pg"
@@ -101,7 +102,11 @@ async function buildPhotoPool(count: number): Promise<string[]> {
       // Low-frequency shading plus high-frequency grain — the two things
       // that set a photo's JPEG cost.
       const shade = Math.sin(x / 45 + i) * 28 + Math.cos(y / 38 - i) * 24
-      const grain = (Math.random() - 0.5) * 46
+      // Grain amplitude is what sets JPEG cost. Tuned so the pool averages
+      // ~70KB stored, which is what the 15 real pre-wipe production photos
+      // measured — not cranked to worst-case noise, which ran 108KB and
+      // overstated the Photo table by half.
+      const grain = (Math.random() - 0.5) * 26
       raw[p * 3]     = Math.max(0, Math.min(255, baseR + shade + grain))
       raw[p * 3 + 1] = Math.max(0, Math.min(255, baseG + shade + grain))
       raw[p * 3 + 2] = Math.max(0, Math.min(255, baseB + shade + grain))
@@ -134,12 +139,13 @@ async function main() {
 
   const today = new Date()
   type Row = {
+    id: string
     createdAt: Date; type: string; date: string; shift: string
     firstName: string; lastName: string; equipmentLabel: string; equipmentSerial: string
     answers: Record<string, Answer>; review?: object
-    photos?: { create: { questionId: string; order: number; dataUri: string }[] }
   }
   const rows: Row[] = []
+  const photoRows: { inspectionId: string; questionId: string; order: number; dataUri: string }[] = []
   let photoCount = 0
 
   for (const eq of EQUIPMENT_LIST) {
@@ -161,11 +167,11 @@ async function main() {
         let type = "Daily"
         let answers: Record<string, Answer>
         let review: object | undefined
-        let photos: { questionId: string; order: number; dataUri: string }[] = []
+        const id = randomUUID()
 
         const attach = (questionId: string, n: number) => {
           for (let i = 0; i < n; i++) {
-            photos.push({ questionId, order: i, dataUri: pick(photoPool) })
+            photoRows.push({ inspectionId: id, questionId, order: i, dataUri: pick(photoPool) })
           }
           photoCount += n
         }
@@ -215,31 +221,41 @@ async function main() {
         }
 
         rows.push({
+          id,
           createdAt, type, date: dateKey, shift, firstName, lastName,
           equipmentLabel: `${eq.flNumber} — ${eq.makeColor} (${eq.type})`,
           equipmentSerial: eq.serial,
           answers,
           ...(review ? { review } : {}),
-          ...(photos.length ? { photos: { create: photos } } : {}),
         })
       }
     }
   }
 
-  console.log(`Inserting ${rows.length} inspections (${photoCount} photos)...`)
-  // Rows carrying nested photo creates can't go through createMany, so those
-  // are created individually; photo-less rows still batch.
-  const withPhotos = rows.filter((r) => r.photos)
-  const plain = rows.filter((r) => !r.photos)
-
+  console.log(`Inserting ${rows.length} inspections + ${photoCount} photos...`)
+  // Both tables go in with createMany. Nested photo creates would force one
+  // round-trip per photo-bearing inspection — ~2.7k sequential inserts each
+  // carrying tens of KB, which took over half an hour. Generating the
+  // inspection ids up front lets the photos batch too.
   const CHUNK = 500
-  for (let i = 0; i < plain.length; i += CHUNK) {
-    await prisma.inspection.createMany({ data: plain.slice(i, i + CHUNK).map(({ photos: _p, ...r }) => r) })
-    if ((i / CHUNK) % 10 === 0) console.log(`  plain ${Math.min(i + CHUNK, plain.length)}/${plain.length}`)
+  for (let i = 0; i < rows.length; i += CHUNK) {
+    await prisma.inspection.createMany({ data: rows.slice(i, i + CHUNK) })
+    if ((i / CHUNK) % 10 === 0) console.log(`  inspections ${Math.min(i + CHUNK, rows.length)}/${rows.length}`)
   }
-  for (let i = 0; i < withPhotos.length; i++) {
-    await prisma.inspection.create({ data: withPhotos[i] })
-    if (i % 200 === 0) console.log(`  with photos ${i}/${withPhotos.length}`)
+  // Smaller chunks here: every row carries ~45KB of base64, so 500 at a
+  // time would put ~22MB in a single statement.
+  const PHOTO_CHUNK = 25
+  const photoLimit = Number(process.env.SEED_PHOTO_LIMIT ?? photoRows.length)
+  const toInsert = photoRows.slice(0, photoLimit)
+  if (toInsert.length < photoRows.length) {
+    console.log(`  (capped at ${toInsert.length} of ${photoRows.length} photos via SEED_PHOTO_LIMIT)`)
+  }
+  for (let i = 0; i < toInsert.length; i += PHOTO_CHUNK) {
+    await prisma.photo.createMany({ data: toInsert.slice(i, i + PHOTO_CHUNK) })
+    // Breathing room between batches — without it the local server stops
+    // answering partway through and the run hangs rather than failing.
+    await new Promise((r) => setTimeout(r, 40))
+    if ((i / PHOTO_CHUNK) % 20 === 0) console.log(`  photos ${Math.min(i + PHOTO_CHUNK, toInsert.length)}/${toInsert.length}`)
   }
 
   // A handful of vehicles left mid-approval so the supervisor flow has
