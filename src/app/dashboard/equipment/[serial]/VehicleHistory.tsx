@@ -307,6 +307,34 @@ export default function VehicleHistory({
   const [view, setView] = useState<View>(initialView)
   const [page, setPage] = useState(1)
   const calendarRef = useRef<HTMLDivElement>(null)
+  const rootRef = useRef<HTMLDivElement>(null)
+
+  // Adopt a view arriving from a ?view= link. useState only seeds on
+  // mount, and navigating from ?date=X to ?date=X&view=issues is the same
+  // route, so React keeps this component mounted and the initial value
+  // would otherwise stick. Adjusting state during render (rather than in
+  // an effect) is React's own pattern for a prop the state must follow —
+  // it re-renders before painting, with no cascading second pass.
+  const [lastRequestedView, setLastRequestedView] = useState<View>(initialView)
+  if (initialView !== lastRequestedView) {
+    setLastRequestedView(initialView)
+    setView(initialView)
+    setPage(1)
+  }
+
+  // Then scroll here. A plain #vehicle-history anchor cannot work in this
+  // app — body is overflow-hidden and the real scroll container is
+  // #app-scroll-container (see layout.tsx), so the browser's hash handling
+  // moves window, which does nothing at all. ScrollPreserver then restores
+  // the container to where it sat before the click, undoing any movement.
+  // scrollIntoView targets the nearest scrollable ancestor, which is the
+  // right container, and running it in an effect puts it after
+  // ScrollPreserver's layout effect so it lands last. Same technique the
+  // calendar view below already uses.
+  useEffect(() => {
+    if (initialView === "log") return
+    rootRef.current?.scrollIntoView({ block: "start", behavior: "smooth" })
+  }, [initialView])
 
   // The Issues/Log tables are already short enough to see right where they
   // are, but the calendar can render below the fold — bring the whole
@@ -346,7 +374,7 @@ export default function VehicleHistory({
   return (
     // No shadow, lighter border than the status zone above — this is
     // reference material to consult, not the thing demanding attention.
-    <div className="rounded-lg border border-gray-100">
+    <div ref={rootRef} className="scroll-mt-3 rounded-lg border border-gray-100">
       <div className="border-b border-gray-200 px-3 py-2.5">
         <p className="text-center text-sm font-semibold text-gray-700">
           History ({entries.length})
