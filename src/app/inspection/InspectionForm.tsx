@@ -73,6 +73,14 @@ async function convertHeicToJpeg(file: File): Promise<File> {
 // The actual submission reads native <input type="file"> elements, so a
 // converted/cropped replacement has to be written back onto the input
 // itself (not just kept in React state) for it to be what gets uploaded.
+// Long-edge budget for a photo leaving the browser, raised from 640 so a
+// cracked weld or a battery label is actually legible — a saved crop is
+// PHOTO_OUTPUT_PX square, a cancelled edit keeps the full frame within the
+// same bound. Still under the server's own MAX_PHOTO_DIMENSION (1600), so
+// sharp re-encodes without resizing again.
+const PHOTO_OUTPUT_PX = 1280
+const PHOTO_JPEG_QUALITY = 0.9
+
 function setInputFiles(input: HTMLInputElement | null, file: File | null) {
   if (!input) return
   const dt = new DataTransfer()
@@ -1309,6 +1317,9 @@ function PhotoSlot({
   // away — nothing is committed (onChange/setInputFiles) until Save, so
   // there's no separate "upload, then remember to go edit it" step.
   const [pendingSrc, setPendingSrc] = useState<string | null>(null)
+  // The freshly-picked file (HEIC already converted), held so that
+  // cancelling the editor can still attach the photo — see handleEditCancel.
+  const pendingFileRef = useRef<File | null>(null)
 
   async function handleFile(raw: File | null) {
     if (!raw) return
@@ -1323,6 +1334,7 @@ function PhotoSlot({
         setBusy(false)
       }
     }
+    pendingFileRef.current = working
     setPendingSrc(URL.createObjectURL(working))
     setEditing(true)
   }
@@ -1336,14 +1348,30 @@ function PhotoSlot({
   function handleEditApply(file: File) {
     setInputFiles(inputRef.current, file)
     onChange(file)
+    pendingFileRef.current = null
     setEditing(false)
     setPendingSrc(null)
   }
 
-  function handleEditCancel() {
-    // Only a fresh, not-yet-committed pick needs the native input cleared —
-    // canceling a re-edit of an already-saved photo must leave it alone.
-    if (pendingSrc && inputRef.current) inputRef.current.value = ""
+  // Cancel abandons the EDIT, not the photo. It used to clear the native
+  // input on a fresh pick, so someone who attached a photo and then dismissed
+  // an editor they weren't expecting lost the photo with no message and no
+  // mark on the slot — indistinguishable from never having picked one.
+  //
+  // `uncropped` is the full frame the modal renders for exactly this path:
+  // no square crop, no annotations, just scaled to fit. It falls back to the
+  // picked file itself if the image never finished loading. Cancelling a
+  // re-edit of an already-saved photo still leaves that photo untouched
+  // (pendingSrc is null then), and removing a photo remains the ✕ button's
+  // job.
+  function handleEditCancel(uncropped: File | null) {
+    const picked = pendingFileRef.current
+    if (pendingSrc && (uncropped || picked)) {
+      const keep = uncropped ?? picked!
+      setInputFiles(inputRef.current, keep)
+      onChange(keep)
+    }
+    pendingFileRef.current = null
     setEditing(false)
     setPendingSrc(null)
   }
@@ -1470,7 +1498,7 @@ function PhotoEditorModal({
   onApply,
 }: {
   src: string
-  onCancel: () => void
+  onCancel: (uncropped: File | null) => void
   onApply: (file: File) => void
 }) {
   const VIEWPORT = 280
@@ -1637,7 +1665,7 @@ function PhotoEditorModal({
   function handleApply() {
     const img = imgRef.current
     if (!img || !natural) return
-    const OUTPUT = 640
+    const OUTPUT = PHOTO_OUTPUT_PX
     const outputScale = OUTPUT / VIEWPORT
     const canvas = document.createElement("canvas")
     canvas.width = OUTPUT
@@ -1657,7 +1685,37 @@ function PhotoEditorModal({
         if (blob) onApply(new File([blob], "photo.jpg", { type: "image/jpeg" }))
       },
       "image/jpeg",
-      0.9
+      PHOTO_JPEG_QUALITY
+    )
+  }
+
+  // The photo as picked: full frame, no square crop and no annotations,
+  // scaled so its long edge matches the same budget a saved crop gets. This
+  // is what Cancel attaches, so dismissing the editor keeps the picture
+  // rather than throwing it away. Encoded here rather than passing the raw
+  // camera file through so an uncropped photo can't arrive at the server ten
+  // times the size of a cropped one.
+  function handleCancel() {
+    const img = imgRef.current
+    if (!img || !natural) {
+      onCancel(null)
+      return
+    }
+    const long = Math.max(natural.w, natural.h)
+    const k = Math.min(1, PHOTO_OUTPUT_PX / long)
+    const canvas = document.createElement("canvas")
+    canvas.width = Math.max(1, Math.round(natural.w * k))
+    canvas.height = Math.max(1, Math.round(natural.h * k))
+    const ctx = canvas.getContext("2d")
+    if (!ctx) {
+      onCancel(null)
+      return
+    }
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+    canvas.toBlob(
+      (blob) => onCancel(blob ? new File([blob], "photo.jpg", { type: "image/jpeg" }) : null),
+      "image/jpeg",
+      PHOTO_JPEG_QUALITY
     )
   }
 
@@ -1799,7 +1857,7 @@ function PhotoEditorModal({
         <div className="mt-4 flex gap-2">
           <button
             type="button"
-            onClick={onCancel}
+            onClick={handleCancel}
             className="flex-1 rounded-lg border border-gray-300 py-2 text-sm font-medium text-gray-700 transition-transform duration-100 active:scale-95"
           >
             Cancel
