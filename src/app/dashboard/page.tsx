@@ -325,14 +325,33 @@ export default async function DashboardPage({
       {pendingLocationRows.length > 0 && (
         <div className="mt-4">
           <p className="mb-1.5 text-xs font-semibold text-gray-500">Location Confirmation Needed</p>
-          <div className="space-y-1">
+          {/* Just the FL# per tile. "Confirm Location Change:" on every row
+              restated the heading directly above it once per vehicle, and
+              the arrow said "this is a link" to something already obviously
+              tappable — with two vehicles pending, the words outnumbered the
+              information three to one.
+
+              One vehicle takes the full width, two split it in half, three
+              or more sit three across and wrap. Written as whole class
+              strings rather than an interpolated column count because
+              Tailwind only generates classes it can see literally. */}
+          <div
+            className={`grid gap-1.5 ${
+              pendingLocationRows.length === 1
+                ? "grid-cols-1"
+                : pendingLocationRows.length === 2
+                  ? "grid-cols-2"
+                  : "grid-cols-3"
+            }`}
+          >
             {pendingLocationRows.map((row) => (
               <Link
                 key={row.serial}
                 href={`/dashboard/equipment/${row.serial}`}
-                className="block rounded-md border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-sm font-medium text-amber-800 transition-colors duration-100 hover:bg-amber-100 active:scale-95"
+                title={`Confirm the reported location change for ${row.flNumber}`}
+                className="truncate rounded-md border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-center text-sm font-medium text-amber-800 transition-colors duration-100 hover:bg-amber-100 active:scale-95"
               >
-                Confirm Location Change: {row.flNumber} →
+                {row.flNumber}
               </Link>
             ))}
           </div>
