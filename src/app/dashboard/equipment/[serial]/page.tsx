@@ -367,7 +367,7 @@ export default async function EquipmentDetailPage({
                   scroll={false}
                   className={`col-span-3 border-b border-gray-200 px-2 py-1.5 font-semibold transition-colors duration-100 hover:bg-gray-50 hover:underline ${verdict.text}`}
                 >
-                  {openIssuesElsewhere.length} other days still unresolved — see all ↓
+                  See all {openIssuesElsewhere.length} unresolved inspections
                 </Link>
               ) : openIssuesElsewhere.length === 1 ? (
                 // Exactly one: no list needed, link straight at it.
