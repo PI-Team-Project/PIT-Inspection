@@ -46,6 +46,15 @@ import ExportOptions from "../../ExportOptions"
 // becoming the tallest thing on the page again.
 const MAX_OTHER_OPEN_ISSUES = 6
 
+// A bare "Sep 15" can't distinguish an issue open for twelve days from one
+// open for twelve months, and a vehicle nobody signs off on carries both.
+// The year appears only when it isn't the current one, so recent dates stay
+// as short as they were.
+function shortDateWithYear(dateKey: string, todayKey: string): string {
+  const year = dateKey.slice(0, 4)
+  return year === todayKey.slice(0, 4) ? shortDate(dateKey) : `${shortDate(dateKey)}, ${year}`
+}
+
 function shortDate(dateKey: string): string {
   return new Intl.DateTimeFormat("en-US", {
     timeZone: "UTC",
@@ -109,7 +118,7 @@ export default async function EquipmentDetailPage({
   searchParams,
 }: {
   params: Promise<{ serial: string }>
-  searchParams: Promise<{ date?: string; shift?: string }>
+  searchParams: Promise<{ date?: string; shift?: string; view?: string }>
 }) {
   const cookieStore = await cookies()
   const authed = cookieStore.get(DASHBOARD_COOKIE)?.value === dashboardSessionValue()
@@ -118,7 +127,7 @@ export default async function EquipmentDetailPage({
   }
 
   const { serial } = await params
-  const { date: highlightDate, shift: highlightShift } = await searchParams
+  const { date: highlightDate, shift: highlightShift, view: viewParam } = await searchParams
   const savedManagerName = cookieStore.get(MANAGER_NAME_COOKIE)?.value ?? ""
   // The fleet's Eastern calendar date, not the server's own — Vercel runs
   // in UTC, and a plain `new Date().toISOString()` would silently roll
@@ -193,6 +202,18 @@ export default async function EquipmentDetailPage({
         )
     : []
   const matchingIds = matchingRows.map((row) => row.inspection.id)
+
+  // Open issues on some OTHER day than the one on screen. A link into a date
+  // shows every inspection from that date (both shifts — see above), so any
+  // open issue sharing the viewed date is already visible and must not be
+  // offered as somewhere to go: the banner used to point at openIssues[0]
+  // unconditionally, so after clicking through to the oldest open issue the
+  // banner still invited you to that same date and clicking it did nothing
+  // at all. Filtering by date rather than date+shift is deliberate for the
+  // same reason.
+  const openIssuesElsewhere = highlightDate
+    ? openIssues.filter((issue) => issue.inspection.date !== highlightDate)
+    : openIssues
 
   const selectedInspections = matchingIds.length
     ? await prisma.inspection.findMany({ where: { id: { in: matchingIds } }, include: { photos: true } })
@@ -334,15 +355,30 @@ export default async function EquipmentDetailPage({
               // unnoticed after its Aug 10 report was confirmed: the Aug 7
               // report was open the whole time, but nothing on this page
               // said so unless you happened to land on the Home view.
-              openIssue && (
+              openIssuesElsewhere.length > 1 ? (
+                // Several other days still open: go to the Issues Only list
+                // and show them all at once. Walking to the next one, then
+                // the next, is the wrong shape for 160 of them — a
+                // supervisor wants the queue, not a tour of it.
                 <Link
-                  href={`/dashboard/equipment/${serial}?date=${openIssue.inspection.date}&shift=${openIssue.inspection.shift}#selected-inspection`}
+                  href={`/dashboard/equipment/${serial}?date=${highlightDate}${
+                    highlightShift ? `&shift=${highlightShift}` : ""
+                  }&view=issues#vehicle-history`}
+                  scroll={false}
                   className={`col-span-3 border-b border-gray-200 px-2 py-1.5 font-semibold transition-colors duration-100 hover:bg-gray-50 hover:underline ${verdict.text}`}
                 >
-                  Click to review the inspection from {shortDate(openIssue.inspection.date)}
-                  {openIssues.length > 1 ? ` (+${openIssues.length - 1} more)` : ""} →
+                  {openIssuesElsewhere.length} other days still unresolved — see all ↓
                 </Link>
-              )
+              ) : openIssuesElsewhere.length === 1 ? (
+                // Exactly one: no list needed, link straight at it.
+                <Link
+                  href={`/dashboard/equipment/${serial}?date=${openIssuesElsewhere[0].inspection.date}&shift=${openIssuesElsewhere[0].inspection.shift}#selected-inspection`}
+                  className={`col-span-3 border-b border-gray-200 px-2 py-1.5 font-semibold transition-colors duration-100 hover:bg-gray-50 hover:underline ${verdict.text}`}
+                >
+                  Also unresolved: {shortDateWithYear(openIssuesElsewhere[0].inspection.date, today)} (
+                  {openIssuesElsewhere[0].inspection.shift}) →
+                </Link>
+              ) : null
             ) : openIssue ? (
               <>
                 {/* The link itself is the one-click path to the flagged
@@ -353,7 +389,8 @@ export default async function EquipmentDetailPage({
                   href={`/dashboard/equipment/${serial}?date=${openIssue.inspection.date}&shift=${openIssue.inspection.shift}#selected-inspection`}
                   className={`col-span-3 border-b border-gray-200 px-2 py-1.5 font-semibold transition-colors duration-100 hover:bg-gray-50 hover:underline ${verdict.text}`}
                 >
-                  Click to review the inspection from {shortDate(openIssue.inspection.date)}
+                  Click to review the inspection from{" "}
+                  {shortDateWithYear(openIssue.inspection.date, today)}
                   {openIssues.length > 1 ? ` (1 of ${openIssues.length})` : ""} →
                 </Link>
                 {/* Confirming the issue above never touches these — they're
@@ -378,10 +415,10 @@ export default async function EquipmentDetailPage({
                       <Link
                         key={issue.inspection.id}
                         href={`/dashboard/equipment/${serial}?date=${issue.inspection.date}&shift=${issue.inspection.shift}#selected-inspection`}
-                        title={`Review the inspection from ${shortDate(issue.inspection.date)} (${issue.inspection.shift})`}
+                        title={`Review the inspection from ${shortDateWithYear(issue.inspection.date, today)} (${issue.inspection.shift})`}
                         className="rounded border border-gray-200 bg-white px-1.5 py-0.5 font-medium whitespace-nowrap text-gray-600 transition-colors duration-100 hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900"
                       >
-                        {shortDate(issue.inspection.date)}
+                        {shortDateWithYear(issue.inspection.date, today)}
                         {/* One letter, not "(Night)" — at chip size the
                             full word doubles the width for a distinction
                             D/N already makes unambiguously. */}
@@ -391,12 +428,13 @@ export default async function EquipmentDetailPage({
                       </Link>
                     ))}
                     {openIssues.length - 1 > MAX_OTHER_OPEN_ISSUES && (
-                      <a
-                        href="#vehicle-history"
+                      <Link
+                        href={`/dashboard/equipment/${serial}?view=issues#vehicle-history`}
+                        scroll={false}
                         className="font-medium text-gray-500 underline underline-offset-2 hover:text-gray-800"
                       >
                         +{openIssues.length - 1 - MAX_OTHER_OPEN_ISSUES} more
-                      </a>
+                      </Link>
                     )}
                   </div>
                 )}
@@ -503,7 +541,12 @@ export default async function EquipmentDetailPage({
           matches #selected-inspection above so the heading isn't pinned
           under the top of the viewport on arrival. */}
       <div id="vehicle-history" className="mt-6 scroll-mt-4">
-        <VehicleHistory serial={serial} todayKey={today} entries={logEntries} />
+        <VehicleHistory
+          serial={serial}
+          todayKey={today}
+          entries={logEntries}
+          initialView={viewParam === "issues" ? "issues" : viewParam === "calendar" ? "calendar" : "log"}
+        />
       </div>
 
       <div className="mt-6 flex items-center justify-between border-t border-gray-100 pt-3 text-xs text-gray-400">

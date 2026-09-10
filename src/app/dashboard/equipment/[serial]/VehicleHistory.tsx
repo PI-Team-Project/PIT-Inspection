@@ -293,12 +293,18 @@ export default function VehicleHistory({
   serial,
   todayKey,
   entries,
+  initialView = "log",
 }: {
   serial: string
   todayKey: string
   entries: LogEntry[]
+  // Lets a link elsewhere on the page open straight into a particular view
+  // — the open-issues banner sends a vehicle carrying several unresolved
+  // days here with "Issues Only" already selected, rather than making
+  // someone step through them one inspection at a time.
+  initialView?: View
 }) {
-  const [view, setView] = useState<View>("log")
+  const [view, setView] = useState<View>(initialView)
   const [page, setPage] = useState(1)
   const calendarRef = useRef<HTMLDivElement>(null)
 
