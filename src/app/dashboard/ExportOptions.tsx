@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react"
 
 type DateRange = "all" | "week" | "month" | "custom"
 type Scope = "all" | "open" | "resolved" | "specific"
-type Format = "csv" | "excel"
+type Format = "csv" | "excel" | "zip"
 
 const RANGE_OPTIONS: { value: DateRange; label: string }[] = [
   { value: "all", label: "All Time" },
@@ -34,6 +34,11 @@ const SCOPE_OPTIONS_VEHICLE: { value: Scope; label: string; hint: string }[] = [
 const FORMAT_OPTIONS: { value: Format; label: string; hint: string }[] = [
   { value: "csv", label: "Summary (CSV)", hint: "One row per inspection, every vehicle in one sheet" },
   { value: "excel", label: "Detail (Excel)", hint: "One tab per vehicle, its full history top to bottom" },
+  {
+    value: "zip",
+    label: "With Photos (ZIP)",
+    hint: "The Excel workbook plus the photo files, one folder per vehicle",
+  },
 ]
 
 const DEFAULT_TRIGGER_CLASS =
@@ -53,12 +58,14 @@ const DEFAULT_TRIGGER_CLASS =
 export default function ExportOptions({
   exportPath,
   excelPath,
+  zipPath,
   vehicleLabel,
   vehicleOptions,
   triggerClassName = DEFAULT_TRIGGER_CLASS,
 }: {
   exportPath: string
   excelPath?: string
+  zipPath?: string
   // The FL# to name in the trigger/heading on a single-vehicle export (this
   // page's equipment) — without it, "Export CSV" reads identically to the
   // fleet-wide export elsewhere, so there's nothing telling someone this
@@ -95,6 +102,7 @@ export default function ExportOptions({
 
   const isVehicleExport = Boolean(vehicleLabel)
   const showFormat = Boolean(excelPath)
+  const formatOptions = FORMAT_OPTIONS.filter((o) => o.value !== "zip" || zipPath)
   const triggerLabel = showFormat
     ? "Export"
     : vehicleLabel
@@ -112,7 +120,12 @@ export default function ExportOptions({
   )
 
   function buildHref() {
-    const path = format === "excel" && excelPath ? excelPath : exportPath
+    const path =
+      format === "zip" && zipPath
+        ? zipPath
+        : format === "excel" && excelPath
+          ? excelPath
+          : exportPath
     const params = new URLSearchParams()
     params.set("range", range)
     if (range === "custom") {
@@ -293,7 +306,7 @@ export default function ExportOptions({
             <div>
               <p className="mb-1.5 text-xs font-semibold text-gray-500">Format</p>
               <div className="space-y-1.5">
-                {FORMAT_OPTIONS.map((opt) => (
+                {formatOptions.map((opt) => (
                   <button
                     key={opt.value}
                     type="button"
@@ -333,7 +346,7 @@ export default function ExportOptions({
               downloadBlocked ? "cursor-not-allowed bg-gray-300" : "bg-brand active:bg-brand-dark"
             }`}
           >
-            Download {format === "excel" && showFormat ? "Excel" : "CSV"}
+            Download {format === "zip" ? "ZIP" : format === "excel" && showFormat ? "Excel" : "CSV"}
           </a>
         </div>
       </div>

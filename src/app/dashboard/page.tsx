@@ -467,6 +467,7 @@ export default async function DashboardPage({
         <ExportOptions
           exportPath="/dashboard/export"
           excelPath="/dashboard/export-excel"
+          zipPath="/dashboard/export-zip"
           vehicleOptions={equipmentList.map((eq) => ({
             serial: eq.serial,
             label: `${eq.flNumber} — ${eq.makeColor}`,

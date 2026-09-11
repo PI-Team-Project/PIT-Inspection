@@ -25,6 +25,7 @@
     "@prisma/adapter-pg": "^7.9.1",
     "@prisma/client": "^7.9.1",
     "@supabase/storage-js": "^2.116.0",
+    "archiver": "^8.0.0",
     "exceljs": "^4.4.0",
     "heic2any": "^0.0.4",
     "next": "16.2.12",
@@ -36,6 +37,7 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@types/archiver": "^8.0.0",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",

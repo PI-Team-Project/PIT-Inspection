@@ -24,7 +24,7 @@ function sheetNameFor(flNumber: string, serial: string, usedNames: Set<string>):
   return disambiguated
 }
 
-const TABLE_HEADERS = [
+const BASE_HEADERS = [
   "Date",
   "Shift",
   "Inspector",
@@ -34,15 +34,27 @@ const TABLE_HEADERS = [
   "Notes / Activity",
 ]
 
+// Only present in the photo export, where it names the files sitting beside
+// the workbook — so a row and its pictures point at each other without
+// anyone matching up ids.
+const PHOTOS_HEADER = "Photos"
+
 // One tab per vehicle (named by FL#), the vehicle's full name as a title
 // row, then a table with the checklist questions as columns and notes as
 // the trailing column — the format asked for: "vehicle per tab, top
 // columns have the questionnaire, notes at the end." Rows run oldest to
 // newest, top to bottom, like a diary of that vehicle's history — the
 // natural way to read a single vehicle's own trail of inspections.
-export async function buildInspectionsExcel(inspections: Inspection[]): Promise<Buffer> {
+export async function buildInspectionsExcel(
+  inspections: Inspection[],
+  // inspection id -> the archive paths of its photos, in checklist order.
+  // Supplied only by the photo export; without it the workbook is exactly
+  // what it always was.
+  photoPaths?: Map<string, string[]>
+): Promise<Buffer> {
   const workbook = new ExcelJS.Workbook()
   workbook.created = new Date()
+  const TABLE_HEADERS = photoPaths ? [...BASE_HEADERS, PHOTOS_HEADER] : BASE_HEADERS
 
   const bySerial = new Map<string, Inspection[]>()
   for (const inspection of inspections) {
@@ -84,7 +96,7 @@ export async function buildInspectionsExcel(inspections: Inspection[]): Promise<
     )
     for (const inspection of sortedInspections) {
       const row = buildExportRow(inspection)
-      sheet.addRow([
+      const cells = [
         row.date,
         row.shift,
         `${row.firstName} ${row.lastName}`,
@@ -92,7 +104,16 @@ export async function buildInspectionsExcel(inspections: Inspection[]): Promise<
         ...row.answerCells,
         row.repairDescription,
         row.activityLog,
-      ])
+      ]
+      if (photoPaths) {
+        // Newline-separated so several photos stay readable in one cell.
+        const paths = photoPaths.get(inspection.id) ?? []
+        cells.push(paths.join("\n"))
+      }
+      const added = sheet.addRow(cells)
+      if (photoPaths) {
+        added.getCell(TABLE_HEADERS.length).alignment = { wrapText: true, vertical: "top" }
+      }
     }
 
     sheet.columns.forEach((col, i) => {
@@ -103,9 +124,11 @@ export async function buildInspectionsExcel(inspections: Inspection[]): Promise<
       col.width =
         header === "Notes / Activity"
           ? 60
-          : header === "Repair Description"
-            ? 30
-            : Math.min(Math.max(header.length + 2, 10), 24)
+          : header === PHOTOS_HEADER
+            ? 46
+            : header === "Repair Description"
+              ? 30
+              : Math.min(Math.max(header.length + 2, 10), 24)
     })
   }
 

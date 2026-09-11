@@ -182,3 +182,37 @@ export async function resolvePhotoSources<
     return src ? [{ ...photo, src }] : []
   })
 }
+
+// Pulls a stored photo's bytes back. Used by the photo export, which has to
+// put real files in a zip rather than hand out signed URLs.
+export async function downloadPhoto(path: string): Promise<Buffer | null> {
+  const storage = client()
+  if (!storage) return null
+  try {
+    const { data, error } = await storage.from(PHOTO_BUCKET).download(path)
+    if (error || !data) {
+      console.error("photo download failed:", error?.message ?? "no data")
+      return null
+    }
+    return Buffer.from(await data.arrayBuffer())
+  } catch (err) {
+    console.error("photo download threw:", err)
+    return null
+  }
+}
+
+// The bytes for one photo row, wherever they happen to live — object storage
+// for anything written since the move, an inline data URI for the rest.
+// Returns null if neither yields anything, so the export can carry on and
+// simply not include that one file.
+export async function photoBytes(photo: {
+  storagePath: string | null
+  dataUri: string | null
+}): Promise<Buffer | null> {
+  if (photo.storagePath) return downloadPhoto(photo.storagePath)
+  if (photo.dataUri) {
+    const base64 = photo.dataUri.split(",", 2)[1]
+    if (base64) return Buffer.from(base64, "base64")
+  }
+  return null
+}
