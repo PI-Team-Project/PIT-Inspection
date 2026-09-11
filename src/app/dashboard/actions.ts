@@ -13,6 +13,7 @@ import {
   recordFailedPinAttempt,
 } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { computeMaybeOpen } from "@/app/dashboard/inspectionRow"
 import { LOCATIONS } from "@/lib/equipment"
 import {
   parseReview,
@@ -132,9 +133,20 @@ export async function saveActivity(formData: FormData) {
     activity.push({ id: crypto.randomUUID(), type: "confirmed", authorName, timestamp })
   }
 
+  const review_ = { issueStatus, activity, confirmedResolved }
   await prisma.inspection.update({
     where: { id: inspectionId },
-    data: { review: { issueStatus, activity, confirmedResolved } },
+    data: {
+      review: review_,
+      // The only write in the app that can close an issue, so the only one
+      // that has to recompute this. Derived from the review being written,
+      // through the same getStage the dashboard renders from.
+      maybeOpen: computeMaybeOpen({
+        type: inspection.type,
+        answers: inspection.answers,
+        review: review_,
+      }),
+    },
   })
 
   revalidatePath("/dashboard")

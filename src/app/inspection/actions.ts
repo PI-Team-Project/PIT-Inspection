@@ -5,6 +5,7 @@ import sharp from "sharp"
 import { prisma } from "@/lib/prisma"
 import {
   buildRow,
+  computeMaybeOpen,
   findAllOpenIssues,
   RETENTION_YEARS,
   daysPassedCount,
@@ -157,38 +158,46 @@ export async function submitInspection(formData: FormData) {
       })
     }
 
+    // Recorded here (not just on Equipment) so the report survives in this
+    // vehicle's permanent activity trail/export even if it's later
+    // dismissed rather than approved.
+    const review =
+      locationMatches === "No" && actualLocation
+        ? {
+            issueStatus: {},
+            confirmedResolved: false,
+            activity: [
+              {
+                id: crypto.randomUUID(),
+                type: "location-pending",
+                location: actualLocation,
+                fromLocation: equipment.location,
+                authorName: `${firstName} ${lastName}`,
+                timestamp: new Date().toISOString(),
+              },
+            ],
+          }
+        : null
+
+    const data = {
+      type,
+      date,
+      shift,
+      lastName,
+      firstName,
+      equipmentLabel: `${equipment.flNumber} — ${equipment.makeColor} (${equipment.type})`,
+      equipmentSerial,
+      answers,
+      ...(review ? { review } : {}),
+    }
+
     await prisma.inspection.create({
       data: {
-        type,
-        date,
-        shift,
-        lastName,
-        firstName,
-        equipmentLabel: `${equipment.flNumber} — ${equipment.makeColor} (${equipment.type})`,
-        equipmentSerial,
-        answers,
+        ...data,
         photos: { create: photoRecords },
-        // Recorded here (not just on Equipment) so the report survives in
-        // this vehicle's permanent activity trail/export even if it's later
-        // dismissed rather than approved.
-        ...(locationMatches === "No" && actualLocation
-          ? {
-              review: {
-                issueStatus: {},
-                confirmedResolved: false,
-                activity: [
-                  {
-                    id: crypto.randomUUID(),
-                    type: "location-pending",
-                    location: actualLocation,
-                    fromLocation: equipment.location,
-                    authorName: `${firstName} ${lastName}`,
-                    timestamp: new Date().toISOString(),
-                  },
-                ],
-              },
-            }
-          : {}),
+        // Derived from the very payload being written, via the same
+        // getStage the dashboard renders from — see computeMaybeOpen.
+        maybeOpen: computeMaybeOpen({ type, answers, review }),
       },
     })
   } catch (err) {

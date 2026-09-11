@@ -15,7 +15,9 @@
     "db:staging:seed": "node scripts/with-env.mjs .env.staging -- tsx scripts/seed-loadtest.ts",
     "dev:staging": "node scripts/with-env.mjs .env.staging -- next dev",
     "postinstall": "prisma generate",
-    "db:staging:seed:year": "node scripts/with-env.mjs .env.staging -- tsx scripts/seed-year.ts"
+    "db:staging:seed:year": "node scripts/with-env.mjs .env.staging -- tsx scripts/seed-year.ts",
+    "db:backfill:maybe-open": "node scripts/with-env.mjs .env.staging -- tsx scripts/backfill-maybe-open.ts",
+    "db:backfill:maybe-open:prod": "node scripts/with-env.mjs .env -- tsx scripts/backfill-maybe-open.ts"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.9.1",
