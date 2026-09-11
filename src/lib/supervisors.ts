@@ -11,7 +11,7 @@
 //
 // EDIT THIS LIST as the team changes. Nothing else needs touching: all three
 // places that capture a supervisor name read from here.
-export const SUPERVISORS = ["Bum Yoon Kim", "Derek Mckety"] as const
+export const SUPERVISORS = ["Bum Yoon Kim", "Derek Mackety"] as const
 
 // The value the picker uses for "not one of the above". Deliberately not a
 // plausible name, so it can never be mistaken for one if it ever reaches the
