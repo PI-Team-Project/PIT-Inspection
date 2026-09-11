@@ -373,10 +373,10 @@ export default async function EquipmentDetailPage({
                 // Exactly one: no list needed, link straight at it.
                 <Link
                   href={`/dashboard/equipment/${serial}?date=${openIssuesElsewhere[0].inspection.date}&shift=${openIssuesElsewhere[0].inspection.shift}#selected-inspection`}
-                  className={`col-span-3 border-b border-gray-200 px-2 py-1.5 font-semibold transition-colors duration-100 hover:bg-gray-50 hover:underline ${verdict.text}`}
+                  className={`col-span-3 border-b border-gray-200 px-2 py-1.5 font-semibold underline decoration-2 underline-offset-2 transition-colors duration-100 hover:bg-gray-50 ${verdict.text}`}
                 >
                   Also unresolved: {shortDateWithYear(openIssuesElsewhere[0].inspection.date, today)} (
-                  {openIssuesElsewhere[0].inspection.shift}) →
+                  {openIssuesElsewhere[0].inspection.shift})
                 </Link>
               ) : null
             ) : openIssue ? (
@@ -387,11 +387,11 @@ export default async function EquipmentDetailPage({
                     tap. */}
                 <Link
                   href={`/dashboard/equipment/${serial}?date=${openIssue.inspection.date}&shift=${openIssue.inspection.shift}#selected-inspection`}
-                  className={`col-span-3 border-b border-gray-200 px-2 py-1.5 font-semibold transition-colors duration-100 hover:bg-gray-50 hover:underline ${verdict.text}`}
+                  className={`col-span-3 border-b border-gray-200 px-2 py-1.5 font-semibold underline decoration-2 underline-offset-2 transition-colors duration-100 hover:bg-gray-50 ${verdict.text}`}
                 >
-                  Click to review the inspection from{" "}
+                  Review the inspection from{" "}
                   {shortDateWithYear(openIssue.inspection.date, today)}
-                  {openIssues.length > 1 ? ` (1 of ${openIssues.length})` : ""} →
+                  {openIssues.length > 1 ? ` (1 of ${openIssues.length})` : ""}
                 </Link>
                 {/* Confirming the issue above never touches these — they're
                     separate inspections that each need their own sign-off,
@@ -400,7 +400,7 @@ export default async function EquipmentDetailPage({
                     clear."
 
                     They used to be one full-sentence row each ("Also review
-                    the inspection from ... →"), which was fine at two or
+                    the inspection from ..."), which was fine at two or
                     three and unusable past that: a vehicle carrying a year
                     of unconfirmed reports rendered 175 near-identical lines
                     and pushed the entire checklist off the screen. Dedupe by
@@ -472,12 +472,6 @@ export default async function EquipmentDetailPage({
               />
             )}
 
-            {addedAt && addedAt > EQUIPMENT_ADDED_DATE_TRACKING_STARTS_AT && (
-              <span className="col-span-3 border-b border-gray-200 px-2 py-1 text-xs text-gray-400">
-                Added {addedAt.toISOString().slice(0, 10)}
-              </span>
-            )}
-
             {latest ? (
               <>
                 {/* "Last inspected" is always a full-width row (col-span-3
@@ -494,7 +488,7 @@ export default async function EquipmentDetailPage({
                   <span className="min-w-0 truncate">Last inspected: {latest.inspection.date}</span>
                   {since && (
                     <span className="animate-[status-blink_3s_ease-in-out_infinite] shrink-0 text-xs font-semibold text-red-600">
-                      {daysPassed}d passed
+                      issue open {daysPassed}d
                     </span>
                   )}
                 </Link>
@@ -509,6 +503,12 @@ export default async function EquipmentDetailPage({
               </>
             ) : (
               <span className="col-span-3 px-2 py-1.5 text-gray-500">No inspection yet</span>
+            )}
+
+            {addedAt && addedAt > EQUIPMENT_ADDED_DATE_TRACKING_STARTS_AT && (
+              <span className="col-span-3 border-t border-gray-200 px-2 py-1 text-xs text-gray-400">
+                Added {addedAt.toISOString().slice(0, 10)}
+              </span>
             )}
           </div>
         </div>
