@@ -18,7 +18,7 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
-**Note:** `npm run dev`'s `DATABASE_URL` (from `.env`) is the same database used in production — there is no separate cloud staging environment. For anything that writes data or touches the schema, use the local staging database below instead.
+**Note:** `npm run dev` runs against the local staging database, not production. `npm run dev:prod` exists for the rare case where you genuinely need production data in front of you — it shares the real `DATABASE_URL` from `.env`, so anything that writes data or touches the schema hits live records. There is no separate cloud staging environment; the local one below is it.
 
 ## Tests
 

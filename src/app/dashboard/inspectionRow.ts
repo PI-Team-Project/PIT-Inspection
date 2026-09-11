@@ -169,10 +169,22 @@ export function badSince(
 // Forklift inspection/activity history is dropped after 2 years; pallet
 // jacks are kept longer (5 years) for now — separate retention windows per
 // equipment category, not a single blanket cutoff.
+// INTERIM, pending a compliance decision. These were 2 years for forklifts
+// and 5 for pallet jacks, with nothing in the code or the history explaining
+// why a pallet jack's records should outlive a forklift's — and nobody who
+// chose either number. A live cron deletes on this schedule permanently, so
+// the shorter window was the riskier guess: deleting a safety record too
+// early cannot be undone, while keeping one too long now costs almost
+// nothing (photos live in object storage, so a year of records is ~15MB).
+//
+// Levelled at 5 years until someone confirms what OSHA, the insurer, or LX
+// Pantos policy actually require for daily PIT inspections. If the answer
+// turns out to be longer, raise it before the first deletion fires — the
+// oldest record today is from 2025, so nothing is near any cutoff yet.
 export const RETENTION_YEARS: Record<EquipmentType, number> = {
-  "Sit Down": 2,
-  Propane: 2,
-  Standup: 2,
+  "Sit Down": 5,
+  Propane: 5,
+  Standup: 5,
   "Pallet Jack": 5,
 }
 
