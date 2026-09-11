@@ -26,11 +26,33 @@ model Inspection {
   review          Json?
   photos          Photo[]
 
+  // A query accelerator, NOT a source of truth. True while this inspection
+  // still has a flagged item awaiting sign-off — i.e. while getStage would
+  // call it "unresolved" or "pending-confirm".
+  //
+  // The dashboard needs a vehicle's whole history for one reason only:
+  // findOpenIssue must keep surfacing an old unconfirmed flag no matter how
+  // many clean inspections follow it. Without this it read the entire
+  // retention window on every page load (22,340 rows / 1.8s at a year of
+  // data, 99% of the server's work) to find a handful of rows. Now it asks
+  // for those rows directly.
+  //
+  // Nothing renders from this column. Stage is still computed by getStage
+  // via buildRow for display, so a stale value can only cost a row that
+  // gets re-checked anyway — never a wrong status on screen. Defaults to
+  // true so anything written without it is merely included, never missed.
+  maybeOpen       Boolean  @default(true)
+
   // Nearly every query either scans recent inspections fleet-wide
   // (dashboard) or a single vehicle's history ordered by time (equipment
   // detail, retention filtering) — both were unindexed table scans before.
   @@index([createdAt])
   @@index([equipmentSerial, createdAt])
+  // Fleet-wide "what is still open" — the dashboard's own question. Built
+  // as a PARTIAL index (WHERE "maybeOpen") in the migration, so it stays
+  // small no matter how many closed inspections pile up behind it; Prisma
+  // has no syntax for that, hence the plain declaration here.
+  @@index([maybeOpen, createdAt])
 }
 
 // Split out from Inspection.answers so the dashboard's fleet-wide query

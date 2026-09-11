@@ -73,6 +73,35 @@ export function buildRow(inspection: RawInspection) {
   return { inspection, answers, review, flagged, critical, unresolved, stage }
 }
 
+// The one place Inspection.maybeOpen is decided. Runs getStage through
+// buildRow rather than re-deriving anything, so the column can never
+// disagree with the rules the rest of the app renders from — add a
+// question or change what counts as a good answer and this follows
+// automatically. Every write path that touches answers or review calls
+// this; see the column's own comment in schema.prisma for why it exists.
+export function computeMaybeOpen(
+  inspection: Pick<RawInspection, "type" | "answers" | "review">
+): boolean {
+  // Stage depends on exactly these three fields, so callers pass only
+  // those. buildRow wants a whole row and reads none of the rest, so the
+  // filler lives here in one documented place rather than at every call
+  // site — and buildRow stays the only thing that knows how a stage is
+  // derived.
+  const { stage } = buildRow({
+    ...inspection,
+    id: "",
+    createdAt: new Date(),
+    date: "",
+    shift: "",
+    lastName: "",
+    firstName: "",
+    equipmentLabel: "",
+    equipmentSerial: "",
+    maybeOpen: false,
+  })
+  return stage === "unresolved" || stage === "pending-confirm"
+}
+
 // Once an issue is flagged, it stays open until a supervisor explicitly
 // signs it off — a LATER inspection simply not re-flagging the same thing
 // must never silently clear it. This was a real bug: a vehicle's status
@@ -166,4 +195,34 @@ export function weeklyCell<
     stage: match.stage,
     inspectorName: `${match.inspection.firstName} ${match.inspection.lastName}`,
   }
+}
+
+// The newest inspection for each vehicle, as one Postgres DISTINCT ON.
+//
+// Prisma's own `distinct` looks like this but is applied in memory after
+// the rows arrive: asking it for 34 latest rows pulled all 22,340 and threw
+// away the rest, costing 1.3s — the single slowest thing on the dashboard.
+// The same query written as real SQL walks the (equipmentSerial, createdAt)
+// index and returns in ~75ms.
+//
+// Raw SQL is safe here in a way it would not be for stage: this only
+// chooses WHICH rows to return, so no business rule is being restated. The
+// shape matches what findMany({ include: { _count: ... } }) produces, so
+// buildRow and every consumer are unaffected.
+export async function latestInspectionPerVehicle(
+  createdSince: Date
+): Promise<(RawInspection & { _count: { photos: number } })[]> {
+  const rows = await prisma.$queryRaw<
+    (Omit<RawInspection, "_count"> & { photo_count: number })[]
+  >`
+    SELECT DISTINCT ON (i."equipmentSerial") i.*,
+           (SELECT count(*) FROM "Photo" p WHERE p."inspectionId" = i.id)::int AS photo_count
+    FROM "Inspection" i
+    WHERE i."createdAt" >= ${createdSince}
+    ORDER BY i."equipmentSerial", i."createdAt" DESC
+  `
+  return rows.map(({ photo_count, ...inspection }) => ({
+    ...(inspection as RawInspection),
+    _count: { photos: photo_count },
+  }))
 }

@@ -27,6 +27,7 @@ import WeeklyReport from "./WeeklyReport"
 import ExportOptions from "./ExportOptions"
 import {
   buildRow,
+  latestInspectionPerVehicle,
   badSince,
   findOpenIssue,
   retentionCutoff,
@@ -102,51 +103,9 @@ export default async function DashboardPage({
   const oldestPossibleCutoff = new Date(todayKey)
   oldestPossibleCutoff.setFullYear(oldestPossibleCutoff.getFullYear() - maxRetentionYears)
 
-  const [allInspections, equipmentList, expiringRetired] = await Promise.all([
-    prisma.inspection.findMany({
-      where: { createdAt: { gte: oldestPossibleCutoff } },
-      orderBy: { createdAt: "desc" },
-      // Never needs actual photo bytes here, only whether any exist
-      // (EquipmentCard's hasPhotos) — a count join costs nothing close to
-      // what pulling every base64 photo in the retention window would.
-      include: { _count: { select: { photos: true } } },
-    }),
-    getActiveEquipmentList(),
-    getRetiredEquipmentNearingExpiry(30),
-  ])
-
-  const withFlags = allInspections.map(buildRow)
-
-  const historyByEquipment = new Map<string, InspectionRow[]>()
-  for (const row of withFlags) {
-    const serial = row.inspection.equipmentSerial
-    const list = historyByEquipment.get(serial)
-    if (list) list.push(row)
-    else historyByEquipment.set(serial, [row])
-  }
-
-  const equipmentRows = equipmentList.map((eq) => {
-    const cutoff = retentionCutoff(eq.type, todayKey)
-    const history = (historyByEquipment.get(eq.serial) ?? []).filter(
-      (row) => row.inspection.date >= cutoff
-    )
-    const latest = history[0]
-    // A vehicle's status is the most severe still-unconfirmed issue
-    // anywhere in its history, not just whatever its latest inspection
-    // happened to report — see findOpenIssue in ./inspectionRow.
-    const openIssue = findOpenIssue(history)
-    const stage = (openIssue?.stage ?? latest?.stage ?? "none") as Stage | "none"
-    const since = badSince(history, todayKey)
-    return { equipment: eq, history, latest, stage, since, escalated: since !== null }
-  }).sort(
-    (a, b) => urgencyRank(a.stage, a.escalated) - urgencyRank(b.stage, b.escalated)
-  )
-
-  const isWorking = (stage: Stage | "none") => stage === "confirmed" || stage === "clean"
-  const isNotWorking = (stage: Stage | "none") =>
-    stage === "unresolved" || stage === "pending-confirm"
-  const isNotInspected = (stage: Stage | "none") => stage === "none"
-
+  // Which shift and week are on screen depends only on the clock and the
+  // URL, never on the data — so it is settled before the queries below,
+  // which need the week's bounds to know what to ask for.
   const timeLabel = new Intl.DateTimeFormat("en-US", {
     timeZone: FLEET_TIME_ZONE,
     hour: "2-digit",
@@ -181,6 +140,91 @@ export default async function DashboardPage({
   const viewedDateKey = easternDateKey(shiftWindow.start)
   const weekMondayKey = mondayOfWeek(viewedDateKey)
   const weekDays = Array.from({ length: 7 }, (_, i) => shiftDateKeyByDays(weekMondayKey, i))
+
+  // This page used to read the entire retention window on every load —
+  // 22,340 rows and 1.8s at a year of data, 99% of the server's work — to
+  // render a week's grid and a handful of open issues. It needs exactly
+  // three things, and each is now asked for directly:
+  //
+  //   1. every inspection still carrying something unsigned, at any age,
+  //      because findOpenIssue must keep surfacing an old flag no matter
+  //      how many clean inspections follow it (see Inspection.maybeOpen);
+  //   2. the week actually on screen, for the grid and the shift tiles;
+  //   3. each vehicle's single latest inspection, for its status line.
+  //
+  // Nothing outside those three is rendered, and nothing outside them can
+  // change what is: a row with maybeOpen false is closed by definition, so
+  // it cannot alter a stage, a "since", or a weekly cell.
+  //
+  // The photo COUNT still comes along (EquipmentCard's hasPhotos); the
+  // bytes never do.
+  const photoCount = { _count: { select: { photos: true } } } as const
+  const weekStart = getShiftWindowForDate(weekDays[0], "Day").start
+  // Sunday's Night shift runs past midnight, so the window closes on
+  // Monday morning rather than at the week's last calendar date.
+  const weekEnd = getShiftWindowForDate(weekDays[6], "Night").end
+
+  const [openCandidates, weekInspections, latestPerVehicle, equipmentList, expiringRetired] =
+    await Promise.all([
+      prisma.inspection.findMany({
+        where: { maybeOpen: true, createdAt: { gte: oldestPossibleCutoff } },
+        orderBy: { createdAt: "desc" },
+        include: photoCount,
+      }),
+      prisma.inspection.findMany({
+        where: { createdAt: { gte: weekStart, lt: weekEnd } },
+        orderBy: { createdAt: "desc" },
+        include: photoCount,
+      }),
+      latestInspectionPerVehicle(oldestPossibleCutoff),
+      getActiveEquipmentList(),
+      getRetiredEquipmentNearingExpiry(30),
+    ])
+
+  // The three sets overlap freely (a vehicle's latest inspection is often
+  // also this week's, and may be the open one) — dedupe by id, then keep
+  // the newest-first ordering every consumer below assumes.
+  const byId = new Map<string, (typeof openCandidates)[number]>()
+  for (const inspection of [...openCandidates, ...weekInspections, ...latestPerVehicle]) {
+    byId.set(inspection.id, inspection)
+  }
+  const allInspections = [...byId.values()].sort(
+    (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
+  )
+
+  const withFlags = allInspections.map(buildRow)
+
+  const historyByEquipment = new Map<string, InspectionRow[]>()
+  for (const row of withFlags) {
+    const serial = row.inspection.equipmentSerial
+    const list = historyByEquipment.get(serial)
+    if (list) list.push(row)
+    else historyByEquipment.set(serial, [row])
+  }
+
+  const equipmentRows = equipmentList.map((eq) => {
+    const cutoff = retentionCutoff(eq.type, todayKey)
+    const history = (historyByEquipment.get(eq.serial) ?? []).filter(
+      (row) => row.inspection.date >= cutoff
+    )
+    const latest = history[0]
+    // A vehicle's status is the most severe still-unconfirmed issue
+    // anywhere in its history, not just whatever its latest inspection
+    // happened to report — see findOpenIssue in ./inspectionRow.
+    const openIssue = findOpenIssue(history)
+    const stage = (openIssue?.stage ?? latest?.stage ?? "none") as Stage | "none"
+    const since = badSince(history, todayKey)
+    return { equipment: eq, history, latest, stage, since, escalated: since !== null }
+  }).sort(
+    (a, b) => urgencyRank(a.stage, a.escalated) - urgencyRank(b.stage, b.escalated)
+  )
+
+  const isWorking = (stage: Stage | "none") => stage === "confirmed" || stage === "clean"
+  const isNotWorking = (stage: Stage | "none") =>
+    stage === "unresolved" || stage === "pending-confirm"
+  const isNotInspected = (stage: Stage | "none") => stage === "none"
+
+
   const weeklyRows = equipmentRows.map((row) => ({
     serial: row.equipment.serial,
     flNumber: row.equipment.flNumber,
