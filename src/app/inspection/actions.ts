@@ -4,6 +4,14 @@ import { redirect } from "next/navigation"
 import sharp from "sharp"
 import { prisma } from "@/lib/prisma"
 import {
+  buildRow,
+  findAllOpenIssues,
+  RETENTION_YEARS,
+  daysPassedCount,
+} from "@/app/dashboard/inspectionRow"
+import { easternDateKey } from "@/lib/shifts"
+import type { EquipmentType } from "@/lib/equipment"
+import {
   QUESTIONS,
   needsAttention,
   REPAIR_REQUEST_ISSUE_ID,
@@ -189,4 +197,60 @@ export async function submitInspection(formData: FormData) {
   }
 
   redirect("/inspection/success")
+}
+
+export type VehicleAlert = {
+  stage: "unresolved" | "pending-confirm"
+  // Plain-language names of what's still open, e.g. ["Horn", "Brakes"].
+  items: string[]
+  reportedOn: string
+  shift: string
+  daysOpen: number
+}
+
+// Called the moment a worker picks a vehicle, so they're told BEFORE filling
+// anything in that this one is carrying an unresolved report. A red vehicle
+// is not supposed to be in service at all, so the person standing in front
+// of it is the one who most needs to know.
+//
+// Scoped to the single selected vehicle on purpose: the dashboard's
+// equivalent loads the whole retention window fleet-wide (~22k rows at a
+// year) and that cost has no business on the worker-facing form. This hits
+// the (equipmentSerial, createdAt) index for one vehicle, so it stays small
+// no matter how large the table grows.
+export async function vehicleOpenIssue(serial: string): Promise<VehicleAlert | null> {
+  if (!serial) return null
+
+  const equipment = await prisma.equipment.findUnique({
+    where: { serial },
+    select: { type: true },
+  })
+  if (!equipment) return null
+
+  const cutoff = new Date()
+  cutoff.setFullYear(cutoff.getFullYear() - (RETENTION_YEARS[equipment.type as EquipmentType] ?? 2))
+
+  const history = await prisma.inspection.findMany({
+    where: { equipmentSerial: serial, createdAt: { gte: cutoff } },
+    orderBy: { createdAt: "desc" },
+  })
+
+  const open = findAllOpenIssues(history.map(buildRow))[0]
+  if (!open) return null
+  if (open.stage !== "unresolved" && open.stage !== "pending-confirm") return null
+
+  // Only the items still awaiting sign-off — one already marked complete
+  // isn't what the worker needs warning about.
+  const items = (open.stage === "unresolved" ? open.unresolved : open.flagged)
+    .filter((q) => open.review.issueStatus[q.id] !== "complete")
+    .map((q) => q.label)
+
+  const today = easternDateKey(new Date())
+  return {
+    stage: open.stage,
+    items: items.length > 0 ? items : open.flagged.map((q) => q.label),
+    reportedOn: open.inspection.date,
+    shift: open.inspection.shift,
+    daysOpen: daysPassedCount(open.inspection.date, today),
+  }
 }
