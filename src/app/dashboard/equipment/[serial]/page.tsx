@@ -577,217 +577,31 @@ function InspectionReviewForm({
   // must never be silently reopened by an accidental tap afterward.
   const isLocked = row.stage === "confirmed"
 
-  return (
-    <div className="mt-4 border-t border-black/5 pt-4">
-      {/* Always shown, even when this is the only inspection on the page —
-          previously this only appeared when a day held both a Day and a
-          Night inspection, so the single-inspection case (the common one)
-          had no date on the questionnaire itself at all, only the "Last
-          inspected" date up in the status box above, which names the
-          vehicle's overall latest inspection and is frequently a different
-          day than the one actually selected. */}
-      <p className="mb-2 flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-sm">
-        <span className="font-bold text-gray-900">{dateHeading(row.inspection.date)}</span>
-        <span className="font-medium text-gray-500">
-          {row.inspection.shift} Shift · {row.inspection.firstName} {row.inspection.lastName}
-        </span>
-      </p>
-      {row.stage === "pending-confirm" &&
-        !row.flagged.every((q) => row.review.issueStatus[q.id] === "complete") && (
-          <div className="mb-4 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">
-            Mark every flagged item below <strong>Complete</strong>, then submit below to confirm
-            all clear.
-          </div>
-        )}
+  // The questions this inspection actually answered. A Repair Request
+  // renders as a single row instead of the checklist, and its answer is
+  // always flagged, so one never collapses — which is right, since a
+  // repair report is the case you most need open.
+  const shownQuestions = (
+    isCriticalInspection(row.inspection) ? [REPAIR_REQUEST_QUESTION] : QUESTIONS
+  ).filter((q) => row.answers[q.id])
+  // The Status column only ever renders content for a flagged answer, so on
+  // a clean inspection its header promised information that nine blank
+  // cells then failed to deliver — and its fixed 5rem took a quarter of the
+  // table's width on a phone to do it, which is what forced labels like
+  // "Forward & Backward Movement" onto three lines.
+  const anyFlagged = shownQuestions.some((q) => needsAttention(row.answers[q.id].value))
+  // Collapse ONLY when every item is good. Any flag and the full table
+  // stays open, which is exactly when a supervisor needs to see it. The
+  // summary states the count rather than "No issues" so the number itself
+  // is checkable against the checklist behind it.
+  const allGood = shownQuestions.length > 0 && !anyFlagged
 
-      <form action={saveActivity} className="space-y-4">
-        <input type="hidden" name="inspectionId" value={row.inspection.id} />
-
-        <div className="overflow-hidden rounded-sm border border-gray-300 text-sm">
-        {/* Same measured-pixel-floor approach as the vehicle info box
-            above, sized against real device widths (a 360px phone gives
-            this table ~316px, a 375px phone ~331px): Answer's floor
-            covers "Working condition" on one line — that's the one
-            column that must never wrap, so its floor is a real content
-            measurement, not a guess. Status is fixed (not auto, which
-            visibly jumped the column narrower the instant "Tap to Fix"
-            (10 chars) got hidden in favor of "Fixed" (5 chars) in a
-            checked row). Item's own floor is deliberately smaller than
-            Answer's — giving it an equal floor would push their combined
-            minimum past that ~316-331px box, forcing the whole table
-            wider than its container the same way the vehicle info box
-            blew out above. Item is the column that's allowed to wrap
-            (the two genuinely longest labels, "Forward & Backward
-            Movement" and "Lift/Lowering Movement", still wrap to a
-            second line when space is tight — expected, and the wrap now
-            indents under the label instead of back under the number),
-            so it doesn't need a no-wrap guarantee the way Answer does.
-            `min-w-0` on both the cell and the label span keeps a long
-            single word ("Battery", "Lowering") from silently overflowing
-            past its own cell into the next one — where it would render
-            invisibly, hidden behind that cell's opaque background
-            instead of visibly wrapping; `break-words` is the last-resort
-            backstop on the rare word that's still too wide even for its
-            own line at the smallest supported width. */}
-        <div className="grid grid-cols-[minmax(90px,auto)_minmax(9rem,1fr)_5rem]">
-          <span className="border-r border-b border-gray-300 bg-gray-100 px-2 py-1.5 text-xs font-semibold tracking-wide text-gray-500 uppercase">
-            Item
-          </span>
-          <span className="border-r border-b border-gray-300 bg-gray-100 px-2 py-1.5 text-xs font-semibold tracking-wide text-gray-500 uppercase">
-            Answer
-          </span>
-          <span className="border-b border-gray-300 bg-gray-100 px-2 py-1.5 text-center text-xs font-semibold tracking-wide text-gray-500 uppercase">
-            Status
-          </span>
-          {(isCriticalInspection(row.inspection) ? [REPAIR_REQUEST_QUESTION] : QUESTIONS).map(
-            (q, i) => {
-              const answer = row.answers[q.id]
-              if (!answer) return null
-              const isRepairRequest = q.id === REPAIR_REQUEST_ISSUE_ID
-              const bad = needsAttention(answer.value)
-              const critical = bad && isCriticalFlag(row.inspection, q.id)
-              const status = row.review.issueStatus[q.id]
-              const fixed = bad && status === "complete"
-              const textColor = fixed
-                ? "text-gray-500"
-                : critical
-                  ? "text-red-700"
-                  : bad
-                    ? "text-amber-700"
-                    : "text-gray-700"
-              // Alternating row shading + full cell borders on every side —
-              // the spreadsheet look this was asked for, instead of a plain
-              // list with just a line under each row.
-              const rowBg = i % 2 === 1 ? "bg-gray-50" : "bg-white"
-              const cellBorder = "border-r border-b border-gray-200"
-              return (
-                <Fragment key={q.id}>
-                  {/* No more forced nowrap -- that's what was demanding so
-                      much width that long labels ("Forward & Backward
-                      Movement") got clipped by the table's own overflow-
-                      hidden edge instead of just wrapping to a second line.
-                      The number sits in its own shrink-0 flex item so a
-                      wrapped second line indents under the label text, not
-                      back under the number. */}
-                  <span className={`flex min-w-0 gap-1 px-2 py-1.5 font-semibold ${textColor} ${rowBg} ${cellBorder}`}>
-                    {isRepairRequest ? (
-                      "Repair Request"
-                    ) : (
-                      <>
-                        <span className="shrink-0">{q.number}.</span>
-                        <span className="min-w-0 break-words">{q.label}</span>
-                      </>
-                    )}
-                  </span>
-                  <span className={`px-2 py-1.5 ${textColor} ${rowBg} ${cellBorder}`}>
-                    {(() => {
-                      const hasPhotos = Boolean(answer.photos && answer.photos.length > 0)
-                      const hasNoteOrPhotos = Boolean(answer.note) || hasPhotos
-                      const specifyLine = !isRepairRequest && answer.specify && (
-                        <span className="block text-xs text-gray-500">{answer.specify}</span>
-                      )
-                      // No more permanent "Note: …" row underneath every
-                      // flagged item — that's back to a plain <details>
-                      // disclosure right on the answer, so the note/photos
-                      // only take up space once someone actually taps to
-                      // open them. The camera icon (same one used on the
-                      // fleet list) still shows up front so a photo's
-                      // presence is visible without opening anything.
-                      if (!hasNoteOrPhotos) {
-                        return (
-                          <>
-                            {isRepairRequest ? "" : answer.value}
-                            {specifyLine}
-                          </>
-                        )
-                      }
-                      return (
-                        <details>
-                          <summary className="flex cursor-pointer list-none items-center gap-1 marker:hidden">
-                            {isRepairRequest ? "Reported" : answer.value}
-                            {hasPhotos && (
-                              <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                viewBox="0 0 20 20"
-                                fill="currentColor"
-                                className="h-3.5 w-3.5 shrink-0 text-gray-400"
-                              >
-                                <path
-                                  fillRule="evenodd"
-                                  d="M1 8a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 018.07 3h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0016.07 6H17a2 2 0 012 2v9a2 2 0 01-2 2H3a2 2 0 01-2-2V8zm13.5 3a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0z"
-                                  clipRule="evenodd"
-                                />
-                              </svg>
-                            )}
-                          </summary>
-                          {specifyLine}
-                          {answer.note && (
-                            <p className="mt-1 text-xs text-gray-500">
-                              {isRepairRequest ? "" : "Note: "}
-                              {answer.note}
-                            </p>
-                          )}
-                          {answer.photos && answer.photos.length > 0 && (
-                            <div className="mt-1">
-                              <PhotoGallery photos={answer.photos} notes={answer.photoNotes} />
-                            </div>
-                          )}
-                        </details>
-                      )
-                    })()}
-                  </span>
-                  <span className={`flex items-center justify-center px-1 py-1.5 ${rowBg} border-b border-gray-200`}>
-                    {bad &&
-                      (isLocked ? (
-                        // Signed and confirmed — permanent. Plain text, not
-                        // a control: no cursor, no hover state, nothing to
-                        // click. The hidden input still submits "complete"
-                        // so re-saving a note here (if that ever happens)
-                        // can't accidentally flip this back open.
-                        <span
-                          title="Confirmed by supervisor signature — permanent, can't be reopened"
-                          className="text-[10px] font-bold tracking-wide text-green-700 uppercase"
-                        >
-                          <input type="hidden" name={`issue_${q.id}`} value="complete" />
-                          Fixed
-                        </span>
-                      ) : (
-                        // No icon — the text itself is the whole control,
-                        // and its own wording swaps from an instruction to
-                        // a confirmation the instant it's checked.
-                        <label
-                          title={
-                            status === "complete"
-                              ? "Marked fixed — click to reopen"
-                              : "Click to mark fixed"
-                          }
-                          className="flex h-full w-full cursor-pointer items-center justify-center rounded px-1 py-1 text-center transition-colors duration-100 active:scale-95"
-                        >
-                          <input
-                            type="checkbox"
-                            name={`issue_${q.id}`}
-                            value="complete"
-                            defaultChecked={status === "complete"}
-                            className="peer sr-only"
-                          />
-                          <span className="animate-pulse text-[10px] font-bold tracking-wide text-amber-600 uppercase peer-checked:hidden">
-                            Tap to Fix
-                          </span>
-                          <span className="hidden text-[10px] font-bold tracking-wide text-green-700 uppercase peer-checked:inline">
-                            Fixed
-                          </span>
-                        </label>
-                      ))}
-                  </span>
-                </Fragment>
-              )
-            }
-          )}
-        </div>
-        </div>
-
-        <div className="mt-6 rounded-lg border border-gray-200 bg-gray-50 p-3">
-          <p className="mb-3 text-sm font-semibold text-gray-900">Supervisor Review</p>
+  // The review card is part of what a clean inspection hides: if there
+  // is nothing to act on, the form to act with it does not need to be on
+  // screen either. Extracted alongside the table so both can sit inside
+  // the one disclosure.
+  const reviewCard = (
+        <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
           <label className="mb-1 block text-sm font-medium text-gray-700">Note</label>
           <textarea
             name="noteText"
@@ -821,6 +635,284 @@ function InspectionReviewForm({
             <SignConfirmButton />
           </div>
         </div>
+  )
+
+  // Pulled out of the return so the clean case can wrap it in a
+  // disclosure and the flagged case can render it bare, without the
+  // whole 190-line table existing twice.
+  const checklistTable = (
+          <div className="overflow-hidden rounded-sm border border-gray-300 text-sm">
+          {/* Same measured-pixel-floor approach as the vehicle info box
+              above, sized against real device widths (a 360px phone gives
+              this table ~316px, a 375px phone ~331px): Answer's floor
+              covers "Working condition" on one line — that's the one
+              column that must never wrap, so its floor is a real content
+              measurement, not a guess. Status is fixed (not auto, which
+              visibly jumped the column narrower the instant "Tap to Fix"
+              (10 chars) got hidden in favor of "Fixed" (5 chars) in a
+              checked row). Item's own floor is deliberately smaller than
+              Answer's — giving it an equal floor would push their combined
+              minimum past that ~316-331px box, forcing the whole table
+              wider than its container the same way the vehicle info box
+              blew out above. Item is the column that's allowed to wrap
+              (the two genuinely longest labels, "Forward & Backward
+              Movement" and "Lift/Lowering Movement", still wrap to a
+              second line when space is tight — expected, and the wrap now
+              indents under the label instead of back under the number),
+              so it doesn't need a no-wrap guarantee the way Answer does.
+              `min-w-0` on both the cell and the label span keeps a long
+              single word ("Battery", "Lowering") from silently overflowing
+              past its own cell into the next one — where it would render
+              invisibly, hidden behind that cell's opaque background
+              instead of visibly wrapping; `break-words` is the last-resort
+              backstop on the rare word that's still too wide even for its
+              own line at the smallest supported width. */}
+          <div
+            className={`grid ${
+              anyFlagged
+                ? "grid-cols-[minmax(90px,auto)_minmax(9rem,1fr)_5rem]"
+                : "grid-cols-[minmax(90px,auto)_minmax(9rem,1fr)]"
+            }`}
+          >
+            <span className="border-r border-b border-gray-300 bg-gray-100 px-2 py-1.5 text-xs font-semibold tracking-wide text-gray-500 uppercase">
+              Item
+            </span>
+            <span className="border-r border-b border-gray-300 bg-gray-100 px-2 py-1.5 text-xs font-semibold tracking-wide text-gray-500 uppercase">
+              Answer
+            </span>
+            {anyFlagged && (
+              <span className="border-b border-gray-300 bg-gray-100 px-2 py-1.5 text-center text-xs font-semibold tracking-wide text-gray-500 uppercase">
+                Status
+              </span>
+            )}
+            {shownQuestions.map(
+              (q, i) => {
+                const answer = row.answers[q.id]
+                const isRepairRequest = q.id === REPAIR_REQUEST_ISSUE_ID
+                const bad = needsAttention(answer.value)
+                const critical = bad && isCriticalFlag(row.inspection, q.id)
+                const status = row.review.issueStatus[q.id]
+                const fixed = bad && status === "complete"
+                const textColor = fixed
+                  ? "text-gray-500"
+                  : critical
+                    ? "text-red-700"
+                    : bad
+                      ? "text-amber-700"
+                      : "text-gray-700"
+                // Alternating row shading + full cell borders on every side —
+                // the spreadsheet look this was asked for, instead of a plain
+                // list with just a line under each row.
+                const rowBg = i % 2 === 1 ? "bg-gray-50" : "bg-white"
+                const cellBorder = "border-r border-b border-gray-200"
+
+                return (
+                  <Fragment key={q.id}>
+                    {/* No more forced nowrap -- that's what was demanding so
+                        much width that long labels ("Forward & Backward
+                        Movement") got clipped by the table's own overflow-
+                        hidden edge instead of just wrapping to a second line.
+                        The number sits in its own shrink-0 flex item so a
+                        wrapped second line indents under the label text, not
+                        back under the number. */}
+                    <span className={`flex min-w-0 gap-1 px-2 py-1.5 font-semibold ${textColor} ${rowBg} ${cellBorder}`}>
+                      {isRepairRequest ? (
+                        "Repair Request"
+                      ) : (
+                        <>
+                          <span className="shrink-0">{q.number}.</span>
+                          <span className="min-w-0 break-words">{q.label}</span>
+                        </>
+                      )}
+                    </span>
+                    <span className={`px-2 py-1.5 ${textColor} ${rowBg} ${cellBorder}`}>
+                      {(() => {
+                        const hasPhotos = Boolean(answer.photos && answer.photos.length > 0)
+                        const hasNoteOrPhotos = Boolean(answer.note) || hasPhotos
+                        const specifyLine = !isRepairRequest && answer.specify && (
+                          <span className="block text-xs text-gray-500">{answer.specify}</span>
+                        )
+                        // No more permanent "Note: …" row underneath every
+                        // flagged item — that's back to a plain <details>
+                        // disclosure right on the answer, so the note/photos
+                        // only take up space once someone actually taps to
+                        // open them. The camera icon (same one used on the
+                        // fleet list) still shows up front so a photo's
+                        // presence is visible without opening anything.
+                        if (!hasNoteOrPhotos) {
+                          return (
+                            <>
+                              {isRepairRequest ? "" : answer.value}
+                              {specifyLine}
+                            </>
+                          )
+                        }
+                        return (
+                          <details>
+                            <summary className="flex cursor-pointer list-none items-center gap-1 marker:hidden">
+                              {isRepairRequest ? "Reported" : answer.value}
+                              {hasPhotos && (
+                                <svg
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  viewBox="0 0 20 20"
+                                  fill="currentColor"
+                                  className="h-3.5 w-3.5 shrink-0 text-gray-400"
+                                >
+                                  <path
+                                    fillRule="evenodd"
+                                    d="M1 8a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 018.07 3h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0016.07 6H17a2 2 0 012 2v9a2 2 0 01-2 2H3a2 2 0 01-2-2V8zm13.5 3a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0z"
+                                    clipRule="evenodd"
+                                  />
+                                </svg>
+                              )}
+                            </summary>
+                            {specifyLine}
+                            {answer.note && (
+                              <p className="mt-1 text-xs text-gray-500">
+                                {isRepairRequest ? "" : "Note: "}
+                                {answer.note}
+                              </p>
+                            )}
+                            {answer.photos && answer.photos.length > 0 && (
+                              <div className="mt-1">
+                                <PhotoGallery photos={answer.photos} notes={answer.photoNotes} />
+                              </div>
+                            )}
+                          </details>
+                        )
+                      })()}
+                    </span>
+                    {anyFlagged && (
+                    <span className={`flex items-center justify-center px-1 py-1.5 ${rowBg} border-b border-gray-200`}>
+                      {bad &&
+                        (isLocked ? (
+                          // Signed and confirmed — permanent. Plain text, not
+                          // a control: no cursor, no hover state, nothing to
+                          // click. The hidden input still submits "complete"
+                          // so re-saving a note here (if that ever happens)
+                          // can't accidentally flip this back open.
+                          <span
+                            title="Confirmed by supervisor signature — permanent, can't be reopened"
+                            className="text-[10px] font-bold tracking-wide text-green-700 uppercase"
+                          >
+                            <input type="hidden" name={`issue_${q.id}`} value="complete" />
+                            Fixed
+                          </span>
+                        ) : (
+                          // No icon — the text itself is the whole control,
+                          // and its own wording swaps from an instruction to
+                          // a confirmation the instant it's checked.
+                          <label
+                            title={
+                              status === "complete"
+                                ? "Marked fixed — click to reopen"
+                                : "Click to mark fixed"
+                            }
+                            className="flex h-full w-full cursor-pointer items-center justify-center rounded px-1 py-1 text-center transition-colors duration-100 active:scale-95"
+                          >
+                            <input
+                              type="checkbox"
+                              name={`issue_${q.id}`}
+                              value="complete"
+                              defaultChecked={status === "complete"}
+                              className="peer sr-only"
+                            />
+                            <span className="animate-pulse text-[10px] font-bold tracking-wide text-amber-600 uppercase peer-checked:hidden">
+                              Tap to Fix
+                            </span>
+                            <span className="hidden text-[10px] font-bold tracking-wide text-green-700 uppercase peer-checked:inline">
+                              Fixed
+                            </span>
+                          </label>
+                        ))}
+                    </span>
+                    )}
+                  </Fragment>
+                )
+              }
+            )}
+          </div>
+          </div>
+  )
+
+  return (
+    <div className="mt-4 border-t border-black/5 pt-4">
+      {/* Always shown, even when this is the only inspection on the page —
+          previously this only appeared when a day held both a Day and a
+          Night inspection, so the single-inspection case (the common one)
+          had no date on the questionnaire itself at all, only the "Last
+          inspected" date up in the status box above, which names the
+          vehicle's overall latest inspection and is frequently a different
+          day than the one actually selected. */}
+      <p className="mb-2 flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-sm">
+        <span className="font-bold text-gray-900">{dateHeading(row.inspection.date)}</span>
+        <span className="font-medium text-gray-500">
+          {row.inspection.shift} Shift · {row.inspection.firstName} {row.inspection.lastName}
+        </span>
+      </p>
+      {row.stage === "pending-confirm" &&
+        !row.flagged.every((q) => row.review.issueStatus[q.id] === "complete") && (
+          <div className="mb-4 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">
+            Mark every flagged item below <strong>Complete</strong>, then submit below to confirm
+            all clear.
+          </div>
+        )}
+
+      <form action={saveActivity} className="space-y-4">
+        <input type="hidden" name="inspectionId" value={row.inspection.id} />
+
+        {/* A clean inspection collapses to its conclusion. Nine rows
+            reading "Good" deliver one bit of information — nothing to do
+            here — while spending ~600px of scrolling on it, pushing
+            Supervisor Review (the only actionable thing on the page)
+            below the fold. Native <details>, so a server component needs
+            no client JS, and safe inside the form because a clean row
+            emits no inputs at all — only a flagged answer renders the
+            issue_* checkbox — so nothing here can fail to submit while
+            collapsed.
+
+            Collapses only when EVERY item is good; one flag and the full
+            table stays open, which is when it is actually needed. The
+            summary names the count rather than "No issues", so the number
+            is checkable against the checklist it hides. */}
+        {allGood ? (
+          <details className="group overflow-hidden rounded-sm border border-gray-300 text-sm">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-2 bg-green-50/60 px-3 py-2.5 transition-colors duration-100 hover:bg-green-50">
+              <span className="flex items-center gap-1.5 font-semibold text-green-800">
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="3"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                  className="h-3.5 w-3.5 shrink-0"
+                >
+                  <path d="M20 6 9 17l-5-5" />
+                </svg>
+                All {shownQuestions.length} items good
+              </span>
+              <span className="flex shrink-0 items-center gap-1 text-xs font-medium text-gray-500">
+                <span className="group-open:hidden">View checklist</span>
+                <span className="hidden group-open:inline">Hide checklist</span>
+                <span
+                  aria-hidden="true"
+                  className="transition-transform duration-150 group-open:rotate-180"
+                >
+                  ⌄
+                </span>
+              </span>
+            </summary>
+            {checklistTable}
+            <div className="border-t border-gray-300 p-3">{reviewCard}</div>
+          </details>
+        ) : (
+          checklistTable
+        )}
+
+        {!allGood && <div className="mt-6">{reviewCard}</div>}
+
 
         {row.review.activity.length > 0 && (
           <div className="border-t border-gray-100 pt-2.5">
