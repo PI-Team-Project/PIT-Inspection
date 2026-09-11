@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "node scripts/with-env.mjs .env.staging -- next dev",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
@@ -18,7 +18,8 @@
     "db:staging:seed:year": "node scripts/with-env.mjs .env.staging -- tsx scripts/seed-year.ts",
     "db:backfill:maybe-open": "node scripts/with-env.mjs .env.staging -- tsx scripts/backfill-maybe-open.ts",
     "db:backfill:maybe-open:prod": "node scripts/with-env.mjs .env -- tsx scripts/backfill-maybe-open.ts",
-    "storage:setup": "node scripts/with-env.mjs .env.local -- tsx scripts/setup-photo-bucket.ts"
+    "storage:setup": "node scripts/with-env.mjs .env.local -- tsx scripts/setup-photo-bucket.ts",
+    "dev:prod": "node scripts/with-env.mjs .env -- next dev"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.9.1",
