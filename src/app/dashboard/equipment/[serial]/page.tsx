@@ -29,6 +29,7 @@ import {
   type InspectionRow,
 } from "../../inspectionRow"
 import StatusDot from "../../StatusDot"
+import SupervisorNameField from "@/app/dashboard/SupervisorNameField"
 import PhotoGallery from "../../PhotoGallery"
 import LocationChangeControl from "../../LocationChangeControl"
 import PendingLocationApproval from "../../PendingLocationApproval"
@@ -673,13 +674,11 @@ function InspectionReviewForm({
                 <label className="mb-1 block text-sm font-medium text-gray-700">
                   Supervisor Signature
                 </label>
-                <input
-                  type="text"
+                <SupervisorNameField
                   name="reviewerName"
-                  defaultValue={savedManagerName}
-                  placeholder="Name of the supervisor"
-                  required
-                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-base"
+                  savedManagerName={savedManagerName}
+                  label=""
+                  labelClassName="hidden"
                 />
               </div>
               <div>

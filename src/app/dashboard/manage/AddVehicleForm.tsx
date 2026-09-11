@@ -1,5 +1,7 @@
 "use client"
 
+import SupervisorNameField from "../SupervisorNameField"
+
 import { useActionState, useEffect, useRef, useState } from "react"
 import { LOCATIONS, REPAIR_LOCATION, type Equipment } from "@/lib/equipment"
 import { addVehicles } from "./actions"
@@ -223,12 +225,11 @@ export default function AddVehicleForm({
             <label className="mb-1 block text-xs font-semibold text-gray-500">
               Supervisor Name
             </label>
-            <input
-              type="text"
+            <SupervisorNameField
               name="managerName"
-              defaultValue={savedManagerName}
-              placeholder="Name of the supervisor"
-              required
+              savedManagerName={savedManagerName}
+              label=""
+              labelClassName="hidden"
               className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
             />
           </div>

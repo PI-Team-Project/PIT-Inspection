@@ -1,5 +1,7 @@
 "use client"
 
+import SupervisorNameField from "./SupervisorNameField"
+
 import { useActionState, useEffect, useRef, useState } from "react"
 import { LOCATIONS, REPAIR_LOCATION, isUnderRepair } from "@/lib/equipment"
 import { updateEquipmentLocation } from "./actions"
@@ -92,19 +94,13 @@ export default function LocationChangeControl({
               </optgroup>
             </select>
           </div>
-          <div>
-            <label className="mb-1 block text-xs font-semibold text-gray-500">
-              Supervisor Name
-            </label>
-            <input
-              type="text"
-              name="managerName"
-              defaultValue={savedManagerName}
-              placeholder="Name of the supervisor"
-              required
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-            />
-          </div>
+          <SupervisorNameField
+            name="managerName"
+            savedManagerName={savedManagerName}
+            label="Supervisor Name"
+            labelClassName="mb-1 block text-xs font-semibold text-gray-500"
+            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+          />
           <div className="flex gap-2 pt-1">
             <button
               type="button"
