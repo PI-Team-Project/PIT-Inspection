@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, type FocusEvent as ReactFocusEvent } from "react"
 import { useFormStatus } from "react-dom"
 import NextImage from "next/image"
-import { submitInspection } from "./actions"
+import { submitInspection, vehicleOpenIssue, type VehicleAlert } from "./actions"
 import {
   saveInspectionDraft,
   loadInspectionDraft,
@@ -169,6 +169,39 @@ export default function InspectionForm({
     date: today,
   })
   const [duplicateWarningSerial, setDuplicateWarningSerial] = useState<string | null>(null)
+  // An unresolved report on the vehicle just picked. A red vehicle is not
+  // supposed to be in service at all, so the person standing in front of it
+  // is exactly who needs telling — and before they start filling anything
+  // in, not after.
+  const [openIssueAlert, setOpenIssueAlert] = useState<
+    { serial: string; alert: VehicleAlert } | null
+  >(null)
+  const [checkingSerial, setCheckingSerial] = useState<string | null>(null)
+
+  async function pickVehicle(serial: string) {
+    // Duplicate check first — it needs no round trip, and being told
+    // "someone already did this one" is the faster way out of a wrong pick.
+    if (recentlyInspected[serial] && duplicateWarningSerial !== serial) {
+      setDuplicateWarningSerial(serial)
+      return
+    }
+    setCheckingSerial(serial)
+    let alert: VehicleAlert | null = null
+    try {
+      alert = await vehicleOpenIssue(serial)
+    } catch {
+      // A failed lookup must never block an inspection being recorded —
+      // worst case the worker proceeds without the warning, which is
+      // exactly where things stood before this existed.
+    }
+    setCheckingSerial(null)
+    setDuplicateWarningSerial(null)
+    if (alert) {
+      setOpenIssueAlert({ serial, alert })
+      return
+    }
+    selectAndAdvance("equipmentSerial", serial)
+  }
   // Set when someone picks a shift that doesn't match the actual clock —
   // e.g. it's 9am and they pick Night. Real mixups like this are how
   // Date/Shift ends up disagreeing with the actual submission timestamp
@@ -935,13 +968,8 @@ export default function InspectionForm({
                         <button
                           key={eq.serial}
                           type="button"
-                          onClick={() => {
-                            if (recentlyInspected[eq.serial]) {
-                              setDuplicateWarningSerial(eq.serial)
-                            } else {
-                              selectAndAdvance("equipmentSerial", eq.serial)
-                            }
-                          }}
+                          onClick={() => void pickVehicle(eq.serial)}
+                          disabled={checkingSerial !== null}
                           className={`flex flex-col items-center rounded-lg border px-2 py-3 transition-transform duration-100 active:scale-95 ${
                             isChecked
                               ? "border-brand bg-brand/10"
@@ -965,6 +993,75 @@ export default function InspectionForm({
                 )
               })()}
 
+              {openIssueAlert && (
+                <div
+                  role="alert"
+                  className={`mt-3 rounded-lg border-2 p-3 ${
+                    openIssueAlert.alert.stage === "unresolved"
+                      ? "border-red-400 bg-red-50"
+                      : "border-amber-400 bg-amber-50"
+                  }`}
+                >
+                  <p
+                    className={`text-sm font-bold ${
+                      openIssueAlert.alert.stage === "unresolved"
+                        ? "text-red-800"
+                        : "text-amber-900"
+                    }`}
+                  >
+                    {openIssueAlert.alert.stage === "unresolved"
+                      ? "⚠ This vehicle has an unresolved safety issue"
+                      : "⚠ This vehicle has an issue awaiting sign-off"}
+                  </p>
+                  <ul className="mt-1.5 list-disc space-y-0.5 pl-5 text-sm text-gray-800">
+                    {openIssueAlert.alert.items.map((item) => (
+                      <li key={item}>{item}</li>
+                    ))}
+                  </ul>
+                  <p className="mt-1.5 text-xs text-gray-600">
+                    Reported {openIssueAlert.alert.reportedOn} ({openIssueAlert.alert.shift} shift)
+                    {openIssueAlert.alert.daysOpen > 0
+                      ? ` · open ${openIssueAlert.alert.daysOpen} day${
+                          openIssueAlert.alert.daysOpen === 1 ? "" : "s"
+                        }`
+                      : ""}
+                  </p>
+                  {openIssueAlert.alert.stage === "unresolved" && (
+                    <p className="mt-2 text-sm font-semibold text-red-800">
+                      It should not be in service until a supervisor confirms the repair.
+                    </p>
+                  )}
+                  <div className="mt-2.5 flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setOpenIssueAlert(null)}
+                      className="flex-1 rounded-lg border border-gray-300 bg-white py-2 text-xs font-semibold text-gray-700 active:scale-95"
+                    >
+                      Choose a Different Vehicle
+                    </button>
+                    {/* Not a block. The inspection still has to be
+                        recordable — a worker checking whether a red vehicle
+                        is fixed is exactly the case this must not stand in
+                        the way of. The point is that continuing is now a
+                        deliberate act. */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        selectAndAdvance("equipmentSerial", openIssueAlert.serial)
+                        setOpenIssueAlert(null)
+                      }}
+                      className={`flex-1 rounded-lg py-2 text-xs font-semibold text-white active:scale-95 ${
+                        openIssueAlert.alert.stage === "unresolved"
+                          ? "bg-red-600"
+                          : "bg-amber-600"
+                      }`}
+                    >
+                      Inspect It Anyway
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {duplicateWarningSerial && recentlyInspected[duplicateWarningSerial] && (
                 <div className="mt-3 rounded-lg border border-amber-300 bg-amber-50 p-3">
                   <p className="text-sm text-amber-800">
@@ -983,10 +1080,7 @@ export default function InspectionForm({
                     </button>
                     <button
                       type="button"
-                      onClick={() => {
-                        selectAndAdvance("equipmentSerial", duplicateWarningSerial)
-                        setDuplicateWarningSerial(null)
-                      }}
+                      onClick={() => void pickVehicle(duplicateWarningSerial)}
                       className="flex-1 rounded-lg bg-amber-600 py-2 text-xs font-semibold text-white active:scale-95"
                     >
                       Continue Anyway
