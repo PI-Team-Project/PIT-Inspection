@@ -40,46 +40,61 @@ export async function fetchInspectionsForExport({
   const rangeStartKey = exportRangeStart(range, todayKey, customFrom) ?? retentionFloorKey
   const rangeEndKey = range === "custom" && isValidDateKey(customTo) ? customTo! : todayKey
 
-  // Scope reflects a vehicle's OVERALL status (does it have an open issue
-  // anywhere in its history, or a resolved one), not just what falls
-  // inside the chosen date window — so this always needs the full
-  // retention-bounded history to decide who's in scope, before the date
-  // range trims down to which of THEIR rows actually get exported.
-  const allInspections = await prisma.inspection.findMany({
-    where: { createdAt: { gte: oldestPossibleCutoff } },
-    orderBy: { createdAt: "desc" },
-  })
+  // "open" and "resolved" describe a vehicle's OVERALL status, so they are
+  // the only scopes that need its whole history — every other export used
+  // to pay that cost too, reading the entire retention window and then
+  // discarding most of it in JS, which made a one-week export cost exactly
+  // what an all-time one did (~22k rows, 1.4s at a year of data).
+  //
+  // Each branch now reads exactly once. Splitting them also keeps the
+  // stage rules in one place: which vehicles qualify still comes from
+  // getStage via buildRow, never from a second copy of those rules in SQL.
+  if (scope === "open" || scope === "resolved") {
+    const history = await prisma.inspection.findMany({
+      where: { createdAt: { gte: oldestPossibleCutoff } },
+      orderBy: { createdAt: "desc" },
+    })
 
-  let allowedSerials: Set<string> | null = null
-  if (scope === "specific") {
-    allowedSerials = new Set(serials ?? [])
-  } else if (scope !== "all") {
-    const bySerial = new Map<string, typeof allInspections>()
-    for (const inspection of allInspections) {
+    const bySerial = new Map<string, typeof history>()
+    for (const inspection of history) {
       const list = bySerial.get(inspection.equipmentSerial)
       if (list) list.push(inspection)
       else bySerial.set(inspection.equipmentSerial, [inspection])
     }
-    allowedSerials = new Set()
+
+    const allowed = new Set<string>()
     for (const [serial, list] of bySerial) {
-      const history = list.map(buildRow)
+      const rows = list.map(buildRow)
       const matches =
         scope === "open"
-          ? findAllOpenIssues(history).length > 0
-          : history.some((row) => row.stage === "confirmed")
-      if (matches) allowedSerials.add(serial)
+          ? findAllOpenIssues(rows).length > 0
+          : rows.some((row) => row.stage === "confirmed")
+      if (matches) allowed.add(serial)
     }
+
+    const inspections = history.filter(
+      (i) =>
+        i.date >= rangeStartKey && i.date <= rangeEndKey && allowed.has(i.equipmentSerial)
+    )
+    return { inspections, todayKey, suffix: buildSuffix(range, scope) }
   }
 
-  const inspections = allInspections.filter((inspection) => {
-    if (inspection.date < rangeStartKey || inspection.date > rangeEndKey) return false
-    if (allowedSerials && !allowedSerials.has(inspection.equipmentSerial)) return false
-    return true
+  // "all" and "specific" are pure row filters, so the database can do all
+  // of it — no history scan, no post-filtering.
+  const inspections = await prisma.inspection.findMany({
+    where: {
+      createdAt: { gte: oldestPossibleCutoff },
+      date: { gte: rangeStartKey, lte: rangeEndKey },
+      ...(scope === "specific" ? { equipmentSerial: { in: serials ?? [] } } : {}),
+    },
+    orderBy: { createdAt: "desc" },
   })
 
-  const suffix = [range !== "all" ? range : null, scope !== "all" ? scope : null]
+  return { inspections, todayKey, suffix: buildSuffix(range, scope) }
+}
+
+function buildSuffix(range: ExportRange, scope: ExportScope): string {
+  return [range !== "all" ? range : null, scope !== "all" ? scope : null]
     .filter(Boolean)
     .join("-")
-
-  return { inspections, todayKey, suffix }
 }
