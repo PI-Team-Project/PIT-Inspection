@@ -145,7 +145,6 @@ type StepDef =
   | { kind: "repairDetails" }
   | { kind: "shift" }
   | { kind: "equipment" }
-  | { kind: "locationCheck" }
   | { kind: "question"; question: Question }
 
 export default function InspectionForm({
@@ -177,6 +176,17 @@ export default function InspectionForm({
     { serial: string; alert: VehicleAlert } | null
   >(null)
   const [checkingSerial, setCheckingSerial] = useState<string | null>(null)
+  const locationCardRef = useRef<HTMLDivElement>(null)
+
+  // Picking a vehicle reveals its location below the FL# grid, which on a
+  // phone lands at or past the fold — and content revealed off-screen is
+  // content nobody reads, which is the whole point of stating the location
+  // rather than asking about it. Same reason the FL# section scrolls itself
+  // into view when a colour is chosen.
+  useEffect(() => {
+    if (!values.equipmentSerial) return
+    locationCardRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" })
+  }, [values.equipmentSerial])
 
   async function pickVehicle(serial: string) {
     // Duplicate check first — it needs no round trip, and being told
@@ -200,7 +210,11 @@ export default function InspectionForm({
       setOpenIssueAlert({ serial, alert })
       return
     }
-    selectAndAdvance("equipmentSerial", serial)
+    // Deliberately does NOT advance: the location statement below only
+    // exists to be read, and a step that leaves as soon as you touch it
+    // cannot be read. Continue moves on.
+    set("equipmentSerial", serial)
+    setOpenIssueAlert(null)
   }
   // Set when someone picks a shift that doesn't match the actual clock —
   // e.g. it's 9am and they pick Night. Real mixups like this are how
@@ -239,7 +253,6 @@ export default function InspectionForm({
           { kind: "inspectionType" },
           { kind: "shift" },
           { kind: "equipment" },
-          { kind: "locationCheck" },
           { kind: "repairDetails" },
         ]
       : [
@@ -248,7 +261,6 @@ export default function InspectionForm({
           { kind: "inspectionType" },
           { kind: "shift" },
           { kind: "equipment" },
-          { kind: "locationCheck" },
           ...questions.map((q) => ({ kind: "question" as const, question: q })),
         ]
   const [photoPreviews, setPhotoPreviews] = useState<
@@ -325,12 +337,14 @@ export default function InspectionForm({
       return Boolean(values.repairDescription?.trim())
     }
     if (s.kind === "shift") return Boolean(values.shift)
-    if (s.kind === "equipment") return Boolean(values.equipmentSerial)
-    if (s.kind === "locationCheck") {
-      if (values.locationMatches === "Yes") return true
+    if (s.kind === "equipment") {
+      if (!values.equipmentSerial) return false
+      // Reporting a move has to name where it actually is, or the report
+      // tells a supervisor nothing.
       if (values.locationMatches === "No") return Boolean(values.actualLocation)
-      return false
+      return true
     }
+
     const v = values[s.question.id]
     if (!v) return false
     // A flagged item with no documentation defeats the point of flagging it —
@@ -359,7 +373,7 @@ export default function InspectionForm({
     !isLast &&
     (current.kind === "date" ||
       current.kind === "name" ||
-      (current.kind === "locationCheck" && values.locationMatches === "No") ||
+      (current.kind === "equipment" && Boolean(values.equipmentSerial)) ||
       (current.kind === "question" &&
         Boolean(values[current.question.id]) &&
         needsAttention(values[current.question.id])))
@@ -1047,7 +1061,7 @@ export default function InspectionForm({
                     <button
                       type="button"
                       onClick={() => {
-                        selectAndAdvance("equipmentSerial", openIssueAlert.serial)
+                        set("equipmentSerial", openIssueAlert.serial)
                         setOpenIssueAlert(null)
                       }}
                       className={`flex-1 rounded-lg py-2 text-xs font-semibold text-white active:scale-95 ${
@@ -1091,112 +1105,101 @@ export default function InspectionForm({
             </div>
           )}
 
-          <input type="hidden" name="equipmentSerial" value={values.equipmentSerial ?? ""} />
-        </div>
-
-        {/* Location check */}
-        <div hidden={current.kind !== "locationCheck"}>
-          {(() => {
-            const expectedLocation = equipmentList.find(
-              (eq) => eq.serial === values.equipmentSerial
-            )?.location
-
-            return (
-              <>
-                <StepHeading
-                  text={
-                    expectedLocation ? (
-                      <>
-                        Is the equipment at{" "}
-                        <span className="underline">{expectedLocation}</span>?
-                      </>
-                    ) : (
-                      "Is the equipment where it's supposed to be?"
-                    )
-                  }
-                />
-                <div className="flex flex-col gap-5">
-                  {(["Yes", "No"] as const).map((opt) => {
-                    const isChecked = values.locationMatches === opt
-                    return (
-                      <label
-                        key={opt}
-                        className={`flex items-center gap-3 rounded-lg border px-4 py-3 transition-transform duration-100 active:scale-95 ${
-                          isChecked ? "border-brand bg-brand/10" : "border-gray-300"
-                        }`}
-                      >
-                        <input
-                          type="radio"
-                          name="locationMatches"
-                          value={opt}
-                          checked={isChecked}
-                          onChange={() => {
-                            set("locationMatches", opt)
-                            set("actualLocation", "")
-                            if (opt === "Yes") advance()
-                          }}
+          {/* Where the app believes this vehicle is, stated rather than
+              asked. This replaced a compulsory "Is the equipment at WH?"
+              step, and the point is not the saved tap — it is that a
+              question answered "Yes" roughly sixty times a month stops
+              being read. People skim a prompt they have to clear; they do
+              read a fact sitting next to the machine they just picked. The
+              exception is one tap away for the rare month something has
+              actually moved.
+              
+              Nothing is compulsory here, so locationMatches defaults to
+              "Yes" and the stored record keeps exactly the shape it had —
+              the server action, the pending-approval flow and every
+              existing inspection are untouched. */}
+          {values.equipmentSerial && (
+            <div
+              ref={locationCardRef}
+              className="mt-5 scroll-mt-4 rounded-lg border border-gray-200 bg-gray-50 p-3"
+            >
+              {(() => {
+                const picked = equipmentList.find((eq) => eq.serial === values.equipmentSerial)
+                const expected = picked?.location
+                const reporting = values.locationMatches === "No"
+                return (
+                  <>
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span className="flex min-w-0 items-center gap-1.5 text-base font-semibold text-gray-900">
+                        <span aria-hidden="true">📍</span>
+                        <span className="truncate">{expected ?? "Location not on file"}</span>
+                      </span>
+                      {!reporting && expected && (
+                        <button
+                          type="button"
                           onClick={() => {
-                            if (isChecked && opt === "Yes") advance()
+                            set("locationMatches", "No")
+                            set("actualLocation", "")
                           }}
-                          className="sr-only"
-                        />
-                        <span
-                          className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${
-                            isChecked ? "border-brand bg-brand" : "border-gray-300"
-                          }`}
+                          className="shrink-0 text-sm font-semibold text-brand underline underline-offset-2 active:scale-95"
                         >
-                          {isChecked && (
-                            <svg
-                              viewBox="0 0 24 24"
-                              fill="none"
-                              stroke="white"
-                              strokeWidth="3"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              className="h-3 w-3"
-                            >
-                              <path d="M20 6 9 17l-5-5" />
-                            </svg>
-                          )}
-                        </span>
-                        <span className="text-base text-gray-800">{opt}</span>
-                      </label>
-                    )
-                  })}
-                </div>
-
-                {values.locationMatches === "No" && (
-                  <div className="mt-8">
-                    <p className="mb-3 text-base font-semibold text-gray-900">
-                      Where is it actually?
-                    </p>
-                    <div className="grid grid-cols-2 gap-2">
-                      {LOCATIONS.filter((loc) => loc !== expectedLocation).map((loc) => {
-                        const isChecked = values.actualLocation === loc
-                        return (
-                          <button
-                            key={loc}
-                            type="button"
-                            onClick={() => set("actualLocation", loc)}
-                            className={`rounded-lg border px-3 py-3 text-sm transition-transform duration-100 active:scale-95 ${
-                              isChecked
-                                ? "border-brand bg-brand/10 font-semibold text-brand"
-                                : "border-gray-300 text-gray-800"
-                            }`}
-                          >
-                            {loc}
-                          </button>
-                        )
-                      })}
+                          Not here?
+                        </button>
+                      )}
                     </div>
-                  </div>
-                )}
-              </>
-            )
-          })()}
+                    {!reporting && (
+                      <p className="mt-1 text-xs text-gray-500">
+                        {picked ? `${picked.flNumber} — ${picked.makeColor}` : ""}
+                      </p>
+                    )}
+                    {reporting && (
+                      <div className="mt-3">
+                        <label
+                          htmlFor="actualLocation"
+                          className="mb-1.5 block text-sm font-medium text-gray-700"
+                        >
+                          Where is it now?
+                        </label>
+                        <select
+                          id="actualLocation"
+                          value={values.actualLocation ?? ""}
+                          onChange={(e) => set("actualLocation", e.target.value)}
+                          className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-base"
+                        >
+                          <option value="">Select a location</option>
+                          {LOCATIONS.filter((loc) => loc !== expected).map((loc) => (
+                            <option key={loc} value={loc}>
+                              {loc}
+                            </option>
+                          ))}
+                        </select>
+                        <p className="mt-1.5 text-xs text-gray-500">
+                          A supervisor confirms this before it becomes the vehicle&rsquo;s
+                          location.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            set("locationMatches", "Yes")
+                            set("actualLocation", "")
+                          }}
+                          className="mt-2 text-xs font-medium text-gray-500 underline underline-offset-2 active:scale-95"
+                        >
+                          Never mind, it&rsquo;s at {expected}
+                        </button>
+                      </div>
+                    )}
+                  </>
+                )
+              })()}
+            </div>
+          )}
 
+          <input type="hidden" name="equipmentSerial" value={values.equipmentSerial ?? ""} />
+          <input type="hidden" name="locationMatches" value={values.locationMatches ?? "Yes"} />
           <input type="hidden" name="actualLocation" value={values.actualLocation ?? ""} />
         </div>
+
 
         {/* Questions */}
         {questions.map((q) => (
