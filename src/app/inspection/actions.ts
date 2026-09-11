@@ -4,6 +4,11 @@ import { redirect } from "next/navigation"
 import sharp from "sharp"
 import { prisma } from "@/lib/prisma"
 import {
+  isPhotoStorageConfigured,
+  photoObjectPath,
+  uploadPhoto,
+} from "@/lib/photoStorage"
+import {
   buildRow,
   computeMaybeOpen,
   findAllOpenIssues,
@@ -27,12 +32,12 @@ import {
 const MAX_PHOTO_DIMENSION = 1600
 const PHOTO_JPEG_QUALITY = 72
 
-async function filesToDataUris(files: FormDataEntryValue[]): Promise<string[]> {
+async function filesToJpegs(files: FormDataEntryValue[]): Promise<Buffer[]> {
   const photos = files.filter((f): f is File => f instanceof File && f.size > 0)
   return Promise.all(
     photos.map(async (file) => {
       const buffer = Buffer.from(await file.arrayBuffer())
-      const compressed = await sharp(buffer)
+      return sharp(buffer)
         .rotate() // applies EXIF orientation, then strips it — needed since phones rarely store photos "upright"
         .resize({
           width: MAX_PHOTO_DIMENSION,
@@ -42,9 +47,44 @@ async function filesToDataUris(files: FormDataEntryValue[]): Promise<string[]> {
         })
         .jpeg({ quality: PHOTO_JPEG_QUALITY })
         .toBuffer()
-      return `data:image/jpeg;base64,${compressed.toString("base64")}`
     })
   )
+}
+
+// Photos go to object storage, keyed by the inspection they belong to — so
+// they can only be written once the row exists and has an id.
+//
+// Every failure here falls back to an inline data URI rather than losing
+// the photo. A worker standing at a forklift must never lose an inspection
+// because a bucket is unreachable or an environment variable is missing;
+// the fallback costs database space, which is recoverable, instead of
+// evidence, which is not.
+async function storePhotos(
+  inspectionId: string,
+  equipmentSerial: string,
+  photos: { questionId: string; order: number; jpeg: Buffer }[]
+): Promise<void> {
+  if (photos.length === 0) return
+
+  const rows = await Promise.all(
+    photos.map(async ({ questionId, order, jpeg }) => {
+      const storagePath = isPhotoStorageConfigured()
+        ? await uploadPhoto(
+            photoObjectPath(equipmentSerial, inspectionId, questionId, order),
+            jpeg
+          )
+        : null
+      return {
+        inspectionId,
+        questionId,
+        order,
+        storagePath,
+        dataUri: storagePath ? null : `data:image/jpeg;base64,${jpeg.toString("base64")}`,
+      }
+    })
+  )
+
+  await prisma.photo.createMany({ data: rows })
 }
 
 export async function submitInspection(formData: FormData) {
@@ -86,7 +126,7 @@ export async function submitInspection(formData: FormData) {
   // Photos live in their own table (see Photo model) so the dashboard's
   // fleet-wide query never has to pull base64 bytes just to compute flags —
   // collected flat here and attached via a single nested create below.
-  const photoRecords: { questionId: string; order: number; dataUri: string; note?: string }[] = []
+  const photoRecords: { questionId: string; order: number; jpeg: Buffer }[] = []
 
   // Shared by both flows — location drifts occasionally, so this is asked
   // right after equipment selection regardless of Daily vs. Repair Request.
@@ -108,8 +148,8 @@ export async function submitInspection(formData: FormData) {
     for (let i = 0; i < REPAIR_REQUEST_PHOTO_SLOTS; i++) {
       const file = formData.get(`repairRequest_photo_${i}`)
       if (file instanceof File && file.size > 0) {
-        const [uri] = await filesToDataUris([file])
-        photoRecords.push({ questionId: REPAIR_REQUEST_ISSUE_ID, order: i, dataUri: uri })
+        const [jpeg] = await filesToJpegs([file])
+        photoRecords.push({ questionId: REPAIR_REQUEST_ISSUE_ID, order: i, jpeg })
       }
     }
     answers[REPAIR_REQUEST_ISSUE_ID] = {
@@ -131,8 +171,8 @@ export async function submitInspection(formData: FormData) {
         for (let i = 0; i < CHECKLIST_PHOTO_SLOTS; i++) {
           const file = formData.get(`${q.id}_photo_${i}`)
           if (file instanceof File && file.size > 0) {
-            const [uri] = await filesToDataUris([file])
-            photoRecords.push({ questionId: q.id, order: i, dataUri: uri })
+            const [jpeg] = await filesToJpegs([file])
+            photoRecords.push({ questionId: q.id, order: i, jpeg })
           }
         }
       }
@@ -191,15 +231,16 @@ export async function submitInspection(formData: FormData) {
       ...(review ? { review } : {}),
     }
 
-    await prisma.inspection.create({
+    const created = await prisma.inspection.create({
       data: {
         ...data,
-        photos: { create: photoRecords },
         // Derived from the very payload being written, via the same
         // getStage the dashboard renders from — see computeMaybeOpen.
         maybeOpen: computeMaybeOpen({ type, answers, review }),
       },
     })
+
+    await storePhotos(created.id, equipmentSerial, photoRecords)
   } catch (err) {
     console.error("submitInspection failed:", err)
     redirect("/inspection?error=submit-failed")

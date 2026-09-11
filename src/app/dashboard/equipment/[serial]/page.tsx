@@ -3,6 +3,7 @@ import Link from "next/link"
 import { notFound, redirect } from "next/navigation"
 import { cookies } from "next/headers"
 import { prisma } from "@/lib/prisma"
+import { resolvePhotoSources } from "@/lib/photoStorage"
 import {
   QUESTIONS,
   QUESTIONS_BY_ID,
@@ -218,10 +219,29 @@ export default async function EquipmentDetailPage({
   const selectedInspections = matchingIds.length
     ? await prisma.inspection.findMany({ where: { id: { in: matchingIds } }, include: { photos: true } })
     : []
+  // Photo bytes live in object storage now, so what the browser loads is a
+  // signed URL minted here — one signing call covering every photo on the
+  // page. Rows written before the move still carry inline data URIs and
+  // resolve to those instead, which is what keeps the pre-wipe backup
+  // readable. This is the only page that renders photo bytes at all.
+  const resolvedPhotos = await resolvePhotoSources(
+    selectedInspections.flatMap((inspection) => inspection.photos)
+  )
+  const photosByInspection = new Map<string, typeof resolvedPhotos>()
+  for (const photo of resolvedPhotos) {
+    const list = photosByInspection.get(photo.inspectionId)
+    if (list) list.push(photo)
+    else photosByInspection.set(photo.inspectionId, [photo])
+  }
+  const resolvedInspections = selectedInspections.map((inspection) => ({
+    ...inspection,
+    photos: photosByInspection.get(inspection.id) ?? [],
+  }))
+
   // Refetched rows can come back in any order — matchingIds already carries
   // the Day-before-Night order decided above, so re-derive from that.
   const selectedRows: InspectionRow[] = matchingIds
-    .map((id) => selectedInspections.find((i) => i.id === id))
+    .map((id) => resolvedInspections.find((i) => i.id === id))
     .filter((i) => i !== undefined)
     .map(buildRow)
 

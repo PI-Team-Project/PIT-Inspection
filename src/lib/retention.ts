@@ -1,4 +1,5 @@
 import { prisma } from "./prisma"
+import { deletePhotoObjects } from "./photoStorage"
 import { RETENTION_YEARS } from "@/app/dashboard/inspectionRow"
 import type { EquipmentType } from "./equipment"
 
@@ -14,6 +15,23 @@ export type RetentionResult = {
   deletedByType: Record<string, number>
   deletedOrphaned: number
   totalDeletedInspections: number
+  // Storage objects removed alongside the rows — zero on a dry run.
+  deletedPhotoObjects: number
+}
+
+// Deleting an Inspection cascades its Photo rows, but object storage knows
+// nothing about foreign keys — without this the bucket would keep every
+// photo whose row retention already removed, growing forever behind a
+// table that does not. Objects go first: an orphaned object costs storage
+// and can be swept again later, whereas deleting the rows first would lose
+// the only record of which keys to remove.
+async function purgePhotoObjects(where: object): Promise<number> {
+  const photos = await prisma.photo.findMany({
+    where: { inspection: where, storagePath: { not: null } },
+    select: { storagePath: true },
+  })
+  if (photos.length === 0) return 0
+  return deletePhotoObjects(photos.map((p) => p.storagePath as string))
 }
 
 function cutoffFor(type: EquipmentType, now: Date): Date {
@@ -41,6 +59,7 @@ export async function runRetentionCleanup({
 
   const cutoffs = {} as Record<EquipmentType, string>
   const deletedByType: Record<string, number> = {}
+  let deletedPhotoObjects = 0
 
   for (const type of Object.keys(RETENTION_YEARS) as EquipmentType[]) {
     const cutoff = cutoffFor(type, now)
@@ -51,9 +70,12 @@ export async function runRetentionCleanup({
       continue
     }
     const where = { equipmentSerial: { in: serials }, createdAt: { lt: cutoff } }
-    deletedByType[type] = dryRun
-      ? await prisma.inspection.count({ where })
-      : (await prisma.inspection.deleteMany({ where })).count
+    if (dryRun) {
+      deletedByType[type] = await prisma.inspection.count({ where })
+    } else {
+      deletedPhotoObjects += await purgePhotoObjects(where)
+      deletedByType[type] = (await prisma.inspection.deleteMany({ where })).count
+    }
   }
 
   // Inspections whose equipmentSerial no longer matches any current
@@ -69,12 +91,23 @@ export async function runRetentionCleanup({
     equipmentSerial: { notIn: [...knownSerials] },
     createdAt: { lt: longestCutoff },
   }
-  const deletedOrphaned = dryRun
-    ? await prisma.inspection.count({ where: orphanWhere })
-    : (await prisma.inspection.deleteMany({ where: orphanWhere })).count
+  let deletedOrphaned: number
+  if (dryRun) {
+    deletedOrphaned = await prisma.inspection.count({ where: orphanWhere })
+  } else {
+    deletedPhotoObjects += await purgePhotoObjects(orphanWhere)
+    deletedOrphaned = (await prisma.inspection.deleteMany({ where: orphanWhere })).count
+  }
 
   const totalDeletedInspections =
     Object.values(deletedByType).reduce((a, b) => a + b, 0) + deletedOrphaned
 
-  return { dryRun, cutoffs, deletedByType, deletedOrphaned, totalDeletedInspections }
+  return {
+    dryRun,
+    cutoffs,
+    deletedByType,
+    deletedOrphaned,
+    totalDeletedInspections,
+    deletedPhotoObjects,
+  }
 }
