@@ -332,38 +332,75 @@ export default async function EquipmentDetailPage({
             clickable cell gets the same hover tint as a real spreadsheet
             cell highlighting under the pointer. */}
         <div className="overflow-hidden rounded-sm border border-gray-300 text-sm">
-          {/* Title column (status light + make/color) gets noticeably more
-              room than type/FL# — those are short, fixed-shape strings
-              ("Stand Up", "S-DOO-0116") that were leaving the title
-              cramped enough to wrap onto two lines while they sat on
-              mostly empty space. */}
-          <div className="grid grid-cols-[minmax(64px,2.3fr)_minmax(100px,0.5fr)_minmax(114px,1.1fr)]">
-            {/* Three separate cells, not one merged with "·" — matching the
-                same one-field-per-column shape every other row in this grid
-                already uses. All three are flex/items-center now so their
-                text sits on the same baseline despite the title being a
-                bigger, bolder font than its neighbors. Type/FL# get real
-                pixel floors (sized to the longest real value in each field
-                — "Pallet Jack", "S-DOO-0137") so they never truncate with
-                room to spare; make/color's own floor is deliberately small
-                (just icon + a couple characters) because it's the one
-                field allowed to ellipsize — on the smallest real phone
-                widths (375px ≈ a 331px box), even "Pallet Jack" + an FL#
-                alone leave no room left for "Mint Mitsubishi" in full, so
-                make/color is the field that gives first. A floor here big
-                enough to always fit it too would force the whole grid
-                wider than that box, clipping unrelated rows below (like
-                "Last Inspected") the way plain fr tracks originally did. */}
-            <span className="flex items-center gap-2 truncate border-r border-b border-gray-300 px-1.5 py-1.5 text-base font-bold whitespace-nowrap text-gray-900">
+          {/* Widths come from the content, not from measured pixel floors.
+              Type and FL# are `auto`, so each takes exactly what its own
+              text needs on that device — "Stand Up" asks for less than
+              "Pallet Jack", and neither reserves space it is not using. The
+              title takes everything left over.
+
+              The floors this replaces (64/100/114px) were measured against
+              one phone, so they only held on that phone: at 390px they left
+              the title 2px short of "Jungheinrich" and 14px short of "Red
+              Mitsubishi", while Type sat on 26px of unused space and FL# on
+              35px. Any new device width, or any longer vehicle name, broke
+              them again — and there is no width at which a fixed floor is
+              right for every screen from a 320px phone to a desktop.
+
+              minmax(0,1fr) rather than 1fr so the title can still give way
+              below the width where all three genuinely fit (~355px); it
+              truncates there instead of pushing the table wider than its
+              container. Nothing about the layout changes with screen size —
+              same three columns, same order, same look — only how the
+              spare space is divided. */}
+          {/* Its own grid, deliberately. These three share a row with
+              nothing, so their widths can be decided by their own content:
+              Type and FL# take exactly what their text needs on the device
+              in hand, and the title takes whatever is left. While they were
+              part of the grid below, the "Serial#" cell two rows down spans
+              two of these columns, and CSS grid widens a spanning item's
+              tracks to fit it — so "Stand Up" was handed 148px to display
+              71px of text, starving the title on every phone.
+
+              This replaces measured pixel floors (64/100/114px) that only
+              held on the one device they were measured against: at 390px
+              they left the title 2px short of "Jungheinrich" and 14px short
+              of "Red Mitsubishi". There is no fixed floor that is right for
+              every screen from a 320px phone to a desktop, so none is used.
+
+              minmax(0,1fr) lets the title still give way below the width
+              where all three genuinely fit, truncating rather than pushing
+              the table wider than its container. The layout itself never
+              changes shape — same three columns, same order, same look on
+              every device; only the spare space moves. */}
+          <div className="grid grid-cols-[minmax(0,1fr)_auto_auto] border-b border-gray-300">
+            <span className="flex min-w-0 items-center gap-2 border-r border-gray-300 px-1.5 py-1.5 text-base font-bold text-gray-900">
               <StatusDot stage={stage} size="sm" />
-              <span className="truncate">{equipment.makeColor}</span>
+              {/* Wraps rather than truncates. On anything from a 375px
+                  phone up it never needs to — the name fits on one line.
+                  Below that the three values genuinely cannot share a row,
+                  and a second line keeps "Mint Mitsubishi" readable where
+                  an ellipsis hid half of it. Wrapping was removed here once
+                  before, when the neighbouring columns hoarded width and
+                  forced it to wrap on screens where it should have fitted;
+                  now they take only what they need, so this only ever
+                  triggers under real pressure. */}
+              <span className="min-w-0 break-words">{equipment.makeColor}</span>
             </span>
-            <span className="flex items-center truncate border-r border-b border-gray-300 px-1.5 py-1.5 text-gray-700">
+            <span className="flex items-center border-r border-gray-300 px-1.5 py-1.5 whitespace-nowrap text-gray-700">
               {equipmentTypeLabel(equipment.type)}
             </span>
-            <span className="flex items-center truncate border-b border-gray-300 px-1.5 py-1.5 whitespace-nowrap text-gray-700">
+            <span className="flex items-center px-1.5 py-1.5 whitespace-nowrap text-gray-700">
               {equipment.flNumber}
             </span>
+          </div>
+
+          {/* Two columns, not three: every row here is either a label and its
+              value, or full width. The third track only ever existed to
+              line up with the identity row above, which now sizes itself —
+              and keeping it meant "Inspected By: Sam Farrow" was handed
+              41px to render 181px of text. `auto` on the label column takes
+              what the longest label needs and no more. */}
+          <div className="grid grid-cols-[auto_minmax(0,1fr)]">
 
             {isBrowsingHistory ? (
               // This vehicle's CURRENT status was otherwise fully hidden
@@ -385,7 +422,7 @@ export default async function EquipmentDetailPage({
                     highlightShift ? `&shift=${highlightShift}` : ""
                   }&view=issues#vehicle-history`}
                   scroll={false}
-                  className={`col-span-3 border-b border-gray-200 px-2 py-1.5 font-semibold transition-colors duration-100 hover:bg-gray-50 hover:underline ${verdict.text}`}
+                  className={`col-span-2 border-b border-gray-200 px-2 py-1.5 font-semibold transition-colors duration-100 hover:bg-gray-50 hover:underline ${verdict.text}`}
                 >
                   See all {openIssuesElsewhere.length} unresolved inspections
                 </Link>
@@ -393,7 +430,7 @@ export default async function EquipmentDetailPage({
                 // Exactly one: no list needed, link straight at it.
                 <Link
                   href={`/dashboard/equipment/${serial}?date=${openIssuesElsewhere[0].inspection.date}&shift=${openIssuesElsewhere[0].inspection.shift}#selected-inspection`}
-                  className={`col-span-3 border-b border-gray-200 px-2 py-1.5 font-semibold underline decoration-2 underline-offset-2 transition-colors duration-100 hover:bg-gray-50 ${verdict.text}`}
+                  className={`col-span-2 border-b border-gray-200 px-2 py-1.5 font-semibold underline decoration-2 underline-offset-2 transition-colors duration-100 hover:bg-gray-50 ${verdict.text}`}
                 >
                   Also unresolved: {shortDateWithYear(openIssuesElsewhere[0].inspection.date, today)} (
                   {openIssuesElsewhere[0].inspection.shift})
@@ -407,7 +444,7 @@ export default async function EquipmentDetailPage({
                     tap. */}
                 <Link
                   href={`/dashboard/equipment/${serial}?date=${openIssue.inspection.date}&shift=${openIssue.inspection.shift}#selected-inspection`}
-                  className={`col-span-3 border-b border-gray-200 px-2 py-1.5 font-semibold underline decoration-2 underline-offset-2 transition-colors duration-100 hover:bg-gray-50 ${verdict.text}`}
+                  className={`col-span-2 border-b border-gray-200 px-2 py-1.5 font-semibold underline decoration-2 underline-offset-2 transition-colors duration-100 hover:bg-gray-50 ${verdict.text}`}
                 >
                   Review the inspection from{" "}
                   {shortDateWithYear(openIssue.inspection.date, today)}
@@ -429,7 +466,7 @@ export default async function EquipmentDetailPage({
                     dates become chips, capped, with the remainder pointing
                     at the History list that already shows all of them. */}
                 {openIssues.length > 1 && (
-                  <div className="col-span-3 flex flex-wrap items-center gap-x-1.5 gap-y-1 border-b border-gray-200 px-2 py-1.5 text-xs">
+                  <div className="col-span-2 flex flex-wrap items-center gap-x-1.5 gap-y-1 border-b border-gray-200 px-2 py-1.5 text-xs">
                     <span className="font-medium text-gray-500">Also open:</span>
                     {openIssues.slice(1, 1 + MAX_OTHER_OPEN_ISSUES).map((issue) => (
                       <Link
@@ -477,7 +514,7 @@ export default async function EquipmentDetailPage({
                 savedManagerName={savedManagerName}
               />
             </span>
-            <span className="col-span-2 border-b border-gray-200 px-2 py-1.5 text-gray-600">
+            <span className="border-b border-gray-200 px-2 py-1.5 text-gray-600">
               Serial#: {equipment.serial}
             </span>
 
@@ -503,7 +540,7 @@ export default async function EquipmentDetailPage({
                     into two separate stacked rows. */}
                 <Link
                   href={`/dashboard/equipment/${serial}?date=${latest.inspection.date}&shift=${latest.inspection.shift}#selected-inspection`}
-                  className="col-span-3 flex min-w-0 items-center justify-between gap-2 border-b border-gray-200 px-2 py-1.5 text-gray-600 transition-colors duration-100 hover:bg-gray-50 hover:text-brand hover:underline"
+                  className="col-span-2 flex min-w-0 items-center justify-between gap-2 border-b border-gray-200 px-2 py-1.5 text-gray-600 transition-colors duration-100 hover:bg-gray-50 hover:text-brand hover:underline"
                 >
                   <span className="min-w-0 truncate">Last inspected: {latest.inspection.date}</span>
                   {since && (
@@ -522,11 +559,11 @@ export default async function EquipmentDetailPage({
                 </span>
               </>
             ) : (
-              <span className="col-span-3 px-2 py-1.5 text-gray-500">No inspection yet</span>
+              <span className="col-span-2 px-2 py-1.5 text-gray-500">No inspection yet</span>
             )}
 
             {addedAt && addedAt > EQUIPMENT_ADDED_DATE_TRACKING_STARTS_AT && (
-              <span className="col-span-3 border-t border-gray-200 px-2 py-1 text-xs text-gray-400">
+              <span className="col-span-2 border-t border-gray-200 px-2 py-1 text-xs text-gray-400">
                 Added {addedAt.toISOString().slice(0, 10)}
               </span>
             )}
