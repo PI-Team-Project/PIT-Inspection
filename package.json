@@ -17,11 +17,13 @@
     "postinstall": "prisma generate",
     "db:staging:seed:year": "node scripts/with-env.mjs .env.staging -- tsx scripts/seed-year.ts",
     "db:backfill:maybe-open": "node scripts/with-env.mjs .env.staging -- tsx scripts/backfill-maybe-open.ts",
-    "db:backfill:maybe-open:prod": "node scripts/with-env.mjs .env -- tsx scripts/backfill-maybe-open.ts"
+    "db:backfill:maybe-open:prod": "node scripts/with-env.mjs .env -- tsx scripts/backfill-maybe-open.ts",
+    "storage:setup": "node scripts/with-env.mjs .env.local -- tsx scripts/setup-photo-bucket.ts"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.9.1",
     "@prisma/client": "^7.9.1",
+    "@supabase/storage-js": "^2.116.0",
     "exceljs": "^4.4.0",
     "heic2any": "^0.0.4",
     "next": "16.2.12",

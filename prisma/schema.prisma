@@ -65,9 +65,24 @@ model Photo {
   inspection   Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
   questionId   String
   order        Int
-  dataUri      String
   note         String?
   createdAt    DateTime   @default(now())
+
+  // Object-storage key, e.g. "A4BC150348/<inspectionId>/horn-0.jpg". The
+  // bytes live in a private Supabase Storage bucket and reach the browser
+  // as short-lived signed URLs; nothing here is publicly addressable.
+  //
+  // Photos were base64 data URIs inside Postgres, which made them 94-98%
+  // of everything stored — ~602MB a year at the 1280px budget, in the most
+  // expensive place to keep an image. See src/lib/photoStorage.ts.
+  storagePath  String?
+
+  // The old inline form. Kept nullable rather than dropped so the 15
+  // photos in backup-before-wipe-2026-08-28.json stay restorable, and so a
+  // submission still succeeds if storage is unreachable — a worker must
+  // never lose an inspection because a bucket is down. Exactly one of
+  // these two is set; storagePath wins when both are.
+  dataUri      String?
 
   @@index([inspectionId])
 }

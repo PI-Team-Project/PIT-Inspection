@@ -31,8 +31,19 @@ export type InspectionRow = ReturnType<typeof buildRow>
 // detail) `include: { photos: true }`, callers that only need a yes/no flag
 // (dashboard) `include: { _count: { select: { photos: true } } }` instead of
 // paying for the actual bytes. Both shapes flow through the same row here.
+// `src` is whatever the browser should load for that photo — a signed
+// Storage URL, or the legacy inline data URI for rows written before the
+// move to object storage. Resolving which is the caller's job
+// (resolvePhotoSources), so nothing here has to know where bytes live.
+export type ResolvedPhoto = {
+  questionId: string
+  order: number
+  src: string
+  note: string | null
+}
+
 type RawInspection = Awaited<ReturnType<typeof prisma.inspection.findMany>>[number] & {
-  photos?: { questionId: string; order: number; dataUri: string; note: string | null }[]
+  photos?: ResolvedPhoto[]
   _count?: { photos: number }
 }
 
@@ -51,7 +62,7 @@ export function buildRow(inspection: RawInspection) {
       list.sort((a, b) => a.order - b.order)
       answers[questionId] = {
         ...entry,
-        photos: list.map((p) => p.dataUri),
+        photos: list.map((p) => p.src),
         ...(list.some((p) => p.note) ? { photoNotes: list.map((p) => p.note ?? "") } : {}),
       }
     }
