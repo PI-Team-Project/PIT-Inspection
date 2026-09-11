@@ -1,4 +1,4 @@
-import type { Inspection } from "@/generated/prisma/client"
+import type { Inspection, Prisma } from "@/generated/prisma/client"
 import { prisma } from "@/lib/prisma"
 import { RETENTION_YEARS, buildRow, findAllOpenIssues } from "@/app/dashboard/inspectionRow"
 import { exportRangeStart, easternDateKey } from "@/lib/shifts"
@@ -25,7 +25,15 @@ export async function fetchInspectionsForExport({
   // someone hand-picked, as opposed to "open"/"resolved" which are computed
   // from each vehicle's own history below.
   serials?: string[]
-}): Promise<{ inspections: Inspection[]; todayKey: string; suffix: string }> {
+}): Promise<{
+  inspections: Inspection[]
+  todayKey: string
+  suffix: string
+  // The same filter as a Prisma `where`, so a caller needing related rows
+  // (the photo export) can let the database join rather than feeding tens of
+  // thousands of ids back in through an IN clause.
+  where: Prisma.InspectionWhereInput
+}> {
   const todayKey = easternDateKey(new Date())
 
   // No equipment's retention window reaches back further than the longest
@@ -76,21 +84,32 @@ export async function fetchInspectionsForExport({
       (i) =>
         i.date >= rangeStartKey && i.date <= rangeEndKey && allowed.has(i.equipmentSerial)
     )
-    return { inspections, todayKey, suffix: buildSuffix(range, scope) }
+    return {
+      inspections,
+      todayKey,
+      suffix: buildSuffix(range, scope),
+      where: {
+        createdAt: { gte: oldestPossibleCutoff },
+        date: { gte: rangeStartKey, lte: rangeEndKey },
+        equipmentSerial: { in: [...allowed] },
+      },
+    }
   }
 
   // "all" and "specific" are pure row filters, so the database can do all
   // of it — no history scan, no post-filtering.
+  const where: Prisma.InspectionWhereInput = {
+    createdAt: { gte: oldestPossibleCutoff },
+    date: { gte: rangeStartKey, lte: rangeEndKey },
+    ...(scope === "specific" ? { equipmentSerial: { in: serials ?? [] } } : {}),
+  }
+
   const inspections = await prisma.inspection.findMany({
-    where: {
-      createdAt: { gte: oldestPossibleCutoff },
-      date: { gte: rangeStartKey, lte: rangeEndKey },
-      ...(scope === "specific" ? { equipmentSerial: { in: serials ?? [] } } : {}),
-    },
+    where,
     orderBy: { createdAt: "desc" },
   })
 
-  return { inspections, todayKey, suffix: buildSuffix(range, scope) }
+  return { inspections, todayKey, suffix: buildSuffix(range, scope), where }
 }
 
 function buildSuffix(range: ExportRange, scope: ExportScope): string {
