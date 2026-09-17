@@ -88,6 +88,14 @@ async function storePhotos(
 }
 
 export async function submitInspection(formData: FormData) {
+  // Carry the worker's chosen language through every redirect this action
+  // makes, so an error sends them back to a form still in their language and
+  // success greets them in it too. Display-only — nothing about the stored
+  // inspection changes; see src/lib/i18n.ts.
+  const langParam = String(formData.get("lang") ?? "") === "es" ? "es" : ""
+  const withLang = (path: string) =>
+    langParam ? `${path}${path.includes("?") ? "&" : "?"}lang=${langParam}` : path
+
   const type = String(formData.get("inspectionType") ?? "Daily Inspection") === "Repair Request"
     ? "Repair Request"
     : "Daily"
@@ -101,17 +109,17 @@ export async function submitInspection(formData: FormData) {
   // JS-disabled client, or hand-crafted request would otherwise write a
   // permanently blank-name/date/equipment row with no way to trace it back.
   if (!date || !lastName || !firstName || !equipmentSerial) {
-    redirect("/inspection?error=missing-fields")
+    redirect(withLang("/inspection?error=missing-fields"))
   }
 
   const equipment = await prisma.equipment.findUnique({ where: { serial: equipmentSerial } })
   if (!equipment) {
-    redirect("/inspection?error=unknown-equipment")
+    redirect(withLang("/inspection?error=unknown-equipment"))
   }
   if (equipment.retiredAt) {
     // Can happen if a supervisor retires this vehicle in Manage Vehicles
     // while a worker already has its inspection form open.
-    redirect("/inspection?error=equipment-retired")
+    redirect(withLang("/inspection?error=equipment-retired"))
   }
 
   const answers: Record<
@@ -243,10 +251,10 @@ export async function submitInspection(formData: FormData) {
     await storePhotos(created.id, equipmentSerial, photoRecords)
   } catch (err) {
     console.error("submitInspection failed:", err)
-    redirect("/inspection?error=submit-failed")
+    redirect(withLang("/inspection?error=submit-failed"))
   }
 
-  redirect("/inspection/success")
+  redirect(withLang("/inspection/success"))
 }
 
 export type VehicleAlert = {

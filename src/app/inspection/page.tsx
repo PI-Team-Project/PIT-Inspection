@@ -1,5 +1,6 @@
 import InspectionForm from "./InspectionForm"
 import { QUESTIONS } from "@/lib/questions"
+import { normalizeLang } from "@/lib/i18n"
 import { getActiveEquipmentList } from "@/lib/equipmentLocations"
 import { prisma } from "@/lib/prisma"
 import {
@@ -18,9 +19,9 @@ export const dynamic = "force-dynamic"
 export default async function InspectionPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string }>
+  searchParams: Promise<{ error?: string; lang?: string }>
 }) {
-  const { error } = await searchParams
+  const { error, lang } = await searchParams
   const now = new Date()
   // The fleet's Eastern calendar date, not the server's own — a plain
   // `new Date().toISOString()` would silently roll over to tomorrow for
@@ -73,6 +74,7 @@ export default async function InspectionPage({
         today={today}
         recentlyInspected={recentlyInspected}
         initialError={error}
+        lang={normalizeLang(lang)}
       />
     </div>
   )
