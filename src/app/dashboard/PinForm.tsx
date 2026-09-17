@@ -12,11 +12,15 @@ export default function PinForm({
 }) {
   const locked = Boolean(lockedMinutes)
   return (
-    <main className="mx-auto flex w-full max-w-sm flex-col items-center px-4 py-16">
-      <div className="mb-2 self-start">
+    // The home button sits in the same top-left slot the authenticated
+    // dashboard uses (max-w-lg / px-4 / pt-1), so unlocking never makes it
+    // jump. The PIN card is centered below in its own narrower column.
+    <main className="mx-auto w-full max-w-lg px-4 pt-1 sm:max-w-2xl lg:max-w-4xl">
+      <div className="flex items-center gap-3">
         <HomeLink />
       </div>
-      <h1 className="text-xl font-bold text-gray-900">Manager Dashboard</h1>
+      <div className="mx-auto flex w-full max-w-sm flex-col items-center pt-12 pb-16">
+        <h1 className="text-xl font-bold text-gray-900">Manager Dashboard</h1>
       <p className="mt-1 text-sm text-gray-600">Enter 6-digit PIN</p>
       <form action={unlockDashboard} className="mt-6 w-full space-y-3">
         <input
@@ -51,6 +55,7 @@ export default function PinForm({
           Unlock
         </button>
       </form>
+      </div>
     </main>
   )
 }

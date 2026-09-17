@@ -36,14 +36,22 @@ export default function StartLanguageChooser() {
         })}
       </div>
 
-      <p className="mt-4 text-gray-600">{tr(lang, "landing.subtitle")}</p>
+      {/* Fixed heights so switching language only swaps the words — the
+          buttons and QR below never move, no matter that the Spanish copy
+          runs a line longer than the English. Sized to fit the taller
+          language; the shorter one simply leaves the reserved space blank. */}
+      <p className="mt-4 flex min-h-7 items-start justify-center text-gray-600">
+        {tr(lang, "landing.subtitle")}
+      </p>
 
-      <p className="mt-4 text-base text-gray-600">
-        {tr(lang, "landing.instr1")}{" "}
-        <span className="rounded bg-amber-100 px-0.5 font-medium text-gray-700">
-          {tr(lang, "landing.instrHighlight")}
-        </span>{" "}
-        {tr(lang, "landing.instr2")}
+      <p className="mt-4 flex min-h-[8.5rem] items-start justify-center text-base text-gray-600">
+        <span>
+          {tr(lang, "landing.instr1")}{" "}
+          <span className="rounded bg-amber-100 px-0.5 font-medium text-gray-700">
+            {tr(lang, "landing.instrHighlight")}
+          </span>{" "}
+          {tr(lang, "landing.instr2")}
+        </span>
       </p>
 
       <div className="mt-12 flex w-full flex-col gap-3">
