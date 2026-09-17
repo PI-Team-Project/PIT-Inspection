@@ -1,12 +1,24 @@
 "use client"
 
-import { useEffect } from "react"
-import { useRouter } from "next/navigation"
+import { Suspense, useEffect } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { clearInspectionDraft } from "@/lib/inspectionDraft"
+import { normalizeLang, tr } from "@/lib/i18n"
 
+// useSearchParams must sit under a Suspense boundary or Next deopts the
+// whole route to client-side rendering at build time.
 export default function InspectionSuccessPage() {
+  return (
+    <Suspense fallback={null}>
+      <SuccessContent />
+    </Suspense>
+  )
+}
+
+function SuccessContent() {
   const router = useRouter()
+  const lang = normalizeLang(useSearchParams().get("lang"))
 
   // Only reached after a real successful submission (the server action
   // redirects here) — safe to drop the autosaved draft now, not any
@@ -41,20 +53,20 @@ export default function InspectionSuccessPage() {
         className="stamp-press pointer-events-none inline-block rounded-lg border-[6px] border-double border-green-700/85 px-5 py-2.5 select-none"
       >
         <p className="text-center text-xl leading-tight font-black tracking-widest text-green-700/85 uppercase sm:text-2xl">
-          Inspection
+          {tr(lang, "ok.stamp1")}
           <br />
-          Completed
+          {tr(lang, "ok.stamp2")}
         </p>
       </div>
       <h1 className="mt-6 text-2xl font-bold text-gray-900">
-        Thank you for your submission!
+        {tr(lang, "ok.thanks")}
       </h1>
-      <p className="mt-2 text-gray-600">Have a safe shift.</p>
+      <p className="mt-2 text-gray-600">{tr(lang, "ok.safe")}</p>
       <Link
         href="/"
         className="mt-6 text-sm text-gray-500 underline transition-transform duration-100 active:scale-95 active:text-gray-700"
       >
-        Return now
+        {tr(lang, "ok.return")}
       </Link>
     </main>
   )

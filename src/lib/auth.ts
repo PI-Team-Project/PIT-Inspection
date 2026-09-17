@@ -1,4 +1,5 @@
 import { createHash } from "crypto"
+import { cookies } from "next/headers"
 
 export const DASHBOARD_COOKIE = "dashboard_session"
 export const MANAGER_NAME_COOKIE = "manager_name"
@@ -19,6 +20,26 @@ export function dashboardSessionValue() {
   return createHash("sha256")
     .update(`pit-dashboard:${process.env.DASHBOARD_PIN ?? ""}`)
     .digest("hex")
+}
+
+// Whether the current request carries a valid dashboard session cookie.
+export async function hasDashboardSession(): Promise<boolean> {
+  const store = await cookies()
+  return store.get(DASHBOARD_COOKIE)?.value === dashboardSessionValue()
+}
+
+// The security boundary for every mutating dashboard action. A Server Action
+// is its own POST endpoint reachable by anyone who can send the request —
+// gating the PAGE that renders the form does nothing for the action behind
+// it (Next.js docs: "Render-time gating is not a security boundary"). Without
+// this, a PIN-less request could retire vehicles, rewrite inspection review
+// history, or approve location changes directly. Throws loudly (per the docs'
+// guidance for destructive operations) rather than silently no-opping, so a
+// missed check surfaces instead of looking like success.
+export async function requireDashboardSession(): Promise<void> {
+  if (!(await hasDashboardSession())) {
+    throw new Error("Unauthorized")
+  }
 }
 
 type PinAttemptState = { count: number; lockedUntil?: number }

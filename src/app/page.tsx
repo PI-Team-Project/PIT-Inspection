@@ -1,4 +1,4 @@
-import Link from "next/link"
+import StartLanguageChooser from "./StartLanguageChooser"
 
 export default function Home() {
   return (
@@ -16,43 +16,8 @@ export default function Home() {
         📍 Holland, Michigan
       </p>
       <h1 className="mt-2 text-3xl font-bold text-gray-900">PIT Inspection</h1>
-      <p className="mt-2 text-gray-600">
-        Warehouse vehicle pre-shift inspection.
-      </p>
 
-      <p className="mt-4 text-base text-gray-600">
-        Inspection{" "}
-        <span className="text-sweep-highlight rounded px-0.5 font-medium text-gray-700">
-          must be completed at beginning of every shift
-        </span>{" "}
-        to ensure equipment is in good condition to use. Thanks for keeping
-        us safe.
-      </p>
-
-      <div className="mt-16 flex w-full flex-col gap-3">
-        <Link
-          href="/inspection"
-          className="rounded-lg bg-brand px-6 py-3 font-semibold text-white transition-transform duration-100 active:scale-95 active:bg-brand-dark"
-        >
-          Start Inspection
-        </Link>
-        <Link
-          href="/dashboard"
-          className="rounded-lg border border-brand/30 px-6 py-3 font-semibold text-brand transition-transform duration-100 active:scale-95 active:bg-brand/10"
-        >
-          Manager Dashboard
-        </Link>
-      </div>
-
-      <div className="mt-6 flex flex-col items-center gap-1.5">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src="/qr-inspection.svg"
-          alt="QR code linking to the inspection form"
-          className="aspect-square w-full max-w-[128px] rounded-lg border border-gray-200 p-2"
-        />
-        <p className="text-xs text-gray-400">Scan to start an inspection</p>
-      </div>
+      <StartLanguageChooser />
     </main>
   )
 }

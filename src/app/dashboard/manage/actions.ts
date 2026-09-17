@@ -2,7 +2,7 @@
 
 import { cookies } from "next/headers"
 import { revalidatePath } from "next/cache"
-import { MANAGER_NAME_COOKIE } from "@/lib/auth"
+import { MANAGER_NAME_COOKIE, hasDashboardSession, requireDashboardSession } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { LOCATIONS } from "@/lib/equipment"
 import { getShiftWindowForDate } from "@/lib/shifts"
@@ -41,6 +41,9 @@ export async function addVehicles(
   _prevState: AddVehiclesState,
   formData: FormData
 ): Promise<AddVehiclesState> {
+  if (!(await hasDashboardSession())) {
+    return { error: "Your session expired. Unlock the dashboard and try again." }
+  }
   const managerName = String(formData.get("managerName") ?? "").trim() || "Unknown"
   const rowCount = Number(formData.get("rowCount") ?? "0")
 
@@ -105,6 +108,9 @@ export async function updateVehicle(
   _prevState: EditVehicleState,
   formData: FormData
 ): Promise<EditVehicleState> {
+  if (!(await hasDashboardSession())) {
+    return { error: "Your session expired. Unlock the dashboard and try again." }
+  }
   const serial = String(formData.get("serial") ?? "")
   const type = String(formData.get("type") ?? "")
   const flNumber = String(formData.get("flNumber") ?? "").trim()
@@ -159,6 +165,7 @@ function retirementInstant(raw: FormDataEntryValue | null): Date {
 }
 
 export async function retireVehicle(formData: FormData) {
+  await requireDashboardSession()
   const serial = String(formData.get("serial") ?? "")
   if (!serial) return
 
@@ -174,6 +181,7 @@ export async function retireVehicle(formData: FormData) {
 }
 
 export async function retireVehicles(formData: FormData) {
+  await requireDashboardSession()
   const serials = formData.getAll("serial").map(String).filter(Boolean)
   if (serials.length === 0) return
 
@@ -189,6 +197,7 @@ export async function retireVehicles(formData: FormData) {
 }
 
 export async function restoreVehicle(formData: FormData) {
+  await requireDashboardSession()
   const serial = String(formData.get("serial") ?? "")
   if (!serial) return
 

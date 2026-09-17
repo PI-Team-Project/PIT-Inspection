@@ -11,6 +11,7 @@ import {
   isValidPin,
   getPinLockout,
   recordFailedPinAttempt,
+  requireDashboardSession,
 } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { computeMaybeOpen } from "@/app/dashboard/inspectionRow"
@@ -59,6 +60,7 @@ export async function unlockDashboard(formData: FormData) {
 }
 
 export async function saveActivity(formData: FormData) {
+  await requireDashboardSession()
   const inspectionId = String(formData.get("inspectionId") ?? "")
   const authorName = String(formData.get("reviewerName") ?? "").trim() || "Unknown"
   const timestamp = new Date().toISOString()
@@ -157,6 +159,7 @@ export async function updateEquipmentLocation(
   _prevState: null,
   formData: FormData
 ): Promise<null> {
+  await requireDashboardSession()
   const serial = String(formData.get("serial") ?? "")
   const location = String(formData.get("location") ?? "")
   const managerName = String(formData.get("managerName") ?? "").trim() || "Unknown"
@@ -224,6 +227,7 @@ export async function approvePendingLocation(
   _prevState: null,
   formData: FormData
 ): Promise<null> {
+  await requireDashboardSession()
   const serial = String(formData.get("serial") ?? "")
   const managerName = String(formData.get("managerName") ?? "").trim() || "Unknown"
   if (!serial) return null
@@ -285,6 +289,7 @@ export async function dismissPendingLocation(
   _prevState: null,
   formData: FormData
 ): Promise<null> {
+  await requireDashboardSession()
   const serial = String(formData.get("serial") ?? "")
   if (!serial) return null
 

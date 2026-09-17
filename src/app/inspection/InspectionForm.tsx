@@ -26,6 +26,14 @@ import {
   type EquipmentType,
 } from "@/lib/equipment"
 import { SHIFTS, FLEET_TIME_ZONE, getShiftForDate } from "@/lib/shifts"
+import {
+  type Lang,
+  tr,
+  displayLabel,
+  optionLabel,
+  questionLabel,
+  questionNote,
+} from "@/lib/i18n"
 
 function formatEasternTime(date: Date) {
   return new Intl.DateTimeFormat("en-US", {
@@ -88,20 +96,22 @@ function setInputFiles(input: HTMLInputElement | null, file: File | null) {
   input.files = dt.files
 }
 
-// Keyed by the `?error=` code actions.ts redirects back with on a rejected
-// or failed submission — see submitInspection in ./actions.ts.
-const SUBMIT_ERROR_MESSAGES: Record<string, string> = {
-  "missing-fields": "Some required fields were missing — please fill out the form again.",
-  "unknown-equipment": "That vehicle couldn't be found — please pick a vehicle again.",
-  "equipment-retired": "This vehicle was just retired — please choose a different vehicle.",
-  "submit-failed": "Something went wrong submitting your inspection. Please try again.",
-}
+// The `?error=` codes actions.ts redirects back with on a rejected or failed
+// submission (see submitInspection in ./actions.ts); their messages live in
+// i18n.ts under `err.<code>`. Anything not in this set falls back to the
+// generic submit-failed message.
+const KNOWN_ERROR_CODES = new Set([
+  "missing-fields",
+  "unknown-equipment",
+  "equipment-retired",
+  "submit-failed",
+])
 
 // useFormStatus only reports the enclosing <form>'s pending state when
 // called from a component rendered *inside* it — reading it in the same
 // component that renders the <form> tag itself always sees pending=false,
 // which is why this is split out rather than inlined at the call site.
-function SubmitButton({ blocked }: { blocked: boolean }) {
+function SubmitButton({ blocked, lang }: { blocked: boolean; lang: Lang }) {
   const { pending } = useFormStatus()
   return (
     <button
@@ -117,7 +127,7 @@ function SubmitButton({ blocked }: { blocked: boolean }) {
           : "bg-brand active:bg-brand-dark"
       }`}
     >
-      {pending ? "Submitting…" : "Submit Inspection"}
+      {pending ? tr(lang, "btn.submitting") : tr(lang, "btn.submit")}
     </button>
   )
 }
@@ -153,15 +163,20 @@ export default function InspectionForm({
   today,
   recentlyInspected,
   initialError,
+  lang,
 }: {
   questions: Question[]
   equipmentList: Equipment[]
   today: string
   recentlyInspected: Record<string, { by: string; when: string }>
   initialError?: string
+  lang: Lang
 }) {
+  const t = (key: string, vars?: Record<string, string | number>) => tr(lang, key, vars)
   const [submitError, setSubmitError] = useState(
-    initialError ? (SUBMIT_ERROR_MESSAGES[initialError] ?? SUBMIT_ERROR_MESSAGES["submit-failed"]) : null
+    initialError
+      ? tr(lang, KNOWN_ERROR_CODES.has(initialError) ? `err.${initialError}` : "err.submit-failed")
+      : null
   )
   const [step, setStep] = useState(0)
   const [values, setValues] = useState<Record<string, string>>({
@@ -490,7 +505,7 @@ export default function InspectionForm({
       <button
         type="button"
         onClick={() => setSubmitError(null)}
-        aria-label="Dismiss"
+        aria-label={t("banner.dismiss")}
         className="shrink-0 text-lg leading-none text-red-400 active:scale-90"
       >
         ×
@@ -508,7 +523,7 @@ export default function InspectionForm({
         {errorBanner}
         <div className="text-4xl">📝</div>
         <h1 className="mt-4 text-lg font-bold text-gray-900">
-          Resume your unfinished inspection?
+          {t("resume.title")}
         </h1>
         <p className="mt-2 max-w-xs text-sm text-gray-500">
           {/* A space right after a {`{jsxExpression}`} on the same line as
@@ -516,11 +531,12 @@ export default function InspectionForm({
               trimming (each text run between expressions/elements is
               trimmed per-line before rendering) — explicit {`{" "}`}
               expressions on both sides of <strong> avoid that. */}
-          Saved <strong className="font-semibold text-gray-700">{savedAtLabel}</strong> ·{" "}
-          <span className="font-semibold text-amber-600">Not submitted yet.</span>
+          {t("resume.savedPrefix")}{" "}
+          <strong className="font-semibold text-gray-700">{savedAtLabel}</strong> ·{" "}
+          <span className="font-semibold text-amber-600">{t("resume.notSubmitted")}</span>
           <br />
           <strong className="font-semibold text-gray-700">
-            Any photos will need to be re-attached.
+            {t("resume.reattach")}
           </strong>
         </p>
         <div className="mt-6 flex w-full max-w-xs flex-col gap-3">
@@ -529,14 +545,14 @@ export default function InspectionForm({
             onClick={resumeDraft}
             className="rounded-lg bg-brand px-6 py-3 font-semibold text-white transition-transform duration-100 active:scale-95 active:bg-brand-dark"
           >
-            Resume
+            {t("resume.resume")}
           </button>
           <button
             type="button"
             onClick={discardDraft}
             className="rounded-lg border border-gray-300 px-6 py-3 font-semibold text-gray-600 transition-transform duration-100 active:scale-95 active:bg-gray-50"
           >
-            Start Over
+            {t("resume.startOver")}
           </button>
         </div>
       </div>
@@ -559,11 +575,11 @@ export default function InspectionForm({
           />
         </div>
         <p className="mt-3 text-sm text-gray-500">
-          You&apos;re the first to notice. Thank you for checking.
+          {t("wiz.subtitle")}
         </p>
         {showGreeting && (
           <p className="mt-1.5 text-sm font-semibold text-brand">
-            {timeOfDayIcon(new Date())} Hello, {values.firstName}!
+            {timeOfDayIcon(new Date())} {t("wiz.hello", { name: values.firstName ?? "" })}
           </p>
         )}
       </div>
@@ -571,9 +587,9 @@ export default function InspectionForm({
       <div ref={contentRef} className="flex-1 px-4 pt-6 pb-6" onFocus={handleContentFocus}>
         {/* Date */}
         <div hidden={current.kind !== "date"}>
-          <StepHeading text="Inspection Date" />
+          <StepHeading text={t("step.date")} />
           <p className="mb-5 text-sm text-gray-500">
-            Let&apos;s get started — it only takes a couple of minutes.
+            {t("date.sub")}
           </p>
           {/* The real <input type="date"> sits directly on top of the
               formatted label (an invisible, exact-size overlay) so a tap
@@ -596,7 +612,7 @@ export default function InspectionForm({
               value={values.date ?? ""}
               onChange={(e) => set("date", e.target.value)}
               required
-              aria-label="Inspection date"
+              aria-label={t("date.aria")}
               className="absolute inset-0 w-full cursor-pointer opacity-0"
             />
           </div>
@@ -604,11 +620,11 @@ export default function InspectionForm({
 
         {/* Name (last + first, one step, two sections) */}
         <div hidden={current.kind !== "name"}>
-          <StepHeading text="Your Name" />
+          <StepHeading text={t("step.name")} />
           <div className="space-y-5">
             <div>
               <label htmlFor="lastName" className="mb-1.5 block text-sm font-medium text-gray-700">
-                Last Name
+                {t("name.last")}
               </label>
               <input
                 id="lastName"
@@ -636,7 +652,7 @@ export default function InspectionForm({
             </div>
             <div>
               <label htmlFor="firstName" className="mb-1.5 block text-sm font-medium text-gray-700">
-                First Name
+                {t("name.first")}
               </label>
               <input
                 ref={firstNameInputRef}
@@ -654,10 +670,11 @@ export default function InspectionForm({
 
         {/* Inspection Type */}
         <div hidden={current.kind !== "inspectionType"}>
-          <StepHeading text="What type of inspection is this?" />
+          <StepHeading text={t("step.type")} />
           <div className="flex flex-col gap-5">
-            {INSPECTION_TYPES.map(({ value, label }) => {
+            {INSPECTION_TYPES.map(({ value }) => {
               const isChecked = values.inspectionType === value
+              const label = value === "Daily Inspection" ? t("type.daily") : t("type.repair")
               return (
                 <label
                   key={value}
@@ -704,14 +721,14 @@ export default function InspectionForm({
 
         {/* Repair Request details */}
         <div hidden={current.kind !== "repairDetails"}>
-          <StepHeading text="Describe the Problem" />
+          <StepHeading text={t("step.repair")} />
           <p className="mb-5 text-sm text-gray-500">
-            A manager will be notified to review this equipment right away.
+            {t("repair.notify")}
           </p>
           <div className="space-y-4">
             <div>
               <label htmlFor="repairDescription" className="mb-1.5 block text-sm font-medium text-gray-700">
-                What&apos;s wrong?
+                {t("repair.whatsWrong")}
               </label>
               <textarea
                 id="repairDescription"
@@ -719,14 +736,14 @@ export default function InspectionForm({
                 value={values.repairDescription ?? ""}
                 onChange={(e) => set("repairDescription", e.target.value)}
                 rows={3}
-                placeholder="Describe the problem in as much detail as possible"
+                placeholder={t("repair.placeholder")}
                 className="w-full rounded-lg border border-gray-300 px-4 py-3 text-base"
               />
             </div>
             <div>
               <label className="mb-1.5 block text-sm font-medium text-gray-700">
-                Photos{" "}
-                <span className="font-normal text-gray-400">(optional)</span>
+                {t("label.photos")}{" "}
+                <span className="font-normal text-gray-400">{t("photos.optional")}</span>
               </label>
               <div className="grid grid-cols-6 gap-1.5">
                 {Array.from({ length: REPAIR_REQUEST_PHOTO_SLOTS }, (_, i) => (
@@ -738,6 +755,7 @@ export default function InspectionForm({
                     onChange={(file) =>
                       setPhotoPreview(REPAIR_REQUEST_ISSUE_ID, i, file)
                     }
+                    lang={lang}
                   />
                 ))}
               </div>
@@ -747,7 +765,7 @@ export default function InspectionForm({
 
         {/* Shift */}
         <div hidden={current.kind !== "shift"}>
-          <StepHeading text="Which shift are you on?" />
+          <StepHeading text={t("step.shift")} />
           <div className="flex flex-col gap-5">
             {SHIFTS.map((s) => {
               const isChecked = values.shift === s.name
@@ -792,7 +810,7 @@ export default function InspectionForm({
                       </svg>
                     )}
                   </span>
-                  <span className="text-base text-gray-800">{s.name}</span>
+                  <span className="text-base text-gray-800">{displayLabel(lang, s.name)}</span>
                 </label>
               )
             })}
@@ -811,7 +829,7 @@ export default function InspectionForm({
                   onClick={() => setShiftMismatchPick(null)}
                   className="flex-1 rounded-lg border border-gray-300 bg-white py-2 text-xs font-semibold text-gray-700 active:scale-95"
                 >
-                  Pick the Other Shift
+                  {t("shift.pickOther")}
                 </button>
                 <button
                   type="button"
@@ -822,7 +840,7 @@ export default function InspectionForm({
                   }}
                   className="flex-1 rounded-lg bg-amber-600 py-2 text-xs font-semibold text-white active:scale-95"
                 >
-                  Continue Anyway
+                  {t("shift.continueAnyway")}
                 </button>
               </div>
             </div>
@@ -831,10 +849,10 @@ export default function InspectionForm({
 
         {/* Equipment */}
         <div hidden={current.kind !== "equipment"}>
-          <StepHeading text="Which equipment are you inspecting?" />
+          <StepHeading text={t("step.equipment")} />
 
           <p className="mb-2 text-sm font-medium text-gray-700">
-            Please select the type of the equipment
+            {t("equip.selectType")}
           </p>
           <div className="grid grid-cols-2 gap-2">
             {EQUIPMENT_CATEGORIES.map((cat) => {
@@ -865,7 +883,7 @@ export default function InspectionForm({
                   <span
                     className={`text-base ${isChecked ? "font-semibold text-brand" : "text-gray-800"}`}
                   >
-                    {cat}
+                    {displayLabel(lang, cat)}
                   </span>
                 </button>
               )
@@ -875,7 +893,7 @@ export default function InspectionForm({
           {values.equipmentCategory === "Forklift" && (
             <div ref={equipmentTypeSectionRef} className="mt-4">
               <p className="mb-2 text-sm font-medium text-gray-700">
-                Select forklift type
+                {t("equip.selectForklift")}
               </p>
               <div className="grid grid-cols-3 gap-2">
                 {FORKLIFT_TYPES.map((type) => {
@@ -905,7 +923,7 @@ export default function InspectionForm({
                       <span
                         className={`text-xs ${isChecked ? "font-semibold text-brand" : "text-gray-800"}`}
                       >
-                        {equipmentTypeLabel(type)}
+                        {lang === "es" ? displayLabel(lang, type) : equipmentTypeLabel(type)}
                       </span>
                     </button>
                   )
@@ -917,7 +935,7 @@ export default function InspectionForm({
           {values.equipmentType && (
             <div ref={equipmentColorSectionRef} className="mt-4">
               <p className="mb-2 text-sm font-medium text-gray-700">
-                Select color / make
+                {t("equip.selectColor")}
               </p>
               {(() => {
                 const colors = Array.from(
@@ -1024,8 +1042,8 @@ export default function InspectionForm({
                     }`}
                   >
                     {openIssueAlert.alert.stage === "unresolved"
-                      ? "⚠ This vehicle has an unresolved safety issue"
-                      : "⚠ This vehicle has an issue awaiting sign-off"}
+                      ? t("openissue.unresolved")
+                      : t("openissue.pending")}
                   </p>
                   <ul className="mt-1.5 list-disc space-y-0.5 pl-5 text-sm text-gray-800">
                     {openIssueAlert.alert.items.map((item) => (
@@ -1033,16 +1051,14 @@ export default function InspectionForm({
                     ))}
                   </ul>
                   <p className="mt-1.5 text-xs text-gray-600">
-                    Reported {openIssueAlert.alert.reportedOn} ({openIssueAlert.alert.shift} shift)
+                    {t("openissue.reported", { date: openIssueAlert.alert.reportedOn, shift: displayLabel(lang, openIssueAlert.alert.shift) })}
                     {openIssueAlert.alert.daysOpen > 0
-                      ? ` · open ${openIssueAlert.alert.daysOpen} day${
-                          openIssueAlert.alert.daysOpen === 1 ? "" : "s"
-                        }`
+                      ? t(openIssueAlert.alert.daysOpen === 1 ? "openissue.openDaysOne" : "openissue.openDaysMany", { n: openIssueAlert.alert.daysOpen })
                       : ""}
                   </p>
                   {openIssueAlert.alert.stage === "unresolved" && (
                     <p className="mt-2 text-sm font-semibold text-red-800">
-                      It should not be in service until a supervisor confirms the repair.
+                      {t("openissue.notInService")}
                     </p>
                   )}
                   <div className="mt-2.5 flex gap-2">
@@ -1051,7 +1067,7 @@ export default function InspectionForm({
                       onClick={() => setOpenIssueAlert(null)}
                       className="flex-1 rounded-lg border border-gray-300 bg-white py-2 text-xs font-semibold text-gray-700 active:scale-95"
                     >
-                      Choose a Different Vehicle
+                      {t("dup.chooseDifferent")}
                     </button>
                     {/* Not a block. The inspection still has to be
                         recordable — a worker checking whether a red vehicle
@@ -1070,7 +1086,7 @@ export default function InspectionForm({
                           : "bg-amber-600"
                       }`}
                     >
-                      Inspect It Anyway
+                      {t("openissue.inspectAnyway")}
                     </button>
                   </div>
                 </div>
@@ -1079,10 +1095,7 @@ export default function InspectionForm({
               {duplicateWarningSerial && recentlyInspected[duplicateWarningSerial] && (
                 <div className="mt-3 rounded-lg border border-amber-300 bg-amber-50 p-3">
                   <p className="text-sm text-amber-800">
-                    ⚠ It&apos;s been inspected by{" "}
-                    <strong>{recentlyInspected[duplicateWarningSerial].by}</strong> for{" "}
-                    {recentlyInspected[duplicateWarningSerial].when}. Submit another
-                    inspection anyway?
+                    {t("dup.warning", { by: recentlyInspected[duplicateWarningSerial].by, when: recentlyInspected[duplicateWarningSerial].when })}
                   </p>
                   <div className="mt-2 flex gap-2">
                     <button
@@ -1090,14 +1103,14 @@ export default function InspectionForm({
                       onClick={() => setDuplicateWarningSerial(null)}
                       className="flex-1 rounded-lg border border-gray-300 bg-white py-2 text-xs font-semibold text-gray-700 active:scale-95"
                     >
-                      Choose a Different Vehicle
+                      {t("dup.chooseDifferent")}
                     </button>
                     <button
                       type="button"
                       onClick={() => void pickVehicle(duplicateWarningSerial)}
                       className="flex-1 rounded-lg bg-amber-600 py-2 text-xs font-semibold text-white active:scale-95"
                     >
-                      Continue Anyway
+                      {t("shift.continueAnyway")}
                     </button>
                   </div>
                 </div>
@@ -1132,7 +1145,7 @@ export default function InspectionForm({
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <span className="flex min-w-0 items-center gap-1.5 text-base font-semibold text-gray-900">
                         <span aria-hidden="true">📍</span>
-                        <span className="truncate">{expected ?? "Location not on file"}</span>
+                        <span className="truncate">{expected ?? t("loc.notOnFile")}</span>
                       </span>
                       {!reporting && expected && (
                         <button
@@ -1143,7 +1156,7 @@ export default function InspectionForm({
                           }}
                           className="shrink-0 text-sm font-semibold text-brand underline underline-offset-2 active:scale-95"
                         >
-                          Not here?
+                          {t("loc.notHere")}
                         </button>
                       )}
                     </div>
@@ -1158,7 +1171,7 @@ export default function InspectionForm({
                           htmlFor="actualLocation"
                           className="mb-1.5 block text-sm font-medium text-gray-700"
                         >
-                          Where is it now?
+                          {t("loc.whereNow")}
                         </label>
                         <select
                           id="actualLocation"
@@ -1166,7 +1179,7 @@ export default function InspectionForm({
                           onChange={(e) => set("actualLocation", e.target.value)}
                           className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-base"
                         >
-                          <option value="">Select a location</option>
+                          <option value="">{t("loc.select")}</option>
                           {LOCATIONS.filter((loc) => loc !== expected).map((loc) => (
                             <option key={loc} value={loc}>
                               {loc}
@@ -1174,8 +1187,7 @@ export default function InspectionForm({
                           ))}
                         </select>
                         <p className="mt-1.5 text-xs text-gray-500">
-                          A supervisor confirms this before it becomes the vehicle&rsquo;s
-                          location.
+                          {t("loc.supervisorConfirms")}
                         </p>
                         <button
                           type="button"
@@ -1185,7 +1197,7 @@ export default function InspectionForm({
                           }}
                           className="mt-2 text-xs font-medium text-gray-500 underline underline-offset-2 active:scale-95"
                         >
-                          Never mind, it&rsquo;s at {expected}
+                          {t("loc.neverMind", { loc: expected ?? "" })}
                         </button>
                       </div>
                     )}
@@ -1200,12 +1212,19 @@ export default function InspectionForm({
           <input type="hidden" name="actualLocation" value={values.actualLocation ?? ""} />
         </div>
 
+        {/* Carries the chosen language into the server action so it can send
+            the worker back (on error) or on (to success) in the same
+            language. Display-only; the stored inspection is unaffected. */}
+        <input type="hidden" name="lang" value={lang} />
+
 
         {/* Questions */}
         {questions.map((q) => (
           <div key={q.id} hidden={!(current.kind === "question" && current.question.id === q.id)}>
-            <StepHeading text={`${q.number}. ${q.label}`} />
-            {q.note && <p className="mb-3 text-sm text-gray-500">{q.note}</p>}
+            <StepHeading text={`${q.number}. ${questionLabel(lang, q)}`} />
+            {questionNote(lang, q) && (
+              <p className="mb-3 text-sm text-gray-500">{questionNote(lang, q)}</p>
+            )}
             <div className="flex flex-col gap-5">
               {q.options.map((opt) => {
                 const isChecked = values[q.id] === opt
@@ -1253,7 +1272,7 @@ export default function InspectionForm({
                         </svg>
                       )}
                     </span>
-                    <span className="text-base text-gray-800">{opt}</span>
+                    <span className="text-base text-gray-800">{optionLabel(lang, opt)}</span>
                   </label>
                 )
               })}
@@ -1262,7 +1281,7 @@ export default function InspectionForm({
               <div className="mt-4 space-y-3">
                 <div>
                   <label className="mb-1.5 block text-sm font-medium text-gray-700">
-                    Photos
+                    {t("label.photos")}
                   </label>
                   <div className="grid grid-cols-4 gap-2">
                     {Array.from({ length: CHECKLIST_PHOTO_SLOTS }, (_, i) => (
@@ -1272,6 +1291,7 @@ export default function InspectionForm({
                         name={`${q.id}_photo_${i}`}
                         preview={photoPreviews[q.id]?.[i] ?? null}
                         onChange={(file) => setPhotoPreview(q.id, i, file)}
+                        lang={lang}
                       />
                     ))}
                   </div>
@@ -1282,13 +1302,13 @@ export default function InspectionForm({
                     htmlFor={`${q.id}_note`}
                     className="mb-1.5 block text-sm font-medium text-gray-700"
                   >
-                    Note
+                    {t("label.note")}
                   </label>
                   <textarea
                     id={`${q.id}_note`}
                     name={`${q.id}_note`}
                     rows={3}
-                    placeholder="Describe in as much detail as possible"
+                    placeholder={t("note.placeholder")}
                     value={values[`${q.id}_note`] ?? ""}
                     onChange={(e) => set(`${q.id}_note`, e.target.value)}
                     className={`w-full rounded-lg border px-4 py-3 text-base ${
@@ -1312,11 +1332,11 @@ export default function InspectionForm({
               onClick={handleBack}
               className="shrink-0 px-1 py-3 text-sm font-medium text-brand opacity-70 transition-transform duration-100 active:scale-95 active:opacity-100"
             >
-              ← Back
+              {t("btn.back")}
             </button>
           )}
           {isLast ? (
-            <SubmitButton blocked={!canAdvance} />
+            <SubmitButton blocked={!canAdvance} lang={lang} />
           ) : (
             showContinue && (
               <button
@@ -1329,7 +1349,7 @@ export default function InspectionForm({
                     : "cursor-not-allowed bg-gray-300 active:scale-100"
                 }`}
               >
-                Continue
+                {t("btn.continue")}
               </button>
             )
           )}
@@ -1401,11 +1421,13 @@ function PhotoSlot({
   name,
   preview,
   onChange,
+  lang,
 }: {
   number: number
   name: string
   preview: string | null
   onChange: (file: File | null) => void
+  lang: Lang
 }) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [busy, setBusy] = useState(false)
@@ -1488,7 +1510,7 @@ function PhotoSlot({
         />
         {busy ? (
           <span className="px-1 text-center text-[10px] text-gray-400">
-            Converting…
+            {tr(lang, "photo.converting")}
           </span>
         ) : preview ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -1512,7 +1534,7 @@ function PhotoSlot({
           <button
             type="button"
             onClick={handleRemove}
-            aria-label="Remove photo"
+            aria-label={tr(lang, "photo.remove")}
             className="absolute -right-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full bg-gray-800 text-white shadow transition-transform duration-100 active:scale-90"
           >
             <svg
@@ -1529,7 +1551,7 @@ function PhotoSlot({
           <button
             type="button"
             onClick={() => setEditing(true)}
-            aria-label="Edit photo"
+            aria-label={tr(lang, "photo.edit")}
             className="absolute bottom-1 right-1 flex h-5 w-5 items-center justify-center rounded-full bg-black/60 text-white transition-transform duration-100 active:scale-90"
           >
             <CropIcon className="h-3 w-3" />
