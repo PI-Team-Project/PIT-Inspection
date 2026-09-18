@@ -121,3 +121,14 @@ model Equipment {
   pendingLocationReportedBy String?
   pendingLocationReportedAt DateTime?
 }
+
+// Mutable app-level settings a manager can change from the dashboard —
+// currently just the dashboard PIN, stored as a hash so the plain value is
+// never persisted. One row, id pinned to "singleton". When no row exists (or
+// no PIN has been set), login falls back to the DASHBOARD_PIN env var, so the
+// app keeps working before this table is populated. See src/lib/dashboardPin.ts.
+model AppConfig {
+  id               String   @id @default("singleton")
+  dashboardPinHash String?
+  updatedAt        DateTime @updatedAt
+}

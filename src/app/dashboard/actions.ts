@@ -8,11 +8,11 @@ import {
   MANAGER_NAME_COOKIE,
   PIN_ATTEMPTS_COOKIE,
   dashboardSessionValue,
-  isValidPin,
   getPinLockout,
   recordFailedPinAttempt,
   requireDashboardSession,
 } from "@/lib/auth"
+import { verifyPin, setDashboardPin } from "@/lib/dashboardPin"
 import { prisma } from "@/lib/prisma"
 import { computeMaybeOpen } from "@/app/dashboard/inspectionRow"
 import { LOCATIONS } from "@/lib/equipment"
@@ -33,7 +33,7 @@ export async function unlockDashboard(formData: FormData) {
     redirect(`/dashboard?error=locked&minutes=${minutes}`)
   }
 
-  if (!isValidPin(pin)) {
+  if (!(await verifyPin(pin))) {
     const { cookieValue, lockedUntil } = recordFailedPinAttempt(
       cookieStore.get(PIN_ATTEMPTS_COOKIE)?.value
     )
@@ -57,6 +57,43 @@ export async function unlockDashboard(formData: FormData) {
   })
 
   redirect("/dashboard")
+}
+
+export type ChangePinState = { error: string | null; ok: boolean }
+
+// Change the manager PIN from the dashboard. Verifies the current PIN, then
+// stores the new one (hashed) in the database. The session cookie is derived
+// from the DASHBOARD_PIN env var, not this stored value, so the manager doing
+// the change stays logged in — only future logins use the new PIN.
+export async function changeDashboardPin(
+  _prevState: ChangePinState,
+  formData: FormData
+): Promise<ChangePinState> {
+  await requireDashboardSession()
+
+  const current = String(formData.get("currentPin") ?? "")
+  const next = String(formData.get("newPin") ?? "")
+  const confirm = String(formData.get("confirmPin") ?? "")
+
+  if (!(await verifyPin(current))) {
+    return { error: "Current PIN is incorrect.", ok: false }
+  }
+  if (!/^\d{6}$/.test(next)) {
+    return { error: "New PIN must be exactly 6 digits.", ok: false }
+  }
+  if (next !== confirm) {
+    return { error: "New PIN and confirmation don't match.", ok: false }
+  }
+  if (next === current) {
+    return { error: "New PIN must be different from the current one.", ok: false }
+  }
+
+  try {
+    await setDashboardPin(next)
+  } catch {
+    return { error: "Could not save the new PIN. Please try again.", ok: false }
+  }
+  return { error: null, ok: true }
 }
 
 export async function saveActivity(formData: FormData) {

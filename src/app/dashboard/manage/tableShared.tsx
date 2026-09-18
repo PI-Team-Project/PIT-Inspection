@@ -14,13 +14,19 @@ export const RETIRED_COLS =
 // action, everything else is one tap away in the edit popup.
 export const HIDE_ON_MOBILE = "hidden sm:block"
 
+// `added` sorts by the vehicle's registration date. createdAt is a real
+// Date, so it's compared as an ISO string (lexical order = chronological)
+// through the same localeCompare path every other field uses.
+type SortInput = Equipment & { createdAt: Date }
+
 export const SORT_FIELDS = {
-  flNumber: (eq: Equipment) => eq.flNumber,
-  type: (eq: Equipment) => equipmentTypeLabel(eq.type),
-  makeColor: (eq: Equipment) => eq.makeColor,
-  contractType: (eq: Equipment) => eq.contractType,
-  location: (eq: Equipment) => eq.location,
-  serial: (eq: Equipment) => eq.serial,
+  flNumber: (eq: SortInput) => eq.flNumber,
+  type: (eq: SortInput) => equipmentTypeLabel(eq.type),
+  makeColor: (eq: SortInput) => eq.makeColor,
+  contractType: (eq: SortInput) => eq.contractType,
+  location: (eq: SortInput) => eq.location,
+  serial: (eq: SortInput) => eq.serial,
+  added: (eq: SortInput) => eq.createdAt.toISOString(),
 } as const
 export type SortField = keyof typeof SORT_FIELDS
 
