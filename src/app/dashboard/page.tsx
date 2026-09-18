@@ -288,6 +288,16 @@ export default async function DashboardPage({
   // shift where nothing had been inspected at all.
   const checkedThisShiftCount = equipmentRows.filter(checkedThisShift).length
 
+  // Fleet-wide standing counts for the headline's open-issue line — how many
+  // vehicles are currently carrying a red (unresolved) or amber (awaiting
+  // sign-off) issue right now, independent of which shift is on screen.
+  const unresolvedCount = equipmentRows.filter((row) => row.stage === "unresolved").length
+  const attentionCount = equipmentRows.filter((row) => row.stage === "pending-confirm").length
+  const checkedPct =
+    equipmentList.length > 0
+      ? Math.round((checkedThisShiftCount / equipmentList.length) * 100)
+      : 0
+
   // Surfaced as its own short list right on the Daily Report (not just the
   // small "?" badge in the Weekly Report below) — an inspector-reported
   // location sitting unconfirmed is easy to miss entirely on an otherwise
@@ -328,29 +338,51 @@ export default async function DashboardPage({
           in the shift nav. Sharing that row meant the nav could only ever be
           left-aligned — "Daily Report · Tue, Sep 8" had to keep clear of the
           chip — so lifting it one line up is what lets the nav center. */}
-      <div className="mt-2 flex items-center justify-between gap-3">
-        <div className="flex min-w-0 items-center gap-2">
-          <LiveClock timeZone={FLEET_TIME_ZONE} initialLabel={timeLabel} />
-          <span className="truncate text-xs font-medium text-gray-400">
-            Eastern Time — Holland, MI
+      <div className="mt-2 flex min-w-0 items-center gap-2">
+        <LiveClock timeZone={FLEET_TIME_ZONE} initialLabel={timeLabel} />
+        <span className="truncate text-xs font-medium text-gray-400">
+          Eastern Time — Holland, MI
+        </span>
+      </div>
+
+      {/* The checked count is the dashboard's own question, so it leads: a
+          big number, a progress bar, and the fleet's open-issue tally under
+          it. Replaces the small "5/34 inspected" chip that used to sit on
+          the clock row above. */}
+      <div className="mt-3">
+        <div className="flex items-end gap-2">
+          <span className="text-4xl leading-none font-bold tracking-tight text-gray-900">
+            {checkedThisShiftCount}
+          </span>
+          <span className="pb-0.5 text-base font-medium text-gray-500">
+            of {equipmentList.length} checked
+          </span>
+          <span className="ml-auto pb-1 text-xs text-gray-400">
+            {selectedShiftLabel} shift
           </span>
         </div>
-        {/* Plain text, not a link: it summarizes the checked/not-yet tile
-            grid below, and there's no "inspected this shift" filter for the
-            All Vehicles list to point at — the old link filtered by
-            fleet-wide working status, a different question than this one
-            answers. The dot only lights green once the shift is fully
-            covered, matching the grid's own Checked/Not-yet legend rather
-            than implying health. */}
-        <span className="flex shrink-0 items-center gap-1.5 text-sm font-medium text-gray-700">
-          {checkedThisShiftCount === equipmentList.length ? (
-            <span className="h-[6.7px] w-[6.7px] rounded-full bg-green-500 shadow-[0_0_3px_0.5px_rgba(34,197,94,0.9),0_0_6px_1px_rgba(34,197,94,0.5)]" />
-          ) : (
-            <span className="h-[6.7px] w-[6.7px] rounded-full border border-gray-300 bg-white" />
-          )}
-          {checkedThisShiftCount}/{equipmentList.length}
-          <span className="hidden sm:inline">&nbsp;inspected</span>
-        </span>
+        <div className="mt-2.5 h-1 overflow-hidden rounded-full bg-gray-100">
+          <div
+            className="h-full rounded-full bg-brand transition-all duration-300"
+            style={{ width: `${checkedPct}%` }}
+          />
+        </div>
+        {(unresolvedCount > 0 || attentionCount > 0) && (
+          <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[13px] font-medium">
+            {unresolvedCount > 0 && (
+              <span className="flex items-center gap-1.5 text-red-700">
+                <span className="h-1.5 w-1.5 rounded-full bg-red-500" />
+                {unresolvedCount} unresolved
+              </span>
+            )}
+            {attentionCount > 0 && (
+              <span className="flex items-center gap-1.5 text-amber-700">
+                <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
+                {attentionCount} attention
+              </span>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="mt-6">
@@ -582,37 +614,47 @@ function ShiftOverview({
         <div className="mt-1.5 grid grid-cols-[repeat(3,minmax(0,1fr))] gap-1">
           {shiftRows.map((row) => {
             const done = checkedThisShift(row)
+            // Not checked this shift stays a plain outline ("Not yet"). Once
+            // checked, the tile lights up by the vehicle's own standing so
+            // the whole shift reads at a glance: red unresolved, amber
+            // awaiting sign-off, green clean.
+            const cls = !done
+              ? "border border-gray-200 bg-white text-gray-600"
+              : row.stage === "unresolved"
+                ? "bg-red-100 text-red-700"
+                : row.stage === "pending-confirm"
+                  ? "bg-amber-100 text-amber-800"
+                  : "bg-green-100 text-green-700"
             return (
               <Link
                 key={row.equipment.serial}
                 href={`/dashboard/equipment/${row.equipment.serial}`}
-                className={`truncate rounded-md px-1 py-1 text-center text-sm font-medium transition-colors duration-100 active:scale-95 ${
-                  done
-                    ? "bg-green-100 text-green-700"
-                    : "border border-gray-200 bg-white text-gray-600"
-                }`}
+                className={`truncate rounded-md px-1 py-1 text-center text-sm font-medium transition-colors duration-100 active:scale-95 ${cls}`}
               >
                 {row.equipment.flNumber}
               </Link>
             )
           })}
-          {/* Both together in one cell, pinned to the last column — side by
-              side in separate cells read like they were labeling those
-              specific columns, not a legend for the whole grid. flex-wrap on
-              the outer span plus whitespace-nowrap on each item means if
-              "Not yet" doesn't fit next to "Checked" it drops to its own
-              line as a whole unit, never splitting a word in half — and the
-              grid's own minmax(0, 1fr) columns (see above) keep this from
-              forcing the whole grid wider the way a bare nowrap track did. */}
-          <span className="col-start-3 flex min-w-0 flex-wrap items-center justify-center gap-x-1.5 gap-y-0.5 px-0.5 py-1 text-[9px] font-medium text-gray-400">
-            <span className="flex items-center gap-1 whitespace-nowrap">
-              <span className="h-1.5 w-1.5 shrink-0 rounded-sm bg-green-100" />
-              Checked
-            </span>
-            <span className="flex items-center gap-1 whitespace-nowrap">
-              <span className="h-1.5 w-1.5 shrink-0 rounded-sm border border-gray-300 bg-white" />
-              Not yet
-            </span>
+        </div>
+
+        {/* Four states now, so the legend gets its own centered row rather
+            than tucking into a leftover grid cell. */}
+        <div className="mt-2 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-[10px] font-medium text-gray-400">
+          <span className="flex items-center gap-1 whitespace-nowrap">
+            <span className="h-2 w-2 shrink-0 rounded-sm bg-green-100" />
+            Clean
+          </span>
+          <span className="flex items-center gap-1 whitespace-nowrap">
+            <span className="h-2 w-2 shrink-0 rounded-sm bg-amber-100" />
+            Attention
+          </span>
+          <span className="flex items-center gap-1 whitespace-nowrap">
+            <span className="h-2 w-2 shrink-0 rounded-sm bg-red-100" />
+            Unresolved
+          </span>
+          <span className="flex items-center gap-1 whitespace-nowrap">
+            <span className="h-2 w-2 shrink-0 rounded-sm border border-gray-300 bg-white" />
+            Not yet
           </span>
         </div>
       </div>

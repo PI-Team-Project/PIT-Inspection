@@ -277,13 +277,6 @@ export default async function EquipmentDetailPage({
   // (the top-level `stage`, driving the verdict badge) earns that weight,
   // and only when nothing else was explicitly asked for.
   const isBrowsingHistory = Boolean(highlightDate)
-  const zoneTone = isBrowsingHistory
-    ? "border-gray-300 bg-white"
-    : stage === "unresolved"
-      ? "border-red-300 bg-red-50/40"
-      : stage === "pending-confirm"
-        ? "border-amber-300 bg-amber-50/40"
-        : "border-gray-300 bg-white"
 
   // Capped at 2xl (not lg:4xl) and never wider — this is a page of short
   // text lines and a handful of narrow columns, not a wide table like the
@@ -326,250 +319,158 @@ export default async function EquipmentDetailPage({
           small pill next to an otherwise-neutral page. Browsing a past day
           stays neutral regardless of that day's own stage; only the
           vehicle's CURRENT state earns the tint. */}
-      <div id="selected-inspection" className={`scroll-mt-4 rounded-lg border p-3 ${zoneTone}`}>
-        {/* Same bordered-grid look as the checklist table below, so the
-            vehicle's identity/status/location reads like one consistent
-            spreadsheet instead of a different freeform style up top. Every
-            clickable cell gets the same hover tint as a real spreadsheet
-            cell highlighting under the pointer. */}
-        <div className="overflow-hidden rounded-sm border border-gray-300 text-sm">
-          {/* Widths come from the content, not from measured pixel floors.
-              Type and FL# are `auto`, so each takes exactly what its own
-              text needs on that device — "Stand Up" asks for less than
-              "Pallet Jack", and neither reserves space it is not using. The
-              title takes everything left over.
-
-              The floors this replaces (64/100/114px) were measured against
-              one phone, so they only held on that phone: at 390px they left
-              the title 2px short of "Jungheinrich" and 14px short of "Red
-              Mitsubishi", while Type sat on 26px of unused space and FL# on
-              35px. Any new device width, or any longer vehicle name, broke
-              them again — and there is no width at which a fixed floor is
-              right for every screen from a 320px phone to a desktop.
-
-              minmax(0,1fr) rather than 1fr so the title can still give way
-              below the width where all three genuinely fit (~355px); it
-              truncates there instead of pushing the table wider than its
-              container. Nothing about the layout changes with screen size —
-              same three columns, same order, same look — only how the
-              spare space is divided. */}
-          {/* Its own grid, deliberately. These three share a row with
-              nothing, so their widths can be decided by their own content:
-              Type and FL# take exactly what their text needs on the device
-              in hand, and the title takes whatever is left. While they were
-              part of the grid below, the "Serial#" cell two rows down spans
-              two of these columns, and CSS grid widens a spanning item's
-              tracks to fit it — so "Stand Up" was handed 148px to display
-              71px of text, starving the title on every phone.
-
-              This replaces measured pixel floors (64/100/114px) that only
-              held on the one device they were measured against: at 390px
-              they left the title 2px short of "Jungheinrich" and 14px short
-              of "Red Mitsubishi". There is no fixed floor that is right for
-              every screen from a 320px phone to a desktop, so none is used.
-
-              minmax(0,1fr) lets the title still give way below the width
-              where all three genuinely fit, truncating rather than pushing
-              the table wider than its container. The layout itself never
-              changes shape — same three columns, same order, same look on
-              every device; only the spare space moves. */}
-          <div className="grid grid-cols-[minmax(0,1fr)_auto_auto] border-b border-gray-300">
-            <span className="flex min-w-0 items-center gap-2 border-r border-gray-300 px-1.5 py-1.5 text-base font-bold text-gray-900">
+      {/* Identity + a single status pill, then the facts as a plain
+          label/value list, and any open issues stated as an action — no
+          full-card tint or nested bordered tables. Every value column is
+          min-w-0 + truncate/break so nothing overflows a narrow phone. */}
+      <div id="selected-inspection" className="scroll-mt-4">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 text-xl leading-tight font-bold text-gray-900">
               <StatusDot stage={stage} size="sm" />
-              {/* Wraps rather than truncates. On anything from a 375px
-                  phone up it never needs to — the name fits on one line.
-                  Below that the three values genuinely cannot share a row,
-                  and a second line keeps "Mint Mitsubishi" readable where
-                  an ellipsis hid half of it. Wrapping was removed here once
-                  before, when the neighbouring columns hoarded width and
-                  forced it to wrap on screens where it should have fitted;
-                  now they take only what they need, so this only ever
-                  triggers under real pressure. */}
               <span className="min-w-0 break-words">{equipment.makeColor}</span>
-            </span>
-            <span className="flex items-center border-r border-gray-300 px-1.5 py-1.5 whitespace-nowrap text-gray-700">
-              {equipmentTypeLabel(equipment.type)}
-            </span>
-            <span className="flex items-center px-1.5 py-1.5 whitespace-nowrap text-gray-700">
-              {equipment.flNumber}
-            </span>
+            </div>
+            <div className="mt-1 text-[13px] text-gray-500">
+              {equipmentTypeLabel(equipment.type)} · FL# {equipment.flNumber}
+            </div>
           </div>
+          <span
+            className={`inline-flex shrink-0 items-center rounded-md px-2.5 py-1 text-[13px] font-semibold ${verdict.badge}`}
+          >
+            {verdict.label}
+          </span>
+        </div>
 
-          {/* Two columns, not three: every row here is either a label and its
-              value, or full width. The third track only ever existed to
-              line up with the identity row above, which now sizes itself —
-              and keeping it meant "Inspected By: Sam Farrow" was handed
-              41px to render 181px of text. `auto` on the label column takes
-              what the longest label needs and no more. */}
-          <div className="grid grid-cols-[auto_minmax(0,1fr)]">
-
-            {isBrowsingHistory ? (
-              // This vehicle's CURRENT status was otherwise fully hidden
-              // while browsing a specific day — a manager who lands here
-              // straight from a link (a Weekly Report cell, a History row)
-              // for an already-confirmed day never saw the vehicle overall
-              // still has a separate, untouched open issue elsewhere. That
-              // gap is exactly how MIT-2304 stayed red for two weeks
-              // unnoticed after its Aug 10 report was confirmed: the Aug 7
-              // report was open the whole time, but nothing on this page
-              // said so unless you happened to land on the Home view.
-              openIssuesElsewhere.length > 1 ? (
-                // Several other days still open: go to the Issues Only list
-                // and show them all at once. Walking to the next one, then
-                // the next, is the wrong shape for 160 of them — a
-                // supervisor wants the queue, not a tour of it.
-                <Link
-                  href={`/dashboard/equipment/${serial}?date=${highlightDate}${
-                    highlightShift ? `&shift=${highlightShift}` : ""
-                  }&view=issues#vehicle-history`}
-                  scroll={false}
-                  className={`col-span-2 border-b border-gray-200 px-2 py-1.5 font-semibold transition-colors duration-100 hover:bg-gray-50 hover:underline ${verdict.text}`}
-                >
-                  See all {openIssuesElsewhere.length} unresolved inspections
-                </Link>
-              ) : openIssuesElsewhere.length === 1 ? (
-                // Exactly one: no list needed, link straight at it.
-                <Link
-                  href={`/dashboard/equipment/${serial}?date=${openIssuesElsewhere[0].inspection.date}&shift=${openIssuesElsewhere[0].inspection.shift}#selected-inspection`}
-                  className={`col-span-2 border-b border-gray-200 px-2 py-1.5 font-semibold underline decoration-2 underline-offset-2 transition-colors duration-100 hover:bg-gray-50 ${verdict.text}`}
-                >
-                  Also unresolved: {shortDateWithYear(openIssuesElsewhere[0].inspection.date, today)} (
-                  {openIssuesElsewhere[0].inspection.shift})
-                </Link>
-              ) : null
-            ) : openIssue ? (
-              <>
-                {/* The link itself is the one-click path to the flagged
-                    inspection — no need to also embed the whole
-                    questionnaire here just to keep that reachable in one
-                    tap. */}
-                <Link
-                  href={`/dashboard/equipment/${serial}?date=${openIssue.inspection.date}&shift=${openIssue.inspection.shift}#selected-inspection`}
-                  className={`col-span-2 border-b border-gray-200 px-2 py-1.5 font-semibold underline decoration-2 underline-offset-2 transition-colors duration-100 hover:bg-gray-50 ${verdict.text}`}
-                >
-                  Review the inspection from{" "}
-                  {shortDateWithYear(openIssue.inspection.date, today)}
-                  {openIssues.length > 1 ? ` (1 of ${openIssues.length})` : ""}
-                </Link>
-                {/* Confirming the issue above never touches these — they're
-                    separate inspections that each need their own sign-off,
-                    so every one stays individually reachable and a manager
-                    can't mistake "cleared the top one" for "vehicle is
-                    clear."
-
-                    They used to be one full-sentence row each ("Also review
-                    the inspection from ..."), which was fine at two or
-                    three and unusable past that: a vehicle carrying a year
-                    of unconfirmed reports rendered 175 near-identical lines
-                    and pushed the entire checklist off the screen. Dedupe by
-                    date+shift doesn't help — every one of those IS a
-                    distinct date+shift. So the sentence is said once and the
-                    dates become chips, capped, with the remainder pointing
-                    at the History list that already shows all of them. */}
-                {openIssues.length > 1 && (
-                  <div className="col-span-2 flex flex-wrap items-center gap-x-1.5 gap-y-1 border-b border-gray-200 px-2 py-1.5 text-xs">
-                    <span className="font-medium text-gray-500">Also open:</span>
-                    {openIssues.slice(1, 1 + MAX_OTHER_OPEN_ISSUES).map((issue) => (
-                      <Link
-                        key={issue.inspection.id}
-                        href={`/dashboard/equipment/${serial}?date=${issue.inspection.date}&shift=${issue.inspection.shift}#selected-inspection`}
-                        title={`Review the inspection from ${shortDateWithYear(issue.inspection.date, today)} (${issue.inspection.shift})`}
-                        className="rounded border border-gray-200 bg-white px-1.5 py-0.5 font-medium whitespace-nowrap text-gray-600 transition-colors duration-100 hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900"
-                      >
-                        {shortDateWithYear(issue.inspection.date, today)}
-                        {/* One letter, not "(Night)" — at chip size the
-                            full word doubles the width for a distinction
-                            D/N already makes unambiguously. */}
-                        <span className="ml-1 text-gray-400">
-                          {issue.inspection.shift === "Night" ? "N" : "D"}
-                        </span>
-                      </Link>
-                    ))}
-                    {openIssues.length - 1 > MAX_OTHER_OPEN_ISSUES && (
-                      <Link
-                        href={`/dashboard/equipment/${serial}?view=issues#vehicle-history`}
-                        scroll={false}
-                        className="font-medium text-gray-500 underline underline-offset-2 hover:text-gray-800"
-                      >
-                        +{openIssues.length - 1 - MAX_OTHER_OPEN_ISSUES} more
-                      </Link>
-                    )}
-                  </div>
-                )}
-              </>
-            ) : null /* Nothing open (All Clear / No Inspections Yet) — no
-                        badge here at all now. Both of those already get
-                        their own plain-language message below the grid
-                        ("All caught up…" / "No inspections yet…"), so a
-                        pill up here just repeated the same fact a second
-                        time for the common case, when it should only show
-                        up when there's actually something to flag. */}
-
-            <span className="border-r border-b border-gray-200 px-2 py-1.5 text-gray-600 transition-colors duration-100 hover:bg-gray-50">
-              {/* Where it is matters more day-to-day than its serial
-                  number — leads with location, serial is the
-                  secondary/lookup detail. */}
+        {/* Facts — label/value rows, hairline dividers, no boxes. */}
+        <dl className="mt-4 text-sm">
+          <div className="flex items-center justify-between gap-3 border-t border-gray-100 py-2">
+            <dt className="shrink-0 text-gray-500">Location</dt>
+            <dd className="min-w-0 text-right font-medium text-gray-800">
               <LocationChangeControl
                 serial={equipment.serial}
                 currentLocation={equipment.location}
                 savedManagerName={savedManagerName}
               />
-            </span>
-            <span className="border-b border-gray-200 px-2 py-1.5 text-gray-600">
-              Serial#: {equipment.serial}
-            </span>
+            </dd>
+          </div>
+          <div className="flex items-center justify-between gap-3 border-t border-gray-100 py-2">
+            <dt className="shrink-0 text-gray-500">Serial #</dt>
+            <dd className="min-w-0 truncate text-right font-medium text-gray-800">{equipment.serial}</dd>
+          </div>
+          {latest ? (
+            <Link
+              href={`/dashboard/equipment/${serial}?date=${latest.inspection.date}&shift=${latest.inspection.shift}#selected-inspection`}
+              className="flex items-center justify-between gap-3 border-t border-gray-100 py-2 transition-colors duration-100 hover:text-brand"
+            >
+              <dt className="shrink-0 text-gray-500">Last inspected</dt>
+              <dd className="min-w-0 truncate text-right font-medium text-gray-800">
+                {latest.inspection.date} · {latest.inspection.shift} · {latest.inspection.firstName}{" "}
+                {latest.inspection.lastName}
+              </dd>
+            </Link>
+          ) : (
+            <div className="flex items-center justify-between gap-3 border-t border-gray-100 py-2 text-gray-500">
+              <dt className="shrink-0">Last inspected</dt>
+              <dd>Never</dd>
+            </div>
+          )}
+          {addedAt && addedAt > EQUIPMENT_ADDED_DATE_TRACKING_STARTS_AT && (
+            <div className="flex items-center justify-between gap-3 border-t border-b border-gray-100 py-2">
+              <dt className="shrink-0 text-gray-500">In fleet since</dt>
+              <dd className="text-right font-medium text-gray-800">{addedAt.toISOString().slice(0, 10)}</dd>
+            </div>
+          )}
+        </dl>
 
-            {equipment.pendingLocation && equipment.pendingLocationReportedAt && (
-              <PendingLocationApproval
-                serial={equipment.serial}
-                currentLocation={equipment.location}
-                pendingLocation={equipment.pendingLocation}
-                reportedBy={equipment.pendingLocationReportedBy ?? "Unknown"}
-                reportedAtDisplay={shortDateTime(equipment.pendingLocationReportedAt)}
-                savedManagerName={savedManagerName}
-              />
-            )}
+        {equipment.pendingLocation && equipment.pendingLocationReportedAt && (
+          <div className="mt-3 overflow-hidden rounded-md border border-amber-200">
+            <PendingLocationApproval
+              serial={equipment.serial}
+              currentLocation={equipment.location}
+              pendingLocation={equipment.pendingLocation}
+              reportedBy={equipment.pendingLocationReportedBy ?? "Unknown"}
+              reportedAtDisplay={shortDateTime(equipment.pendingLocationReportedAt)}
+              savedManagerName={savedManagerName}
+            />
+          </div>
+        )}
 
-            {latest ? (
-              <>
-                {/* "Last inspected" is always a full-width row (col-span-3
-                    at every viewport, not just mobile) — it just stretches
-                    wider as the box grows, with "18d passed" pushed to the
-                    far right edge, rather than being restructured into a
-                    column-1-only layout at wider widths. Shift + inspector
-                    stay together as their own row below, never split apart
-                    into two separate stacked rows. */}
-                <Link
-                  href={`/dashboard/equipment/${serial}?date=${latest.inspection.date}&shift=${latest.inspection.shift}#selected-inspection`}
-                  className="col-span-2 flex min-w-0 items-center justify-between gap-2 border-b border-gray-200 px-2 py-1.5 text-gray-600 transition-colors duration-100 hover:bg-gray-50 hover:text-brand hover:underline"
-                >
-                  <span className="min-w-0 truncate">Last inspected: {latest.inspection.date}</span>
-                  {since && (
-                    <span className="animate-[status-blink_3s_ease-in-out_infinite] shrink-0 text-xs font-semibold text-red-600">
-                      issue open {daysPassed}d
-                    </span>
-                  )}
-                </Link>
-                {/* An actual cell border divides these now, not a "/"
-                    character in the middle of one shared cell. */}
-                <span className="border-r border-gray-200 px-2 py-1.5 text-gray-600">
-                  {latest.inspection.shift} Shift
-                </span>
-                <span className="px-2 py-1.5 whitespace-nowrap text-gray-600">
-                  Inspected By: {latest.inspection.firstName} {latest.inspection.lastName}
-                </span>
-              </>
-            ) : (
-              <span className="col-span-2 px-2 py-1.5 text-gray-500">No inspection yet</span>
-            )}
-
-            {addedAt && addedAt > EQUIPMENT_ADDED_DATE_TRACKING_STARTS_AT && (
-              <span className="col-span-2 border-t border-gray-200 px-2 py-1 text-xs text-gray-400">
-                Added {addedAt.toISOString().slice(0, 10)}
+        {/* Open issues, stated as the thing to do. Red when unresolved,
+            amber when only awaiting sign-off. The extra flagged days become
+            chips, capped, with the remainder pointing at the History list —
+            a vehicle carrying a year of reports never floods this. */}
+        {!isBrowsingHistory && openIssue ? (
+          <div
+            className={`mt-4 rounded-lg border p-3.5 ${
+              stage === "unresolved" ? "border-red-200 bg-red-50/60" : "border-amber-200 bg-amber-50/60"
+            }`}
+          >
+            <div className="flex items-baseline justify-between gap-2">
+              <span className={`text-sm font-bold ${verdict.text}`}>
+                {openIssues.length > 1
+                  ? `${openIssues.length} open inspections`
+                  : "1 open inspection"}
               </span>
+              {since && (
+                <span className="shrink-0 text-xs font-medium text-gray-500">oldest open {daysPassed}d</span>
+              )}
+            </div>
+            <Link
+              href={`/dashboard/equipment/${serial}?date=${openIssue.inspection.date}&shift=${openIssue.inspection.shift}#selected-inspection`}
+              className={`mt-2.5 flex min-h-11 items-center justify-center rounded-md px-3 py-2 text-center text-sm font-semibold text-white transition-transform duration-100 active:scale-[0.98] ${
+                stage === "unresolved" ? "bg-red-600 active:bg-red-700" : "bg-amber-600 active:bg-amber-700"
+              }`}
+            >
+              Review {shortDateWithYear(openIssue.inspection.date, today)} · {openIssue.inspection.shift}
+            </Link>
+            {openIssues.length > 1 && (
+              <div className="mt-2.5 flex flex-wrap items-center gap-1.5 text-xs">
+                {openIssues.slice(1, 1 + MAX_OTHER_OPEN_ISSUES).map((issue) => (
+                  <Link
+                    key={issue.inspection.id}
+                    href={`/dashboard/equipment/${serial}?date=${issue.inspection.date}&shift=${issue.inspection.shift}#selected-inspection`}
+                    title={`Review the inspection from ${shortDateWithYear(issue.inspection.date, today)} (${issue.inspection.shift})`}
+                    className="rounded border border-black/10 bg-white px-1.5 py-0.5 font-medium whitespace-nowrap text-gray-600 transition-colors duration-100 hover:bg-gray-50 hover:text-gray-900"
+                  >
+                    {shortDateWithYear(issue.inspection.date, today)}
+                    <span className="ml-1 text-gray-400">{issue.inspection.shift === "Night" ? "N" : "D"}</span>
+                  </Link>
+                ))}
+                {openIssues.length - 1 > MAX_OTHER_OPEN_ISSUES && (
+                  <Link
+                    href={`/dashboard/equipment/${serial}?view=issues#vehicle-history`}
+                    scroll={false}
+                    className="font-medium text-gray-500 underline underline-offset-2 hover:text-gray-800"
+                  >
+                    see all {openIssues.length} in History
+                  </Link>
+                )}
+              </div>
             )}
           </div>
-        </div>
+        ) : isBrowsingHistory && openIssuesElsewhere.length > 1 ? (
+          // This vehicle's CURRENT status was otherwise hidden while
+          // browsing a specific day — surface the whole open queue.
+          <Link
+            href={`/dashboard/equipment/${serial}?date=${highlightDate}${
+              highlightShift ? `&shift=${highlightShift}` : ""
+            }&view=issues#vehicle-history`}
+            scroll={false}
+            className={`mt-4 flex items-center justify-between gap-2 rounded-lg border border-gray-200 px-3 py-2.5 text-sm font-semibold transition-colors duration-100 hover:bg-gray-50 ${verdict.text}`}
+          >
+            See all {openIssuesElsewhere.length} unresolved inspections
+            <span className="text-gray-300">›</span>
+          </Link>
+        ) : isBrowsingHistory && openIssuesElsewhere.length === 1 ? (
+          <Link
+            href={`/dashboard/equipment/${serial}?date=${openIssuesElsewhere[0].inspection.date}&shift=${openIssuesElsewhere[0].inspection.shift}#selected-inspection`}
+            className={`mt-4 flex items-center justify-between gap-2 rounded-lg border border-gray-200 px-3 py-2.5 text-sm font-semibold transition-colors duration-100 hover:bg-gray-50 ${verdict.text}`}
+          >
+            Also unresolved: {shortDateWithYear(openIssuesElsewhere[0].inspection.date, today)} (
+            {openIssuesElsewhere[0].inspection.shift})
+            <span className="text-gray-300">›</span>
+          </Link>
+        ) : null}
 
         {selectedRows.length > 0 ? (
           selectedRows.map((row) => (
@@ -993,7 +894,7 @@ function ActivityLine({ entry }: { entry: ActivityEntry }) {
   if (entry.type === "confirmed") {
     return (
       <>
-        🟢 Confirmed all clear by{" "}
+        Confirmed all clear by{" "}
         <span className="font-medium text-gray-800">{entry.authorName}</span> — {when}
       </>
     )
@@ -1002,7 +903,7 @@ function ActivityLine({ entry }: { entry: ActivityEntry }) {
   if (entry.type === "viewed") {
     return (
       <>
-        ✓ Reviewed by <span className="font-medium text-gray-800">{entry.authorName}</span> —{" "}
+        Reviewed by <span className="font-medium text-gray-800">{entry.authorName}</span> —{" "}
         {when}
       </>
     )
@@ -1012,7 +913,7 @@ function ActivityLine({ entry }: { entry: ActivityEntry }) {
     const hasFrom = entry.fromLocation && entry.fromLocation !== entry.location
     return (
       <>
-        📍 Location{" "}
+        Location{" "}
         {hasFrom ? (
           <>
             changed from <span className="font-medium text-gray-800">{entry.fromLocation}</span> to{" "}
@@ -1045,7 +946,7 @@ function ActivityLine({ entry }: { entry: ActivityEntry }) {
     const hasFrom = entry.fromLocation && entry.fromLocation !== entry.location
     return (
       <>
-        📍 <span className="font-medium text-gray-800">{entry.authorName}</span> reported
+        <span className="font-medium text-gray-800">{entry.authorName}</span> reported
         {hasFrom ? (
           <>
             {" "}
