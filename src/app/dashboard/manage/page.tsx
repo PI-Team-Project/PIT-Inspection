@@ -1,6 +1,7 @@
+import Link from "next/link"
 import { cookies } from "next/headers"
 import { redirect } from "next/navigation"
-import { equipmentTypeLabel, type Equipment } from "@/lib/equipment"
+import { equipmentTypeLabel } from "@/lib/equipment"
 import { getAllEquipmentIncludingRetired, RETENTION_DAYS } from "@/lib/equipmentLocations"
 import { DASHBOARD_COOKIE, MANAGER_NAME_COOKIE, dashboardSessionValue } from "@/lib/auth"
 import { easternDateKey } from "@/lib/shifts"
@@ -26,7 +27,7 @@ export default async function ManageVehiclesPage({
   const savedManagerName = cookieStore.get(MANAGER_NAME_COOKIE)?.value ?? ""
   const all = await getAllEquipmentIncludingRetired()
   const getField = SORT_FIELDS[sort]
-  const compare = (a: Equipment, b: Equipment) => {
+  const compare = (a: (typeof all)[number], b: (typeof all)[number]) => {
     const cmp = getField(a).localeCompare(getField(b))
     return dir === "asc" ? cmp : -cmp
   }
@@ -56,7 +57,37 @@ export default async function ManageVehiclesPage({
 
       <div className="mt-3 border-t border-gray-100" />
 
-      <div className="mt-6">
+      {/* Quick order shortcut — the columns are each individually sortable
+          below, this just surfaces the two most-asked-for orders (fleet
+          number, and the date each vehicle was registered). */}
+      <div className="mt-6 mb-3 flex flex-wrap items-center gap-1.5 text-xs text-gray-500">
+        <span className="font-medium">Order:</span>
+        <Link
+          href="/dashboard/manage?sort=flNumber&dir=asc"
+          scroll={false}
+          className={`rounded-md px-2 py-1 ${
+            sort !== "added"
+              ? "bg-gray-100 font-semibold text-gray-800"
+              : "hover:text-gray-700"
+          }`}
+        >
+          FL#
+        </Link>
+        <Link
+          href={`/dashboard/manage?sort=added&dir=${sort === "added" && dir === "desc" ? "asc" : "desc"}`}
+          scroll={false}
+          className={`rounded-md px-2 py-1 ${
+            sort === "added"
+              ? "bg-gray-100 font-semibold text-gray-800"
+              : "hover:text-gray-700"
+          }`}
+        >
+          Date added
+          {sort === "added" ? (dir === "desc" ? " · newest first" : " · oldest first") : ""}
+        </Link>
+      </div>
+
+      <div>
         <ActiveVehiclesTable
           todayKey={easternDateKey(new Date())}
           active={active}
