@@ -597,53 +597,16 @@ function InspectionReviewForm({
   // Pulled out of the return so the clean case can wrap it in a
   // disclosure and the flagged case can render it bare, without the
   // whole 190-line table existing twice.
-  const checklistTable = (
-          <div className="overflow-hidden rounded-sm border border-gray-300 text-sm">
-          {/* Same measured-pixel-floor approach as the vehicle info box
-              above, sized against real device widths (a 360px phone gives
-              this table ~316px, a 375px phone ~331px): Answer's floor
-              covers "Working condition" on one line — that's the one
-              column that must never wrap, so its floor is a real content
-              measurement, not a guess. Status is fixed (not auto, which
-              visibly jumped the column narrower the instant "Tap to Fix"
-              (10 chars) got hidden in favor of "Fixed" (5 chars) in a
-              checked row). Item's own floor is deliberately smaller than
-              Answer's — giving it an equal floor would push their combined
-              minimum past that ~316-331px box, forcing the whole table
-              wider than its container the same way the vehicle info box
-              blew out above. Item is the column that's allowed to wrap
-              (the two genuinely longest labels, "Forward & Backward
-              Movement" and "Lift/Lowering Movement", still wrap to a
-              second line when space is tight — expected, and the wrap now
-              indents under the label instead of back under the number),
-              so it doesn't need a no-wrap guarantee the way Answer does.
-              `min-w-0` on both the cell and the label span keeps a long
-              single word ("Battery", "Lowering") from silently overflowing
-              past its own cell into the next one — where it would render
-              invisibly, hidden behind that cell's opaque background
-              instead of visibly wrapping; `break-words` is the last-resort
-              backstop on the rare word that's still too wide even for its
-              own line at the smallest supported width. */}
-          <div
-            className={`grid ${
-              anyFlagged
-                ? "grid-cols-[minmax(90px,auto)_minmax(9rem,1fr)_5rem]"
-                : "grid-cols-[minmax(90px,auto)_minmax(9rem,1fr)]"
-            }`}
-          >
-            <span className="border-r border-b border-gray-300 bg-gray-100 px-2 py-1.5 text-xs font-semibold tracking-wide text-gray-500 uppercase">
-              Item
-            </span>
-            <span className="border-r border-b border-gray-300 bg-gray-100 px-2 py-1.5 text-xs font-semibold tracking-wide text-gray-500 uppercase">
-              Answer
-            </span>
-            {anyFlagged && (
-              <span className="border-b border-gray-300 bg-gray-100 px-2 py-1.5 text-center text-xs font-semibold tracking-wide text-gray-500 uppercase">
-                Status
-              </span>
-            )}
-            {shownQuestions.map(
-              (q, i) => {
+  const flaggedQs = shownQuestions.filter((q) => needsAttention(row.answers[q.id].value))
+  const passedQs = shownQuestions.filter((q) => !needsAttention(row.answers[q.id].value))
+
+  const gridColsClass = anyFlagged
+    ? "grid-cols-[minmax(90px,auto)_minmax(9rem,1fr)_5rem]"
+    : "grid-cols-[minmax(90px,auto)_minmax(9rem,1fr)]"
+
+  // One checklist row. Extracted so the flagged rows and the collapsed
+  // "passed" rows share exactly the same rendering.
+  const renderRow = (q: (typeof shownQuestions)[number], i: number) => {
                 const answer = row.answers[q.id]
                 const isRepairRequest = q.id === REPAIR_REQUEST_ISSUE_ID
                 const bad = needsAttention(answer.value)
@@ -787,9 +750,65 @@ function InspectionReviewForm({
                   </Fragment>
                 )
               }
-            )}
-          </div>
-          </div>
+
+  const renderGrid = (questions: typeof shownQuestions, withHeader: boolean) => (
+    <div className={`grid ${gridColsClass}`}>
+      {withHeader && (
+        <>
+          <span className="border-r border-b border-gray-300 bg-gray-100 px-2 py-1.5 text-xs font-semibold tracking-wide text-gray-500 uppercase">
+            Item
+          </span>
+          <span className="border-r border-b border-gray-300 bg-gray-100 px-2 py-1.5 text-xs font-semibold tracking-wide text-gray-500 uppercase">
+            Answer
+          </span>
+          {anyFlagged && (
+            <span className="border-b border-gray-300 bg-gray-100 px-2 py-1.5 text-center text-xs font-semibold tracking-wide text-gray-500 uppercase">
+              Status
+            </span>
+          )}
+        </>
+      )}
+      {questions.map(renderRow)}
+    </div>
+  )
+
+  // A flagged inspection shows only its flagged rows; the passing ones fold
+  // into a "N checks passed" disclosure — the same idea as the all-good
+  // collapse, for the common "8 good, 1 bad" case that used to bury the one
+  // row a supervisor is here for under eight "Good"s. Only flagged rows emit
+  // the issue_* checkbox, so nothing that must submit is ever hidden. A clean
+  // inspection renders the full grid (it is itself already collapsed above).
+  const checklistTable = (
+    <div className="overflow-hidden rounded-sm border border-gray-300 text-sm">
+      {renderGrid(anyFlagged ? flaggedQs : shownQuestions, true)}
+      {anyFlagged && passedQs.length > 0 && (
+        <details className="group border-t border-gray-300">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-2 bg-green-50/60 px-3 py-2 transition-colors duration-100 hover:bg-green-50">
+            <span className="flex items-center gap-1.5 text-sm font-semibold text-green-800">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="3"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+                className="h-3.5 w-3.5 shrink-0"
+              >
+                <path d="M20 6 9 17l-5-5" />
+              </svg>
+              {passedQs.length} {passedQs.length === 1 ? "check" : "checks"} passed
+            </span>
+            <span className="flex shrink-0 items-center gap-1 text-xs font-medium text-gray-500">
+              <span className="group-open:hidden">Show</span>
+              <span className="hidden group-open:inline">Hide</span>
+              <span aria-hidden="true" className="transition-transform duration-150 group-open:rotate-180">⌄</span>
+            </span>
+          </summary>
+          {renderGrid(passedQs, false)}
+        </details>
+      )}
+    </div>
   )
 
   return (
