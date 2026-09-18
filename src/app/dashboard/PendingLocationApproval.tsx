@@ -29,7 +29,7 @@ export default function PendingLocationApproval({
   return (
     <div className="col-span-3 flex flex-col gap-1.5 border-b border-amber-200 bg-amber-50 px-2 py-2 text-xs sm:flex-row sm:items-center sm:justify-between">
       <p className="text-amber-800">
-        <span className="font-semibold">📍 Location change reported:</span> {reportedBy} says this
+        <span className="font-semibold">Location change reported:</span> {reportedBy} says this
         moved from <span className="font-semibold">{currentLocation}</span> to{" "}
         <span className="font-semibold">{pendingLocation}</span> ({reportedAtDisplay}) — needs
         your approval.

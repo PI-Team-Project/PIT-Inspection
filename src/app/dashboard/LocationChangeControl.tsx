@@ -43,7 +43,7 @@ export default function LocationChangeControl({
             : "text-gray-600 transition-colors duration-100 hover:text-brand hover:underline active:text-brand-dark active:underline"
         }
       >
-        {underRepair ? "🛠️ Under Repair" : `📍 ${currentLocation}`}
+        {underRepair ? "Under Repair" : currentLocation}
       </button>
     )
   }

@@ -44,10 +44,10 @@ const STAGE_LABEL: Record<Stage, string> = {
 
 const PAGE_SIZE = 20
 type View = "calendar" | "issues" | "log"
-const VIEWS: { key: View; label: string; icon: string }[] = [
-  { key: "calendar", label: "Calendar", icon: "📅" },
-  { key: "issues", label: "Issues Only", icon: "⚠️" },
-  { key: "log", label: "Full Log", icon: "📋" },
+const VIEWS: { key: View; label: string }[] = [
+  { key: "calendar", label: "Calendar" },
+  { key: "issues", label: "Issues" },
+  { key: "log", label: "Full log" },
 ]
 
 function addMonths(monthKey: string, delta: number): string {
@@ -392,7 +392,7 @@ export default function VehicleHistory({
                 view === v.key ? "bg-white text-gray-900 shadow-sm" : "text-gray-500"
               }`}
             >
-              <span aria-hidden="true">{v.icon}</span> {v.label}
+              {v.label}
             </button>
           ))}
         </div>
