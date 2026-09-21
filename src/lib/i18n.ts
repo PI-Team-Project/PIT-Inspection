@@ -26,9 +26,9 @@ const STRINGS: Record<Lang, Record<string, string>> = {
     "lang.es": "Español",
 
     "landing.subtitle": "Warehouse vehicle pre-shift inspection.",
-    "landing.instr1": "Inspection",
-    "landing.instrHighlight": "must be completed at beginning of every shift",
-    "landing.instr2": "to ensure equipment is in good condition to use. Thanks for keeping us safe.",
+    "landing.instrMain":
+      "Inspection must be completed at beginning of every shift to ensure equipment is in good condition to use.",
+    "landing.instrThanks": "Thanks for keeping us safe.",
     "landing.start": "Start Inspection",
     "landing.dashboard": "Manager Dashboard",
     "landing.scan": "Scan to start an inspection",
@@ -120,9 +120,9 @@ const STRINGS: Record<Lang, Record<string, string>> = {
     "lang.es": "Español",
 
     "landing.subtitle": "Inspección del vehículo antes del turno.",
-    "landing.instr1": "La inspección",
-    "landing.instrHighlight": "debe completarse al inicio de cada turno",
-    "landing.instr2": "para asegurar que el equipo esté en buenas condiciones. Gracias por mantenernos seguros.",
+    "landing.instrMain":
+      "La inspección debe completarse al inicio de cada turno para asegurar que el equipo esté en buenas condiciones.",
+    "landing.instrThanks": "Gracias por mantenernos seguros.",
     "landing.start": "Iniciar inspección",
     "landing.dashboard": "Manager Dashboard",
     "landing.scan": "Escanee para iniciar una inspección",
