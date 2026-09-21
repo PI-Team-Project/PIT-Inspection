@@ -491,7 +491,7 @@ export default async function EquipmentDetailPage({
               latest ? "text-green-800" : "text-gray-500"
             }`}
           >
-            {latest ? "✓ All caught up" : "No inspections yet — this vehicle hasn't been checked in."}
+            {latest ? "✓ All caught up" : "No inspections yet"}
           </p>
         )}
       </div>
