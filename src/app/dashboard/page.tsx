@@ -490,7 +490,12 @@ export default async function DashboardPage({
         </Link>
       )}
 
-      <div className="mt-8 flex justify-end gap-2 border-t border-gray-100 pt-4">
+      {/* One row for all three footer actions. Manage Vehicles and Export
+          are peer navigation actions — matching bordered buttons on the
+          right. Settings is a quieter utility: no box, pushed to the far
+          left (mr-auto) so it reads as a different kind of thing. */}
+      <div className="mt-8 flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-gray-100 pt-4">
+        <DashboardSettings triggerClassName="mr-auto inline-flex items-center gap-1.5 text-sm font-medium text-gray-500 transition-colors duration-100 hover:text-brand active:scale-95" />
         <Link
           href="/dashboard/manage"
           className="shrink-0 rounded-lg border border-brand/30 px-3 py-2 text-sm font-medium text-brand transition-transform duration-100 active:scale-95 active:bg-brand/10"
@@ -508,8 +513,6 @@ export default async function DashboardPage({
           triggerClassName="shrink-0 rounded-lg border border-brand/30 px-3 py-2 text-sm font-medium text-brand transition-transform duration-100 active:scale-95 active:bg-brand/10"
         />
       </div>
-
-      <DashboardSettings />
     </main>
   )
 }
