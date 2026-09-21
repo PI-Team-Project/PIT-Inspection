@@ -44,15 +44,10 @@ export default function StartLanguageChooser() {
         {tr(lang, "landing.subtitle")}
       </p>
 
-      <p className="mt-4 flex min-h-[8.5rem] items-start justify-center text-base text-gray-600">
-        <span>
-          {tr(lang, "landing.instr1")}{" "}
-          <span className="rounded bg-amber-100 px-0.5 font-medium text-gray-700">
-            {tr(lang, "landing.instrHighlight")}
-          </span>{" "}
-          {tr(lang, "landing.instr2")}
-        </span>
-      </p>
+      <div className="mt-4 flex min-h-[9rem] w-full flex-col items-center gap-3 text-base text-gray-600">
+        <p className="m-0">{tr(lang, "landing.instrMain")}</p>
+        <p className="m-0">{tr(lang, "landing.instrThanks")}</p>
+      </div>
 
       <div className="mt-12 flex w-full flex-col gap-3">
         <Link
