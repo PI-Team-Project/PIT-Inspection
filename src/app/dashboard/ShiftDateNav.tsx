@@ -107,9 +107,20 @@ export default function ShiftDateNav({
           <div className="relative flex min-w-0 items-center gap-2">
             <span
               aria-hidden="true"
-              className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-sm text-gray-400"
+              className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-gray-400"
             >
-              📅
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="h-4 w-4"
+              >
+                <rect x="3" y="4.5" width="18" height="17" rx="2" />
+                <path d="M3 9h18M8 2.5v4M16 2.5v4" />
+              </svg>
             </span>
             <span className="min-w-0 truncate rounded px-1.5 py-1 -mx-1.5 -my-1 text-sm font-semibold text-gray-700">
               {/* Always shows one of these two words instead of the label
@@ -122,7 +133,7 @@ export default function ShiftDateNav({
                   the same kind of jump. Truncates (rather than wrapping)
                   on a very narrow phone so it shrinks instead of pushing
                   into the status chip's space. */}
-              Daily Report · {dateLabel}
+              {dateLabel}
               <span className="hidden text-gray-400 sm:inline"> ({isViewingLive ? "Today" : "Past"})</span>
             </span>
             <input

@@ -33,26 +33,17 @@ type WeeklyRow = {
   cells: { day: WeeklyCellData; night: WeeklyCellData }[]
 }
 
-const CELL_COLOR: Record<Stage | "none", string> = {
-  unresolved: "bg-red-500",
+// Each cell is now a small dot on a white row (not a solid-filled heat
+// square) — one dot per Day and per Night. Colour carries the status; the
+// unresolved dot also gets a ring so the one state that must never be missed
+// isn't distinguished by colour alone. An empty slot is a faint grey dot, so
+// "not inspected" still reads as a real mark rather than a blank.
+const CELL_DOT: Record<Stage | "none", string> = {
+  unresolved: "bg-red-500 ring-1 ring-red-700/50",
   "pending-confirm": "bg-yellow-400",
   confirmed: "bg-green-500",
   clean: "bg-green-500",
-  // A pure white fill made the white grid border between cells vanish on
-  // any empty stretch — a faint gray keeps the same border visible as a
-  // real line everywhere, not just between colored cells.
-  none: "bg-gray-50",
-}
-
-// Only the severe case gets a glyph now — a full grid of ✓/? on every good
-// cell read as visual noise once there's a real month of data. Unresolved
-// (red) keeps "!" since that's the one state that must never be missed.
-const CELL_GLYPH: Record<Stage | "none", string> = {
-  unresolved: "!",
-  "pending-confirm": "",
-  confirmed: "",
-  clean: "",
-  none: "",
+  none: "bg-gray-200",
 }
 
 // Mouse hover reveals the name instantly via CSS group-hover — no delay,
@@ -75,7 +66,15 @@ function WeeklyCell({
   const [revealed, setRevealed] = useState(false)
   const lastPointerType = useRef("mouse")
 
-  if (!href) return <>{CELL_GLYPH[stage]}</>
+  const dot = (
+    <span
+      aria-hidden="true"
+      className={`inline-block h-2 w-2 rounded-full sm:h-2.5 sm:w-2.5 ${CELL_DOT[stage]}`}
+    />
+  )
+
+  // No inspection that day/shift — a faint grey dot, not clickable.
+  if (!href) return dot
 
   function handlePointerDown(e: React.PointerEvent<HTMLAnchorElement>) {
     lastPointerType.current = e.pointerType
@@ -97,7 +96,7 @@ function WeeklyCell({
       onClick={handleClick}
       className="group relative flex h-full w-full items-center justify-center"
     >
-      {CELL_GLYPH[stage]}
+      {dot}
       {inspectorName && (
         <span
           className={`pointer-events-none absolute bottom-full left-1/2 z-30 mb-1 -translate-x-1/2 rounded bg-gray-900 px-1.5 py-0.5 text-[10px] leading-tight font-normal whitespace-nowrap normal-case text-white shadow-lg ${
@@ -425,8 +424,10 @@ export default function WeeklyReport({
                     const dayColumnSelected = selectedDay === weekDays[ci]
                     return (
                     <Fragment key={ci}>
+                      {/* Day dot. border-l starts a new day column; the
+                          Night cell has no left border so D+N read as a pair. */}
                       <td
-                        className={`h-7 w-6 border-2 border-white p-0 text-center align-middle text-sm leading-none font-bold text-white sm:h-8 sm:w-7 sm:text-base ${CELL_COLOR[cell.day.stage]} ${
+                        className={`h-7 w-6 border-l border-t border-gray-100 bg-white p-0 text-center align-middle sm:h-8 sm:w-7 ${
                           rowHighlighted || dayColumnSelected ? HIGHLIGHT : ""
                         }`}
                       >
@@ -441,7 +442,7 @@ export default function WeeklyReport({
                         />
                       </td>
                       <td
-                        className={`h-7 w-6 border-2 border-white p-0 text-center align-middle text-sm leading-none font-bold text-white sm:h-8 sm:w-7 sm:text-base ${CELL_COLOR[cell.night.stage]} ${
+                        className={`h-7 w-6 border-t border-gray-100 bg-white p-0 text-center align-middle sm:h-8 sm:w-7 ${
                           rowHighlighted || dayColumnSelected ? HIGHLIGHT : ""
                         }`}
                       >
