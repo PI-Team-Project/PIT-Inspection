@@ -39,6 +39,7 @@ export async function unlockDashboard(formData: FormData) {
     )
     cookieStore.set(PIN_ATTEMPTS_COOKIE, cookieValue, {
       httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
       maxAge: 60 * 60,
     })
@@ -52,6 +53,7 @@ export async function unlockDashboard(formData: FormData) {
   cookieStore.delete(PIN_ATTEMPTS_COOKIE)
   cookieStore.set(DASHBOARD_COOKIE, dashboardSessionValue(), {
     httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
     maxAge: 60 * 60 * 8,
   })
@@ -105,6 +107,7 @@ export async function saveActivity(formData: FormData) {
   const cookieStore = await cookies()
   cookieStore.set(MANAGER_NAME_COOKIE, authorName, {
     httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
     maxAge: 60 * 60 * 24 * 30,
   })
@@ -205,6 +208,7 @@ export async function updateEquipmentLocation(
   const cookieStore = await cookies()
   cookieStore.set(MANAGER_NAME_COOKIE, managerName, {
     httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
     maxAge: 60 * 60 * 24 * 30,
   })
@@ -272,6 +276,7 @@ export async function approvePendingLocation(
   const cookieStore = await cookies()
   cookieStore.set(MANAGER_NAME_COOKIE, managerName, {
     httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
     maxAge: 60 * 60 * 24 * 30,
   })

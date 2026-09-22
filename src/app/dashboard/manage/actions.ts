@@ -24,6 +24,7 @@ async function rememberManagerName(name: string) {
   const cookieStore = await cookies()
   cookieStore.set(MANAGER_NAME_COOKIE, name, {
     httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
     maxAge: 60 * 60 * 24 * 30,
   })
