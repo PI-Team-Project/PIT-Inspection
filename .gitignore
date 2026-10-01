@@ -52,3 +52,4 @@ next-env.d.ts
 
 # local database backups (contain real inspection data + photos)
 /backup-before-wipe-*.json
+/backup-before-update-*.json

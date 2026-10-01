@@ -3,6 +3,7 @@
 import { useActionState, useState } from "react"
 import { useFormStatus } from "react-dom"
 import { changeDashboardPin, type ChangePinState } from "./actions"
+import SupervisorSettings from "./SupervisorSettings"
 
 function UpdateButton() {
   const { pending } = useFormStatus()
@@ -26,8 +27,10 @@ const pinInputClass =
 // a popup (the same modal pattern the Export options use) rather than
 // expanding inline.
 export default function DashboardSettings({
+  supervisors,
   triggerClassName,
 }: {
+  supervisors: string[]
   triggerClassName?: string
 }) {
   const [open, setOpen] = useState(false)
@@ -74,10 +77,10 @@ export default function DashboardSettings({
       onClick={() => setOpen(false)}
     >
       <div
-        className="w-full max-w-sm rounded-t-2xl bg-white p-4 sm:rounded-2xl"
+        className="max-h-[90vh] w-full max-w-sm overflow-y-auto rounded-t-2xl bg-white p-4 sm:rounded-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="mb-1 flex items-center justify-between">
+        <div className="mb-6 flex items-center justify-between">
           <h3 className="flex items-center gap-1.5 text-base font-bold text-gray-900">
             {gear}
             Settings
@@ -94,7 +97,10 @@ export default function DashboardSettings({
           </button>
         </div>
 
-        <p className="text-sm font-semibold text-gray-800">Change dashboard PIN</p>
+        <SupervisorSettings supervisors={supervisors} />
+
+        <div className="mt-5 border-t border-gray-200 pt-5">
+        <p className="text-sm font-semibold text-gray-800">Dashboard PIN</p>
         <p className="mt-0.5 text-xs text-gray-500">Takes effect the next time someone signs in.</p>
 
         {/* key on ok so the fields (and message) reset after a successful change */}
@@ -143,6 +149,7 @@ export default function DashboardSettings({
           )}
           <UpdateButton />
         </form>
+        </div>
       </div>
     </div>
   )

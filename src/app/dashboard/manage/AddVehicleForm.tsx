@@ -26,11 +26,13 @@ function rowsFromEquipment(list: Equipment[]): { key: number; prefill: Prefill }
 }
 
 export default function AddVehicleForm({
+  supervisors,
   savedManagerName,
   duplicateSeed,
   hideTriggerButton,
   todayKey,
 }: {
+  supervisors: string[]
   savedManagerName: string
   duplicateSeed?: Equipment[] | null
   hideTriggerButton?: boolean
@@ -227,6 +229,7 @@ export default function AddVehicleForm({
             </label>
             <SupervisorNameField
               name="managerName"
+              supervisors={supervisors}
               savedManagerName={savedManagerName}
               label=""
               labelClassName="hidden"

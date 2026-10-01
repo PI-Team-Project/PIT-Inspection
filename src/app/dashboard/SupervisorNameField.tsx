@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { SUPERVISORS, OTHER_SUPERVISOR } from "@/lib/supervisors"
+import { OTHER_SUPERVISOR } from "@/lib/supervisors"
 
 // Pick a supervisor instead of typing one. Used everywhere the app captures
 // a signature, so a name is spelled the same way every time — see
@@ -12,12 +12,15 @@ import { SUPERVISORS, OTHER_SUPERVISOR } from "@/lib/supervisors"
 // dropped into three different forms without any of their actions changing.
 export default function SupervisorNameField({
   name,
+  supervisors,
   savedManagerName,
   label = "Supervisor Signature",
   labelClassName = "mb-1 block text-sm font-medium text-gray-700",
   className = "w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-base",
 }: {
   name: string
+  // The current list from Settings (getSupervisors), read on the server.
+  supervisors: string[]
   savedManagerName: string
   label?: string
   labelClassName?: string
@@ -27,9 +30,9 @@ export default function SupervisorNameField({
   // A remembered name that is no longer on the roster (someone who has left,
   // or a one-off) opens as "someone else" with the name still filled in —
   // never silently swapped for a supervisor who did not sign this.
-  const savedIsRoster = (SUPERVISORS as readonly string[]).includes(saved)
+  const savedIsRoster = supervisors.includes(saved)
   const [choice, setChoice] = useState<string>(
-    savedIsRoster ? saved : saved ? OTHER_SUPERVISOR : SUPERVISORS[0]
+    savedIsRoster ? saved : saved || supervisors.length === 0 ? OTHER_SUPERVISOR : supervisors[0]
   )
   const [typed, setTyped] = useState(savedIsRoster ? "" : saved)
 
@@ -51,19 +54,19 @@ export default function SupervisorNameField({
         onChange={(e) => setChoice(e.target.value)}
         className={className}
       >
-        {SUPERVISORS.map((s) => (
+        {supervisors.map((s) => (
           <option key={s} value={s}>
             {s}
           </option>
         ))}
-        <option value={OTHER_SUPERVISOR}>Someone else — type a name</option>
+        <option value={OTHER_SUPERVISOR}>+ Add supervisor</option>
       </select>
       {isOther && (
         <input
           type="text"
           value={typed}
           onChange={(e) => setTyped(e.target.value)}
-          placeholder="Name of the supervisor"
+          placeholder="Supervisor name"
           // `required` lives here rather than on the hidden input, which a
           // browser will not validate: picking "someone else" and leaving
           // this blank has to block the submit, not sign with an empty name.

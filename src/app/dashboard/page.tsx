@@ -27,6 +27,8 @@ import ShiftSwipeArea from "./ShiftSwipeArea"
 import WeeklyReport from "./WeeklyReport"
 import ExportOptions from "./ExportOptions"
 import DashboardSettings from "./DashboardSettings"
+import AutoRefresh from "./AutoRefresh"
+import { getSupervisors } from "@/lib/supervisorRoster"
 import {
   buildRow,
   latestInspectionPerVehicle,
@@ -238,6 +240,30 @@ export default async function DashboardPage({
       night: weeklyCell(row.history, dateKey, "Night"),
     })),
   }))
+
+  // The coverage chart above the weekly table: per shift, how many of the
+  // vehicles in the fleet THAT day were inspected. The fleet is counted per
+  // day from each vehicle's added date, so a vehicle added mid-week only
+  // counts from its first day. Shifts that haven't started are null, not 0.
+  const [addedRows, supervisors] = await Promise.all([
+    prisma.equipment.findMany({ where: { retiredAt: null }, select: { serial: true, createdAt: true } }),
+    getSupervisors(),
+  ])
+  const addedOn = new Map(addedRows.map((e) => [e.serial, easternDateKey(e.createdAt)]))
+  const currentShiftKey = easternDateKey(currentShift.start)
+  const notStarted = (dateKey: string, shift: "Day" | "Night") =>
+    dateKey > currentShiftKey ||
+    (dateKey === currentShiftKey && shift === "Night" && currentShift.label === "Day")
+  const weeklyCoverage = weekDays.map((dateKey, i) => {
+    const inFleet = weeklyRows.filter((row) => (addedOn.get(row.serial) ?? "") <= dateKey)
+    const inspected = (shift: "day" | "night") =>
+      inFleet.filter((row) => row.cells[i][shift].stage !== "none").length
+    return {
+      fleet: inFleet.length,
+      day: notStarted(dateKey, "Day") ? null : inspected("day"),
+      night: notStarted(dateKey, "Night") ? null : inspected("night"),
+    }
+  })
   // Stepping a week here just moves the same shared date ±7 days, keeping
   // whatever shift (Day/Night) is currently selected and the grouping
   // choice — same params the shift nav's own back-arrow/calendar already
@@ -324,6 +350,7 @@ export default async function DashboardPage({
 
   return (
     <main className="mx-auto max-w-lg px-4 pt-1 pb-8 sm:max-w-2xl lg:max-w-4xl">
+      <AutoRefresh />
       <div className="flex items-center gap-3">
         <HomeLink />
         <h1 className="text-xl font-bold text-gray-900 sm:text-2xl">
@@ -442,6 +469,7 @@ export default async function DashboardPage({
         <WeeklyReport
           weekDays={weekDays}
           rows={weeklyRows}
+          coverage={weeklyCoverage}
           todayKey={todayKey}
           prevWeekHref={prevWeekHref}
           nextWeekHref={nextWeekHref}
@@ -496,7 +524,7 @@ export default async function DashboardPage({
           right. Settings is a quieter utility: no box, pushed to the far
           left (mr-auto) so it reads as a different kind of thing. */}
       <div className="mt-8 flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-gray-100 pt-4">
-        <DashboardSettings triggerClassName="mr-auto inline-flex items-center gap-1.5 text-sm font-medium text-gray-500 transition-colors duration-100 hover:text-brand active:scale-95" />
+        <DashboardSettings supervisors={supervisors} triggerClassName="mr-auto inline-flex items-center gap-1.5 text-sm font-medium text-gray-500 transition-colors duration-100 hover:text-brand active:scale-95" />
         <Link
           href="/dashboard/manage"
           className="shrink-0 rounded-lg border border-brand/30 px-3 py-2 text-sm font-medium text-brand transition-transform duration-100 active:scale-95 active:bg-brand/10"

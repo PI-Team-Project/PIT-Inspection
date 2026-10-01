@@ -6,6 +6,7 @@ import { MANAGER_NAME_COOKIE, hasDashboardSession, requireDashboardSession } fro
 import { prisma } from "@/lib/prisma"
 import { LOCATIONS } from "@/lib/equipment"
 import { getShiftWindowForDate } from "@/lib/shifts"
+import { recordSupervisor } from "@/lib/supervisorRoster"
 
 const EQUIPMENT_TYPES = ["Sit Down", "Propane", "Standup", "Pallet Jack"] as const
 const CONTRACT_TYPES = ["Rent", "Leasing", "Own"] as const
@@ -21,6 +22,7 @@ function isValidLocation(value: string): boolean {
 }
 
 async function rememberManagerName(name: string) {
+  await recordSupervisor(name)
   const cookieStore = await cookies()
   cookieStore.set(MANAGER_NAME_COOKIE, name, {
     httpOnly: true,
