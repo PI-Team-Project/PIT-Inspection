@@ -10,6 +10,7 @@ import ActiveVehiclesTable from "./ActiveVehiclesTable"
 import BackLink from "./BackLink"
 import ManageVehicleSearch from "./ManageVehicleSearch"
 import { RETIRED_COLS, HIDE_ON_MOBILE, SORT_FIELDS, isSortField, type SortField } from "./tableShared"
+import { getSupervisors } from "@/lib/supervisorRoster"
 
 export default async function ManageVehiclesPage({
   searchParams,
@@ -25,6 +26,7 @@ export default async function ManageVehiclesPage({
   const dir: "asc" | "desc" = params.dir === "desc" ? "desc" : "asc"
 
   const savedManagerName = cookieStore.get(MANAGER_NAME_COOKIE)?.value ?? ""
+  const supervisors = await getSupervisors()
   const all = await getAllEquipmentIncludingRetired()
   const getField = SORT_FIELDS[sort]
   const compare = (a: (typeof all)[number], b: (typeof all)[number]) => {
@@ -91,6 +93,7 @@ export default async function ManageVehiclesPage({
         <ActiveVehiclesTable
           todayKey={easternDateKey(new Date())}
           active={active}
+          supervisors={supervisors}
           savedManagerName={savedManagerName}
           sort={sort}
           dir={dir}

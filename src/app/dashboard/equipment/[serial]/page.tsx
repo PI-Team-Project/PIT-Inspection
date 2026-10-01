@@ -30,6 +30,7 @@ import {
 } from "../../inspectionRow"
 import StatusDot from "../../StatusDot"
 import SupervisorNameField from "@/app/dashboard/SupervisorNameField"
+import { getSupervisors } from "@/lib/supervisorRoster"
 import PhotoGallery from "../../PhotoGallery"
 import LocationChangeControl from "../../LocationChangeControl"
 import PendingLocationApproval from "../../PendingLocationApproval"
@@ -131,6 +132,7 @@ export default async function EquipmentDetailPage({
   const { serial } = await params
   const { date: highlightDate, shift: highlightShift, view: viewParam } = await searchParams
   const savedManagerName = cookieStore.get(MANAGER_NAME_COOKIE)?.value ?? ""
+  const supervisors = await getSupervisors()
   // The fleet's Eastern calendar date, not the server's own — Vercel runs
   // in UTC, and a plain `new Date().toISOString()` would silently roll
   // over to tomorrow for roughly 4-5 hours every evening (8pm-midnight
@@ -349,6 +351,7 @@ export default async function EquipmentDetailPage({
               <LocationChangeControl
                 serial={equipment.serial}
                 currentLocation={equipment.location}
+                supervisors={supervisors}
                 savedManagerName={savedManagerName}
               />
             </dd>
@@ -477,6 +480,9 @@ export default async function EquipmentDetailPage({
             <InspectionReviewForm
               key={row.inspection.id}
               row={row}
+              earlierOpen={earlierOpenReports(allHistory, row)}
+              closedFromHere={closedFromHereCounts(allHistory, row)}
+              supervisors={supervisors}
               savedManagerName={savedManagerName}
               todayDisplay={todayDisplay}
             />
@@ -521,12 +527,54 @@ export default async function EquipmentDetailPage({
   )
 }
 
+// Per flagged issue on `row`: this vehicle's EARLIER inspections that still
+// have that same issue open, newest first — the ones marking it Fixed here
+// will also close (see cascadeIssueComplete). Repair Requests never
+// cascade, so they never appear.
+function earlierOpenReports(
+  history: InspectionRow[],
+  row: InspectionRow
+): Record<string, { date: string; shift: string }[]> {
+  const reports: Record<string, { date: string; shift: string }[]> = {}
+  for (const other of history) {
+    if (other.inspection.createdAt >= row.inspection.createdAt) continue
+    for (const q of other.flagged) {
+      if (q.id === REPAIR_REQUEST_ISSUE_ID) continue
+      if (other.review.issueStatus[q.id] === "complete") continue
+      ;(reports[q.id] ??= []).push({ date: other.inspection.date, shift: other.inspection.shift })
+    }
+  }
+  return reports
+}
+
+const REPEAT_DATES_SHOWN = 3
+
+// Per issue: how many earlier inspections were closed by marking it Fixed on
+// `row` — read back from the "applied from" entries cascadeIssueComplete
+// writes, so it stays true after the page reloads.
+function closedFromHereCounts(history: InspectionRow[], row: InspectionRow): Record<string, number> {
+  const counts: Record<string, number> = {}
+  for (const other of history) {
+    for (const entry of other.review.activity) {
+      if (entry.type !== "issue" || entry.appliedFrom?.inspectionId !== row.inspection.id) continue
+      counts[entry.questionId] = (counts[entry.questionId] ?? 0) + 1
+    }
+  }
+  return counts
+}
+
 function InspectionReviewForm({
   row,
+  earlierOpen,
+  closedFromHere,
+  supervisors,
   savedManagerName,
   todayDisplay,
 }: {
   row: InspectionRow
+  earlierOpen: Record<string, { date: string; shift: string }[]>
+  closedFromHere: Record<string, number>
+  supervisors: string[]
   savedManagerName: string
   todayDisplay: string
 }) {
@@ -577,6 +625,7 @@ function InspectionReviewForm({
                 </label>
                 <SupervisorNameField
                   name="reviewerName"
+                  supervisors={supervisors}
                   savedManagerName={savedManagerName}
                   label=""
                   labelClassName="hidden"
@@ -598,6 +647,14 @@ function InspectionReviewForm({
   // disclosure and the flagged case can render it bare, without the
   // whole 190-line table existing twice.
   const flaggedQs = shownQuestions.filter((q) => needsAttention(row.answers[q.id].value))
+  const repeats = isLocked
+    ? []
+    : flaggedQs
+        .filter((q) => row.review.issueStatus[q.id] !== "complete" && earlierOpen[q.id]?.length)
+        .map((q) => ({ q, reports: earlierOpen[q.id] }))
+  const closed = flaggedQs
+    .filter((q) => row.review.issueStatus[q.id] === "complete" && closedFromHere[q.id])
+    .map((q) => ({ q, count: closedFromHere[q.id] }))
   const passedQs = shownQuestions.filter((q) => !needsAttention(row.answers[q.id].value))
 
   const gridColsClass = anyFlagged
@@ -728,7 +785,7 @@ function InspectionReviewForm({
                                 ? "Marked fixed — click to reopen"
                                 : "Click to mark fixed"
                             }
-                            className="flex h-full w-full cursor-pointer items-center justify-center rounded px-1 py-1 text-center transition-colors duration-100 active:scale-95"
+                            className="flex h-full w-full cursor-pointer flex-col items-center justify-center rounded px-1 py-1 text-center transition-colors duration-100 active:scale-95"
                           >
                             <input
                               type="checkbox"
@@ -740,6 +797,11 @@ function InspectionReviewForm({
                             <span className="animate-pulse text-[10px] font-bold tracking-wide text-amber-600 uppercase peer-checked:hidden">
                               Tap to Fix
                             </span>
+                            {(earlierOpen[q.id]?.length ?? 0) > 0 && (
+                              <span className="text-[10px] font-semibold text-gray-500 peer-checked:hidden">
+                                [{earlierOpen[q.id].length}] repeats
+                              </span>
+                            )}
                             <span className="hidden text-[10px] font-bold tracking-wide text-green-700 uppercase peer-checked:inline">
                               Fixed
                             </span>
@@ -781,6 +843,32 @@ function InspectionReviewForm({
   const checklistTable = (
     <div className="overflow-hidden rounded-sm border border-gray-300 text-sm">
       {renderGrid(anyFlagged ? flaggedQs : shownQuestions, true)}
+      {(repeats.length > 0 || closed.length > 0) && (
+        // Shown from the second report of the same issue on: marking it
+        // Fixed here also closes these, so they are listed before saving.
+        <div className="space-y-1.5 border-t border-gray-300 bg-gray-50 px-3 py-2 text-xs text-gray-600">
+          {repeats.map(({ q, reports }) => (
+            <div key={q.id}>
+              <p>
+                <span className="font-semibold text-gray-800">{q.shortLabel ?? q.label}</span> · open on [
+                {reports.length}] previous inspection{reports.length === 1 ? "" : "s"}. Marking Fixed closes{" "}
+                {reports.length === 1 ? "it" : `all [${reports.length}]`}.
+              </p>
+              <RepeatDates
+                serial={row.inspection.equipmentSerial}
+                toggleId={`repeat-dates-${row.inspection.id}-${q.id}`}
+                reports={reports}
+              />
+            </div>
+          ))}
+          {closed.map(({ q, count }) => (
+            <p key={q.id} className="text-green-800">
+              <span className="font-semibold">{q.shortLabel ?? q.label}</span> · closed on this and [{count}]
+              previous inspection{count === 1 ? "" : "s"}.
+            </p>
+          ))}
+        </div>
+      )}
       {anyFlagged && passedQs.length > 0 && (
         <details className="group border-t border-gray-300">
           <summary className="flex cursor-pointer list-none items-center justify-between gap-2 bg-green-50/60 px-3 py-2 transition-colors duration-100 hover:bg-green-50">
@@ -956,7 +1044,14 @@ function ActivityLine({ entry }: { entry: ActivityEntry }) {
         <span className={entry.status === "complete" ? "text-brand" : "text-amber-700"}>
           {q?.label ?? entry.questionId} marked {label}
         </span>{" "}
-        by <span className="font-medium text-gray-800">{entry.authorName}</span> — {when}
+        by <span className="font-medium text-gray-800">{entry.authorName}</span>
+        {entry.appliedFrom && (
+          <>
+            {" "}
+            via the {entry.appliedFrom.date} {entry.appliedFrom.shift} inspection
+          </>
+        )}{" "}
+        — {when}
       </>
     )
   }
@@ -988,5 +1083,51 @@ function ActivityLine({ entry }: { entry: ActivityEntry }) {
       <span className="font-medium text-gray-800">{entry.authorName}</span>: {entry.text} —{" "}
       {when}
     </>
+  )
+}
+
+// The dates an issue was also reported on, newest first, each linking to that
+// inspection. Past the first few, the rest sit behind "[N] more": an unnamed
+// checkbox (never submitted with the review form) whose checked state shows
+// them through CSS alone, so it works without client script.
+function RepeatDates({
+  serial,
+  toggleId,
+  reports,
+}: {
+  serial: string
+  // Unique per inspection AND issue — a day can show both a Day and a
+  // Night inspection with the same issue on one page.
+  toggleId: string
+  reports: { date: string; shift: string }[]
+}) {
+  const link = (r: { date: string; shift: string }, hidden: boolean) => (
+    <Link
+      key={`${r.date}-${r.shift}`}
+      href={`/dashboard/equipment/${serial}?date=${r.date}&shift=${r.shift}#selected-inspection`}
+      className={`font-medium whitespace-nowrap text-gray-700 hover:text-gray-900 hover:underline ${
+        hidden ? "hidden peer-checked:inline" : ""
+      }`}
+    >
+      {r.date} {r.shift}
+    </Link>
+  )
+  const rest = reports.length - REPEAT_DATES_SHOWN
+  return (
+    <div className="mt-0.5 flex flex-wrap gap-x-2.5 gap-y-0.5">
+      {reports.slice(0, REPEAT_DATES_SHOWN).map((r) => link(r, false))}
+      {rest > 0 && (
+        <>
+          <input id={toggleId} type="checkbox" className="peer sr-only" />
+          <label
+            htmlFor={toggleId}
+            className="cursor-pointer font-semibold whitespace-nowrap text-gray-700 underline peer-checked:hidden"
+          >
+            [{rest}] more
+          </label>
+          {reports.slice(REPEAT_DATES_SHOWN).map((r) => link(r, true))}
+        </>
+      )}
+    </div>
   )
 }

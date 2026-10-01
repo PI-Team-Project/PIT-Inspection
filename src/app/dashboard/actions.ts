@@ -16,9 +16,12 @@ import { verifyPin, setDashboardPin } from "@/lib/dashboardPin"
 import { prisma } from "@/lib/prisma"
 import { computeMaybeOpen } from "@/app/dashboard/inspectionRow"
 import { LOCATIONS } from "@/lib/equipment"
+import { recordSupervisor } from "@/lib/supervisorRoster"
+import { normalizeSupervisorName } from "@/lib/supervisors"
 import {
   parseReview,
   flaggedIssueIds,
+  cascadeIssueComplete,
   type ActivityEntry,
   type IssueStatusValue,
 } from "@/lib/review"
@@ -101,7 +104,7 @@ export async function changeDashboardPin(
 export async function saveActivity(formData: FormData) {
   await requireDashboardSession()
   const inspectionId = String(formData.get("inspectionId") ?? "")
-  const authorName = String(formData.get("reviewerName") ?? "").trim() || "Unknown"
+  const authorName = normalizeSupervisorName(String(formData.get("reviewerName") ?? "")) || "Unknown"
   const timestamp = new Date().toISOString()
 
   const cookieStore = await cookies()
@@ -176,20 +179,65 @@ export async function saveActivity(formData: FormData) {
   }
 
   const review_ = { issueStatus, activity, confirmedResolved }
-  await prisma.inspection.update({
-    where: { id: inspectionId },
-    data: {
-      review: review_,
-      // The only write in the app that can close an issue, so the only one
-      // that has to recompute this. Derived from the review being written,
-      // through the same getStage the dashboard renders from.
-      maybeOpen: computeMaybeOpen({
-        type: inspection.type,
-        answers: inspection.answers,
-        review: review_,
-      }),
-    },
+
+  // Every issue Fixed on this inspection also closes the same issue on this
+  // vehicle's earlier, still-open inspections (see cascadeIssueComplete).
+  // maybeOpen: false rows have nothing open, so only the rest are read.
+  const completedIds = flaggedIds.filter((id) => issueStatus[id] === "complete")
+  const earlierOpen = completedIds.length
+    ? await prisma.inspection.findMany({
+        where: {
+          equipmentSerial: inspection.equipmentSerial,
+          maybeOpen: true,
+          createdAt: { lt: inspection.createdAt },
+          id: { not: inspection.id },
+        },
+      })
+    : []
+  const cascaded = earlierOpen.flatMap((earlier) => {
+    const next = cascadeIssueComplete(
+      {
+        type: earlier.type,
+        answers: earlier.answers as Record<string, { value: string }>,
+        review: parseReview(earlier.review),
+      },
+      completedIds,
+      {
+        authorName,
+        timestamp,
+        appliedFrom: { inspectionId, date: inspection.date, shift: inspection.shift },
+      }
+    )
+    return next ? [{ earlier, review: next }] : []
   })
+
+  // One transaction: the fix and everything it closes land together or not
+  // at all. These are the only writes in the app that can close an issue,
+  // so the only ones that have to recompute maybeOpen — derived from the
+  // review being written, through the same getStage the dashboard uses.
+  await prisma.$transaction([
+    prisma.inspection.update({
+      where: { id: inspectionId },
+      data: {
+        review: review_,
+        maybeOpen: computeMaybeOpen({
+          type: inspection.type,
+          answers: inspection.answers,
+          review: review_,
+        }),
+      },
+    }),
+    ...cascaded.map(({ earlier, review }) =>
+      prisma.inspection.update({
+        where: { id: earlier.id },
+        data: {
+          review,
+          maybeOpen: computeMaybeOpen({ type: earlier.type, answers: earlier.answers, review }),
+        },
+      })
+    ),
+  ])
+  await recordSupervisor(authorName)
 
   revalidatePath("/dashboard")
   revalidatePath("/dashboard/equipment/[serial]", "page")
@@ -252,6 +300,8 @@ export async function updateEquipmentLocation(
       data: { review: { ...review, activity } },
     })
   }
+
+  await recordSupervisor(managerName)
 
   revalidatePath("/dashboard")
   revalidatePath("/dashboard/equipment/[serial]", "page")
@@ -317,6 +367,8 @@ export async function approvePendingLocation(
     })
   }
 
+  await recordSupervisor(managerName)
+
   revalidatePath("/dashboard")
   revalidatePath("/dashboard/equipment/[serial]", "page")
   revalidatePath("/inspection")
@@ -345,3 +397,51 @@ export async function dismissPendingLocation(
   return null
 }
 
+
+// `nonce` changes on every successful save so the form can remount empty.
+export type SupervisorListState = { error: string | null; nonce?: number }
+
+// Settings → Supervisors. The list only feeds the Supervisor Signature
+// picker; none of these touch a signature already on an inspection.
+export async function addSupervisor(
+  _prevState: SupervisorListState,
+  formData: FormData
+): Promise<SupervisorListState> {
+  await requireDashboardSession()
+  const name = normalizeSupervisorName(String(formData.get("name") ?? ""))
+  if (!name) return { error: "Enter a name." }
+  const existing = await prisma.supervisor.findUnique({ where: { name } })
+  if (existing) return { error: `${name} is already on the list.` }
+  await prisma.supervisor.create({ data: { name } })
+  revalidatePath("/dashboard", "layout")
+  return { error: null, nonce: Date.now() }
+}
+
+export async function renameSupervisor(
+  _prevState: SupervisorListState,
+  formData: FormData
+): Promise<SupervisorListState> {
+  await requireDashboardSession()
+  const from = String(formData.get("from") ?? "")
+  const to = normalizeSupervisorName(String(formData.get("to") ?? ""))
+  if (!to) return { error: "Enter a name." }
+  if (to === from) return { error: null }
+  const taken = await prisma.supervisor.findUnique({ where: { name: to } })
+  if (taken) return { error: `${to} is already on the list.` }
+  const current = await prisma.supervisor.findUnique({ where: { name: from } })
+  if (!current) return { error: `${from} is no longer on the list.` }
+  // The name is the key, so a rename is a swap that keeps the list position.
+  await prisma.$transaction([
+    prisma.supervisor.delete({ where: { name: from } }),
+    prisma.supervisor.create({ data: { name: to, createdAt: current.createdAt } }),
+  ])
+  revalidatePath("/dashboard", "layout")
+  return { error: null }
+}
+
+export async function removeSupervisor(formData: FormData): Promise<void> {
+  await requireDashboardSession()
+  const name = String(formData.get("name") ?? "")
+  await prisma.supervisor.deleteMany({ where: { name } })
+  revalidatePath("/dashboard", "layout")
+}

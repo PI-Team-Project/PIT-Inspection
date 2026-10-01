@@ -1,4 +1,5 @@
 import Link from "next/link"
+import type { ReactNode } from "react"
 import { cookies } from "next/headers"
 import { prisma } from "@/lib/prisma"
 import { type Question } from "@/lib/questions"
@@ -26,6 +27,8 @@ import ShiftSwipeArea from "./ShiftSwipeArea"
 import WeeklyReport from "./WeeklyReport"
 import ExportOptions from "./ExportOptions"
 import DashboardSettings from "./DashboardSettings"
+import AutoRefresh from "./AutoRefresh"
+import { getSupervisors } from "@/lib/supervisorRoster"
 import {
   buildRow,
   latestInspectionPerVehicle,
@@ -237,6 +240,30 @@ export default async function DashboardPage({
       night: weeklyCell(row.history, dateKey, "Night"),
     })),
   }))
+
+  // The coverage chart above the weekly table: per shift, how many of the
+  // vehicles in the fleet THAT day were inspected. The fleet is counted per
+  // day from each vehicle's added date, so a vehicle added mid-week only
+  // counts from its first day. Shifts that haven't started are null, not 0.
+  const [addedRows, supervisors] = await Promise.all([
+    prisma.equipment.findMany({ where: { retiredAt: null }, select: { serial: true, createdAt: true } }),
+    getSupervisors(),
+  ])
+  const addedOn = new Map(addedRows.map((e) => [e.serial, easternDateKey(e.createdAt)]))
+  const currentShiftKey = easternDateKey(currentShift.start)
+  const notStarted = (dateKey: string, shift: "Day" | "Night") =>
+    dateKey > currentShiftKey ||
+    (dateKey === currentShiftKey && shift === "Night" && currentShift.label === "Day")
+  const weeklyCoverage = weekDays.map((dateKey, i) => {
+    const inFleet = weeklyRows.filter((row) => (addedOn.get(row.serial) ?? "") <= dateKey)
+    const inspected = (shift: "day" | "night") =>
+      inFleet.filter((row) => row.cells[i][shift].stage !== "none").length
+    return {
+      fleet: inFleet.length,
+      day: notStarted(dateKey, "Day") ? null : inspected("day"),
+      night: notStarted(dateKey, "Night") ? null : inspected("night"),
+    }
+  })
   // Stepping a week here just moves the same shared date ±7 days, keeping
   // whatever shift (Day/Night) is currently selected and the grouping
   // choice — same params the shift nav's own back-arrow/calendar already
@@ -323,6 +350,7 @@ export default async function DashboardPage({
 
   return (
     <main className="mx-auto max-w-lg px-4 pt-1 pb-8 sm:max-w-2xl lg:max-w-4xl">
+      <AutoRefresh />
       <div className="flex items-center gap-3">
         <HomeLink />
         <h1 className="text-xl font-bold text-gray-900 sm:text-2xl">
@@ -441,6 +469,7 @@ export default async function DashboardPage({
         <WeeklyReport
           weekDays={weekDays}
           rows={weeklyRows}
+          coverage={weeklyCoverage}
           todayKey={todayKey}
           prevWeekHref={prevWeekHref}
           nextWeekHref={nextWeekHref}
@@ -495,7 +524,7 @@ export default async function DashboardPage({
           right. Settings is a quieter utility: no box, pushed to the far
           left (mr-auto) so it reads as a different kind of thing. */}
       <div className="mt-8 flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-gray-100 pt-4">
-        <DashboardSettings triggerClassName="mr-auto inline-flex items-center gap-1.5 text-sm font-medium text-gray-500 transition-colors duration-100 hover:text-brand active:scale-95" />
+        <DashboardSettings supervisors={supervisors} triggerClassName="mr-auto inline-flex items-center gap-1.5 text-sm font-medium text-gray-500 transition-colors duration-100 hover:text-brand active:scale-95" />
         <Link
           href="/dashboard/manage"
           className="shrink-0 rounded-lg border border-brand/30 px-3 py-2 text-sm font-medium text-brand transition-transform duration-100 active:scale-95 active:bg-brand/10"
@@ -684,125 +713,135 @@ function EquipmentCard({
     latest && (stage === "unresolved" || stage === "pending-confirm") && latest.flagged.length > 0
 
   return (
-    // Same bordered-grid look as the vehicle detail page and its checklist
-    // table — one consistent spreadsheet style everywhere a vehicle's info
-    // shows up. A dedicated 4th column carries the two pieces of info that
-    // don't apply to every row (a photo indicator, how-long-open) instead
-    // of floating them as an absolute-positioned overlay on top.
+    // One row per vehicle, edge to edge inside its group — no nested card box,
+    // so the group's full width goes to content. Status is carried by the
+    // tinted header and its dot alone. The name and the type/FL# line never
+    // truncate; when space runs out the location ellipsizes first. The font
+    // scales down with the viewport so the longest fleet values (Mint
+    // Mitsubishi + MI2 Formation, Sit Down · FL# M-MIT-0599) fit at 320px.
     <Link
       href={`/dashboard/equipment/${equipment.serial}`}
-      className={`block overflow-hidden rounded-sm border text-sm transition-colors duration-100 hover:bg-gray-50 ${
-        stage === "unresolved" ? "border-red-300" : "border-gray-300"
-      }`}
+      className="block border-t border-gray-300 text-[clamp(12.5px,3.45vw,13.5px)] leading-snug transition-colors duration-100 first:border-t-0 hover:bg-gray-50"
     >
-      <div className="grid grid-cols-[1.6fr_1fr_1.3fr_4.5rem]">
-        <span className="flex items-center gap-1.5 border-r border-b border-gray-200 px-2 py-1.5 text-base font-bold text-gray-900">
-          <StatusDot stage={stage} size="sm" />
-          {equipment.makeColor}
-        </span>
-        <span className="border-r border-b border-gray-200 px-2 py-1.5 text-gray-700">
-          {equipmentTypeLabel(equipment.type)}
-        </span>
-        <span className="border-r border-b border-gray-200 px-2 py-1.5 text-gray-700">
-          {equipment.flNumber}
-        </span>
-        <span className="flex items-center justify-center border-b border-gray-200 px-1 py-1.5 text-gray-400">
-          {hasPhotos && (
-            <span title="Photo attached (latest inspection)">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 20 20"
-                fill="currentColor"
-                className="h-4 w-4"
-              >
-                <path
-                  fillRule="evenodd"
-                  d="M1 8a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 018.07 3h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0016.07 6H17a2 2 0 012 2v9a2 2 0 01-2 2H3a2 2 0 01-2-2V8zm13.5 3a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0z"
-                  clipRule="evenodd"
-                />
-              </svg>
-            </span>
-          )}
-        </span>
-
-        <span className="border-r border-b border-gray-200 px-2 py-1.5 text-gray-600">
-          Location:{" "}
-          {isUnderRepair(equipment.location) ? (
-            <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800">
-              🛠️ Under Repair
-            </span>
-          ) : (
-            equipment.location
-          )}
-          {/* A pending report never changes what's shown as the location
-              above (that's the whole point — it's not trusted yet), but
-              needs to be discoverable from the fleet grid too, not just to
-              whoever happens to open this specific vehicle's own page. */}
-          {equipment.pendingLocation && (
-            <span
-              title={`${equipment.pendingLocationReportedBy ?? "Someone"} reported this moved from ${equipment.location} to ${equipment.pendingLocation}`}
-              className="ml-1 inline-flex items-center gap-0.5 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800"
-            >
-              ⏳ pending
-            </span>
-          )}
-        </span>
-        <span className="col-span-2 border-r border-b border-gray-200 px-2 py-1.5 text-gray-600">
-          Serial#: {equipment.serial}
-        </span>
-        <span className="border-b border-gray-200 px-1 py-1.5" />
-
-        {latest ? (
-          <>
-            <span className="border-r border-b border-gray-200 px-2 py-1.5 text-gray-600">
-              Inspected:{" "}
-              {latest.inspection.date === today ? (
-                <span className="font-semibold text-gray-900">Today, {todayDisplay}</span>
-              ) : (
-                latest.inspection.date
-              )}
-            </span>
-            <span className="border-r border-b border-gray-200 px-2 py-1.5 text-gray-600">
-              {latest.inspection.shift} Shift
-            </span>
-            <span className="border-r border-b border-gray-200 px-2 py-1.5 whitespace-nowrap text-gray-600">
-              Inspected By: {latest.inspection.firstName} {latest.inspection.lastName}
-            </span>
-          </>
-        ) : (
-          <span className="col-span-3 border-r border-b border-gray-200 px-2 py-1.5 text-gray-500">
-            No inspection yet
+      <div className={`px-2 pt-2.5 pb-2 ${HEADER_TINT[stage]}`}>
+        <div className="flex items-baseline gap-2">
+          <span className={`h-2.5 w-2.5 shrink-0 self-center rounded-full ${DOT_COLOR[stage]}`} />
+          <span className="shrink-0 text-[clamp(15px,4.1vw,16px)] font-bold whitespace-nowrap text-gray-900">
+            {equipment.makeColor}
           </span>
-        )}
-        <span className="border-b border-gray-200 px-1 py-1.5" />
+          {hasPhotos && (
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+              className="h-3.5 w-3.5 shrink-0 self-center text-gray-400"
+              aria-label="Photo attached (latest inspection)"
+            >
+              <path
+                fillRule="evenodd"
+                d="M1 8a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 018.07 3h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0016.07 6H17a2 2 0 012 2v9a2 2 0 01-2 2H3a2 2 0 01-2-2V8zm13.5 3a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0z"
+                clipRule="evenodd"
+              />
+            </svg>
+          )}
+          <span className="ml-auto min-w-0 truncate text-right font-medium text-gray-600">
+            {isUnderRepair(equipment.location) ? (
+              <span className="font-semibold text-amber-700">Under Repair</span>
+            ) : (
+              equipment.location
+            )}
+            {/* A pending report never changes what's shown as the location
+                (it's not trusted yet), but needs to be discoverable from the
+                fleet list too, not just on this vehicle's own page. */}
+            {equipment.pendingLocation && (
+              <span
+                title={`${equipment.pendingLocationReportedBy ?? "Someone"} reported this moved from ${equipment.location} to ${equipment.pendingLocation}`}
+                className="ml-1 text-xs font-semibold text-amber-700"
+              >
+                · pending
+              </span>
+            )}
+          </span>
+        </div>
+        <div className="mt-0.5 ml-[18px] flex items-baseline justify-between gap-3">
+          <span className="shrink-0 whitespace-nowrap text-gray-600">
+            {equipmentTypeLabel(equipment.type)} · FL# {equipment.flNumber}
+          </span>
+          {/* Age of the OLDEST still-open issue anywhere in this vehicle's
+              history (see findOpenIssue), not of the latest inspection —
+              so it shows whether or not latest.flagged has anything in it. */}
+          {since && (
+            <span className="shrink-0 animate-[status-blink_3s_ease-in-out_infinite] text-xs font-semibold whitespace-nowrap text-red-700">
+              Open {daysPassed}d
+            </span>
+          )}
+        </div>
+      </div>
 
-        {(hasIssueRow || since) && (
-          <>
-            {/* "Days passed" tracks the OLDEST still-open issue anywhere in
-                this vehicle's history (see findOpenIssue), not just
-                whether the latest inspection itself was flagged — so this
-                row, and the counter in it, must render independently of
-                whether latest.flagged has anything in it. */}
-            <span className="col-span-3 border-r border-gray-200 px-2 py-1.5">
-              {hasIssueRow && (
-                <IssueLine
-                  flagged={latest.flagged}
-                  review={latest.review}
-                  criticalIds={new Set(latest.critical.map((q) => q.id))}
-                />
-              )}
-            </span>
-            <span className="flex items-center justify-center px-1 py-1.5 text-center text-xs font-semibold leading-tight text-red-600">
-              {since && (
-                <span className="animate-[status-blink_3s_ease-in-out_infinite]">
-                  {daysPassed} day{daysPassed === 1 ? "" : "s"} passed
-                </span>
-              )}
-            </span>
-          </>
+      <div className="px-2">
+        <CardRow label="Inspected" last={!latest && !hasIssueRow}>
+          {!latest ? (
+            <span className="text-gray-400">Not yet</span>
+          ) : latest.inspection.date === today ? (
+            `Today, ${todayDisplay} · ${latest.inspection.shift}`
+          ) : (
+            `${latest.inspection.date} · ${latest.inspection.shift}`
+          )}
+        </CardRow>
+        {latest && (
+          <CardRow label="Inspected by" last={!hasIssueRow}>
+            {latest.inspection.firstName} {latest.inspection.lastName}
+          </CardRow>
+        )}
+        {hasIssueRow && (
+          <div className="py-2">
+            <IssueLine
+              flagged={latest.flagged}
+              review={latest.review}
+              criticalIds={new Set(latest.critical.map((q) => q.id))}
+            />
+          </div>
         )}
       </div>
     </Link>
+  )
+}
+
+const HEADER_TINT: Record<Stage | "none", string> = {
+  unresolved: "bg-red-50",
+  "pending-confirm": "bg-amber-50",
+  confirmed: "bg-green-50",
+  clean: "bg-green-50",
+  none: "bg-gray-50",
+}
+
+const DOT_COLOR: Record<Stage | "none", string> = {
+  unresolved: "bg-red-500",
+  "pending-confirm": "bg-yellow-400",
+  confirmed: "bg-green-500",
+  clean: "bg-green-500",
+  none: "bg-gray-400",
+}
+
+function CardRow({
+  label,
+  last = false,
+  children,
+}: {
+  label: string
+  // Final row with nothing under it: no divider.
+  last?: boolean
+  children: ReactNode
+}) {
+  return (
+    <div
+      className={`flex items-baseline justify-between gap-3 py-1.5 ${
+        last ? "" : "border-b border-gray-100"
+      }`}
+    >
+      <span className="shrink-0 text-gray-500">{label}</span>
+      <span className="min-w-0 truncate text-right font-medium text-gray-900">{children}</span>
+    </div>
   )
 }
 
@@ -867,7 +906,7 @@ function IssueLine({
   const shown = flagged.slice(0, ISSUE_PREVIEW_COUNT)
   const remaining = flagged.length - shown.length
   return (
-    <div className="mt-1 flex flex-wrap items-center gap-x-1 text-xs font-medium">
+    <div className="flex flex-wrap items-center gap-x-1 text-xs font-medium">
       {shown.map((q, i) => {
         const resolved = review.issueStatus[q.id] === "complete"
         const isRed = criticalIds.has(q.id) && !resolved

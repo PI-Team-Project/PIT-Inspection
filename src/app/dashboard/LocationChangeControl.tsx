@@ -9,10 +9,12 @@ import { updateEquipmentLocation } from "./actions"
 export default function LocationChangeControl({
   serial,
   currentLocation,
+  supervisors,
   savedManagerName,
 }: {
   serial: string
   currentLocation: string
+  supervisors: string[]
   savedManagerName: string
 }) {
   const [open, setOpen] = useState(false)
@@ -96,6 +98,7 @@ export default function LocationChangeControl({
           </div>
           <SupervisorNameField
             name="managerName"
+            supervisors={supervisors}
             savedManagerName={savedManagerName}
             label="Supervisor Name"
             labelClassName="mb-1 block text-xs font-semibold text-gray-500"

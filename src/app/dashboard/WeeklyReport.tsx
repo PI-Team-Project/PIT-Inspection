@@ -166,9 +166,12 @@ function groupRows(
   })).filter((g) => g.rows.length > 0)
 }
 
+export type ShiftCoverage = { fleet: number; day: number | null; night: number | null }
+
 export default function WeeklyReport({
   weekDays,
   rows,
+  coverage,
   todayKey,
   prevWeekHref,
   nextWeekHref,
@@ -178,6 +181,8 @@ export default function WeeklyReport({
 }: {
   weekDays: string[]
   rows: WeeklyRow[]
+  // One per weekDay — see weeklyCoverage on the dashboard page.
+  coverage: ShiftCoverage[]
   todayKey: string
   prevWeekHref: string
   nextWeekHref: string | null
@@ -253,7 +258,18 @@ export default function WeeklyReport({
             </span>
           )}
         </div>
-        <div className="mt-1.5 flex flex-wrap items-center justify-between gap-2">
+        <CoverageChart
+          weekDays={weekDays}
+          dayLabels={dayLabels}
+          coverage={coverage}
+          todayKey={todayKey}
+          selectedDay={selectedDay}
+          onSelectDay={(dateKey) => setSelectedDay((prev) => (prev === dateKey ? null : dateKey))}
+          highlightClass={HIGHLIGHT}
+        />
+        {/* The divider groups the toggle and legend with the table below
+            them rather than with the chart above. */}
+        <div className="-mx-3 mt-5 flex flex-wrap items-center justify-between gap-2 border-t border-gray-200 px-3 pt-2.5">
           <div className="flex items-center gap-1 rounded-md border border-gray-200 bg-gray-50 p-0.5 text-[10px] font-medium">
             <Link
               href={locationHref}
@@ -466,6 +482,95 @@ export default function WeeklyReport({
           </tbody>
         </table>
       </div>
+    </div>
+  )
+}
+
+// Per shift: inspected vehicles against the fleet that day. Every bar is the
+// same height — the whole bar is the fleet, the filled part is inspected —
+// so an empty shift reads as empty at a glance. On wider screens the columns
+// sit directly above their day in the table (same 14rem of Loc + FL# on the
+// left); on a phone the seven days take the full width.
+function CoverageChart({
+  weekDays,
+  dayLabels,
+  coverage,
+  todayKey,
+  selectedDay,
+  onSelectDay,
+  highlightClass,
+}: {
+  weekDays: string[]
+  dayLabels: string[]
+  coverage: ShiftCoverage[]
+  todayKey: string
+  selectedDay: string | null
+  onSelectDay: (dateKey: string) => void
+  highlightClass: string
+}) {
+  return (
+    <div className="mt-5 grid grid-cols-7 gap-x-1 sm:-mx-3 sm:grid-cols-[14rem_repeat(7,minmax(0,1fr))] sm:gap-x-0">
+      <div className="hidden flex-col justify-center px-3 text-xs text-gray-500 sm:flex">
+        <span className="font-semibold text-gray-700">Inspected per shift</span>
+        <span>Bar = vehicles in the fleet that day</span>
+      </div>
+      {weekDays.map((dateKey, i) => {
+        const c = coverage[i]
+        const fleetChanged = i > 0 && c.fleet !== coverage[i - 1].fleet
+        return (
+          <button
+            key={dateKey}
+            type="button"
+            onClick={() => onSelectDay(dateKey)}
+            aria-label={`${dayLabels[i]}: Day ${c.day ?? "not started"}, Night ${c.night ?? "not started"} of ${c.fleet}`}
+            className={`flex min-w-0 flex-col gap-0.5 pt-0.5 pb-1 sm:px-1 ${
+              dateKey === todayKey ? "bg-brand/10" : ""
+            } ${selectedDay === dateKey ? highlightClass : ""}`}
+          >
+            <span
+              className={`text-center text-[10px] font-semibold sm:text-xs ${
+                dateKey === todayKey ? "text-brand" : "text-gray-600"
+              }`}
+            >
+              {dayLabels[i]}
+            </span>
+            <span className="grid grid-cols-2 gap-px border border-gray-300 bg-gray-300">
+              {(
+                [
+                  ["D", c.day],
+                  ["N", c.night],
+                ] as const
+              ).map(([label, count]) => (
+                <span key={label} className="relative h-[72px] bg-gray-100">
+                  {count !== null && c.fleet > 0 && (
+                    <span
+                      className="absolute inset-x-0 bottom-0 bg-gray-400"
+                      style={{ height: `${Math.min(100, (count / c.fleet) * 100)}%` }}
+                    />
+                  )}
+                  <span className="absolute inset-0 flex flex-col items-center justify-center leading-tight">
+                    <span className="text-[9px] text-gray-700">{label}</span>
+                    <span
+                      className={`text-xs font-bold tabular-nums ${
+                        count ? "text-gray-900" : "text-gray-400"
+                      }`}
+                    >
+                      {count ?? "–"}
+                    </span>
+                  </span>
+                </span>
+              ))}
+            </span>
+            <span
+              className={`text-center text-[10px] tabular-nums ${
+                fleetChanged ? "font-semibold text-gray-900" : "text-gray-500"
+              }`}
+            >
+              / {c.fleet}
+            </span>
+          </button>
+        )
+      })}
     </div>
   )
 }

@@ -52,7 +52,7 @@ function TypeGroup({
       open={isOpen}
       onToggle={(e) => onToggle(e.currentTarget.open)}
     >
-      <summary className="flex cursor-pointer items-center justify-between px-3 py-2.5 text-sm font-semibold uppercase tracking-wide text-brand transition-colors duration-100 hover:bg-gray-50 active:bg-gray-100">
+      <summary className="flex cursor-pointer items-center justify-between px-2 py-2.5 text-sm font-semibold uppercase tracking-wide text-brand transition-colors duration-100 hover:bg-gray-50 active:bg-gray-100">
         <span>
           {title} ({rows.length})
         </span>
@@ -69,7 +69,7 @@ function TypeGroup({
           />
         </svg>
       </summary>
-      <div className="space-y-3 border-t border-gray-100 p-3 lg:hidden">
+      <div className="border-t border-gray-300 lg:hidden">
         {rows.map((c) => c.node)}
       </div>
       <div className="hidden border-t border-gray-100 lg:block">
@@ -307,7 +307,7 @@ export default function EquipmentBrowser({ cards }: { cards: Card[] }) {
         )}
 
         {orderedLocationGroups.length > 0 && (
-          <div className="mt-3 divide-y divide-gray-100 overflow-hidden rounded-lg border border-gray-200">
+          <div className="-mx-1 mt-3 divide-y divide-gray-100 overflow-hidden rounded-lg border border-gray-200">
             {orderedLocationGroups.map((g) => (
               <TypeGroup
                 key={g.location}
@@ -333,7 +333,7 @@ export default function EquipmentBrowser({ cards }: { cards: Card[] }) {
   const forkliftBlock = FORKLIFT_TYPES.some((type) => byType(typedCards, type).length > 0) && (
     <div key="forklift">
       <h2 className="mt-4 text-sm font-bold tracking-wide text-brand uppercase">Forklift</h2>
-      <div className="mt-3 divide-y divide-gray-100 overflow-hidden rounded-lg border border-gray-200">
+      <div className="-mx-1 mt-3 divide-y divide-gray-100 overflow-hidden rounded-lg border border-gray-200">
         {orderedForkliftTypes.map((type) => (
           <TypeGroup
             key={type}
@@ -350,7 +350,7 @@ export default function EquipmentBrowser({ cards }: { cards: Card[] }) {
   const palletBlock = palletCards.length > 0 && (
     <div key="pallet">
       <h2 className="mt-4 text-sm font-bold tracking-wide text-brand uppercase">Pallet Jacks</h2>
-      <div className="mt-3 overflow-hidden rounded-lg border border-gray-200">
+      <div className="-mx-1 mt-3 overflow-hidden rounded-lg border border-gray-200">
         <TypeGroup
           title="Pallet Jacks"
           rows={palletCards}

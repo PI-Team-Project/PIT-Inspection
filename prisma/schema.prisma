@@ -132,3 +132,13 @@ model AppConfig {
   dashboardPinHash String?
   updatedAt        DateTime @updatedAt
 }
+
+// The names offered in every Supervisor Signature picker, managed from the
+// dashboard's Settings. A name typed under "+ Add supervisor" joins this
+// list when it is first used to sign, so the next signature is one tap.
+// Removing a name only drops it from the picker — signatures already on
+// inspections are records and keep whatever name was signed.
+model Supervisor {
+  name      String   @id
+  createdAt DateTime @default(now())
+}

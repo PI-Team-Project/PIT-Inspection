@@ -14,12 +14,14 @@ import { ACTIVE_COLS, HIDE_ON_MOBILE, SortableHeader, type SortField } from "./t
 
 export default function ActiveVehiclesTable({
   active,
+  supervisors,
   savedManagerName,
   sort,
   dir,
   todayKey,
 }: {
   active: EquipmentRecord[]
+  supervisors: string[]
   savedManagerName: string
   sort: SortField
   dir: "asc" | "desc"
@@ -81,6 +83,7 @@ export default function ActiveVehiclesTable({
           </button>
         </div>
         <AddVehicleForm
+          supervisors={supervisors}
           savedManagerName={savedManagerName}
           duplicateSeed={duplicateSeed}
           todayKey={todayKey}

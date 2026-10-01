@@ -11,6 +11,10 @@ export type ActivityEntry =
       status: IssueStatusValue
       authorName: string
       timestamp: string
+      // Set when this was closed by marking the same issue Fixed on a LATER
+      // inspection of the same vehicle (see cascadeIssueComplete), rather
+      // than on this inspection's own review page.
+      appliedFrom?: { inspectionId: string; date: string; shift: string }
     }
   | { id: string; type: "viewed"; authorName: string; timestamp: string }
   | { id: string; type: "confirmed"; authorName: string; timestamp: string }
@@ -127,4 +131,62 @@ export function getStage(
   // confirming without finishing every item is exactly the bug this guards.
   if (!allFlaggedComplete) return "pending-confirm"
   return confirmedResolved ? "confirmed" : "pending-confirm"
+}
+
+// Marking an issue Fixed on one inspection also closes the SAME issue (same
+// question id) wherever it is still open on that vehicle's earlier
+// inspections. A vehicle that stayed usable can pile up dozens of yellow
+// repeats of one problem; one fix is one fix, not thirty separate sign-offs.
+//
+// Repair Requests are excluded: every one shares the single synthetic issue
+// id, but each describes its own problem in free text, so two of them are
+// never known to be "the same issue".
+//
+// Returns the earlier inspection's updated review, or null when nothing on
+// it changes. Only ever closes — reopening an issue on the later inspection
+// never reopens earlier ones.
+export function cascadeIssueComplete(
+  earlier: { type: string; answers: Record<string, { value: string }>; review: Review },
+  completedIds: string[],
+  by: {
+    authorName: string
+    timestamp: string
+    appliedFrom: { inspectionId: string; date: string; shift: string }
+  }
+): Review | null {
+  const flagged = flaggedIssueIds(earlier, earlier.answers)
+  const toClose = completedIds.filter(
+    (id) =>
+      id !== REPAIR_REQUEST_ISSUE_ID &&
+      flagged.includes(id) &&
+      earlier.review.issueStatus[id] !== "complete"
+  )
+  if (toClose.length === 0) return null
+
+  const issueStatus = { ...earlier.review.issueStatus }
+  const activity: ActivityEntry[] = [...earlier.review.activity]
+  for (const id of toClose) {
+    issueStatus[id] = "complete"
+    activity.push({
+      id: crypto.randomUUID(),
+      type: "issue",
+      questionId: id,
+      status: "complete",
+      authorName: by.authorName,
+      timestamp: by.timestamp,
+      appliedFrom: by.appliedFrom,
+    })
+  }
+
+  // Same rule as saveActivity: every flagged item complete = all-clear.
+  const confirmedResolved = flagged.every((id) => issueStatus[id] === "complete")
+  if (confirmedResolved && !earlier.review.confirmedResolved) {
+    activity.push({
+      id: crypto.randomUUID(),
+      type: "confirmed",
+      authorName: by.authorName,
+      timestamp: by.timestamp,
+    })
+  }
+  return { issueStatus, activity, confirmedResolved }
 }
