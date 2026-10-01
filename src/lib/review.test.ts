@@ -6,8 +6,11 @@ import {
   isCriticalFlag,
   criticalFlaggedIds,
   flaggedIssueIds,
+  cascadeIssueComplete,
   EMPTY_REVIEW,
+  type Review,
 } from "./review"
+import { QUESTIONS, REPAIR_REQUEST_ISSUE_ID } from "./questions"
 
 describe("getStage", () => {
   it("is clean when nothing was flagged", () => {
@@ -98,5 +101,50 @@ describe("critical flag escalation", () => {
       liftLowering: { value: "Working condition" },
     }
     expect(flaggedIssueIds({ type: "Daily" }, answers)).toEqual(["tires"])
+  })
+})
+
+describe("cascadeIssueComplete", () => {
+  // Every checklist question answered Good except the ids given.
+  const answersWithBad = (...bad: string[]) =>
+    Object.fromEntries(QUESTIONS.map((q) => [q.id, { value: bad.includes(q.id) ? "Bad" : "Good" }]))
+  const by = {
+    authorName: "Sup",
+    timestamp: "2026-10-01T12:00:00.000Z",
+    appliedFrom: { inspectionId: "latest", date: "2026-10-01", shift: "Day" },
+  }
+  const daily = (review: Review, ...bad: string[]) => ({
+    type: "Daily",
+    answers: answersWithBad(...bad),
+    review,
+  })
+
+  it("closes the same issue on an earlier inspection and confirms it when nothing else is open", () => {
+    const next = cascadeIssueComplete(daily(EMPTY_REVIEW, "tires"), ["tires"], by)
+    expect(next?.issueStatus.tires).toBe("complete")
+    expect(next?.confirmedResolved).toBe(true)
+    expect(next?.activity.map((a) => a.type)).toEqual(["issue", "confirmed"])
+    expect(next?.activity[0]).toMatchObject({ appliedFrom: by.appliedFrom })
+  })
+
+  it("leaves a different still-open issue open, so the earlier inspection stays unconfirmed", () => {
+    const next = cascadeIssueComplete(daily(EMPTY_REVIEW, "tires", "batteryPlug"), ["tires"], by)
+    expect(next?.issueStatus.tires).toBe("complete")
+    expect(next?.issueStatus.batteryPlug).toBeUndefined()
+    expect(next?.confirmedResolved).toBe(false)
+  })
+
+  it("changes nothing when the earlier inspection never flagged that issue", () => {
+    expect(cascadeIssueComplete(daily(EMPTY_REVIEW, "batteryPlug"), ["tires"], by)).toBeNull()
+  })
+
+  it("changes nothing when the issue is already complete there", () => {
+    const done: Review = { ...EMPTY_REVIEW, issueStatus: { tires: "complete" } }
+    expect(cascadeIssueComplete(daily(done, "tires", "batteryPlug"), ["tires"], by)).toBeNull()
+  })
+
+  it("never cascades between Repair Requests, which share one id but not one problem", () => {
+    const repair = { type: "Repair Request", answers: {}, review: EMPTY_REVIEW }
+    expect(cascadeIssueComplete(repair, [REPAIR_REQUEST_ISSUE_ID], by)).toBeNull()
   })
 })

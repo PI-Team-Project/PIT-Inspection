@@ -19,6 +19,7 @@ import { LOCATIONS } from "@/lib/equipment"
 import {
   parseReview,
   flaggedIssueIds,
+  cascadeIssueComplete,
   type ActivityEntry,
   type IssueStatusValue,
 } from "@/lib/review"
@@ -176,20 +177,64 @@ export async function saveActivity(formData: FormData) {
   }
 
   const review_ = { issueStatus, activity, confirmedResolved }
-  await prisma.inspection.update({
-    where: { id: inspectionId },
-    data: {
-      review: review_,
-      // The only write in the app that can close an issue, so the only one
-      // that has to recompute this. Derived from the review being written,
-      // through the same getStage the dashboard renders from.
-      maybeOpen: computeMaybeOpen({
-        type: inspection.type,
-        answers: inspection.answers,
-        review: review_,
-      }),
-    },
+
+  // Every issue Fixed on this inspection also closes the same issue on this
+  // vehicle's earlier, still-open inspections (see cascadeIssueComplete).
+  // maybeOpen: false rows have nothing open, so only the rest are read.
+  const completedIds = flaggedIds.filter((id) => issueStatus[id] === "complete")
+  const earlierOpen = completedIds.length
+    ? await prisma.inspection.findMany({
+        where: {
+          equipmentSerial: inspection.equipmentSerial,
+          maybeOpen: true,
+          createdAt: { lt: inspection.createdAt },
+          id: { not: inspection.id },
+        },
+      })
+    : []
+  const cascaded = earlierOpen.flatMap((earlier) => {
+    const next = cascadeIssueComplete(
+      {
+        type: earlier.type,
+        answers: earlier.answers as Record<string, { value: string }>,
+        review: parseReview(earlier.review),
+      },
+      completedIds,
+      {
+        authorName,
+        timestamp,
+        appliedFrom: { inspectionId, date: inspection.date, shift: inspection.shift },
+      }
+    )
+    return next ? [{ earlier, review: next }] : []
   })
+
+  // One transaction: the fix and everything it closes land together or not
+  // at all. These are the only writes in the app that can close an issue,
+  // so the only ones that have to recompute maybeOpen — derived from the
+  // review being written, through the same getStage the dashboard uses.
+  await prisma.$transaction([
+    prisma.inspection.update({
+      where: { id: inspectionId },
+      data: {
+        review: review_,
+        maybeOpen: computeMaybeOpen({
+          type: inspection.type,
+          answers: inspection.answers,
+          review: review_,
+        }),
+      },
+    }),
+    ...cascaded.map(({ earlier, review }) =>
+      prisma.inspection.update({
+        where: { id: earlier.id },
+        data: {
+          review,
+          maybeOpen: computeMaybeOpen({ type: earlier.type, answers: earlier.answers, review }),
+        },
+      })
+    ),
+  ])
 
   revalidatePath("/dashboard")
   revalidatePath("/dashboard/equipment/[serial]", "page")

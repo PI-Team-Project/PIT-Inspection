@@ -477,6 +477,7 @@ export default async function EquipmentDetailPage({
             <InspectionReviewForm
               key={row.inspection.id}
               row={row}
+              earlierOpen={earlierOpenCounts(allHistory, row)}
               savedManagerName={savedManagerName}
               todayDisplay={todayDisplay}
             />
@@ -521,12 +522,31 @@ export default async function EquipmentDetailPage({
   )
 }
 
+// Per flagged issue on `row`: how many of this vehicle's EARLIER inspections
+// still have that same issue open — the ones marking it Fixed here will also
+// close (see cascadeIssueComplete). Repair Requests never cascade, so they
+// never count.
+function earlierOpenCounts(history: InspectionRow[], row: InspectionRow): Record<string, number> {
+  const counts: Record<string, number> = {}
+  for (const other of history) {
+    if (other.inspection.createdAt >= row.inspection.createdAt) continue
+    for (const q of other.flagged) {
+      if (q.id === REPAIR_REQUEST_ISSUE_ID) continue
+      if (other.review.issueStatus[q.id] === "complete") continue
+      counts[q.id] = (counts[q.id] ?? 0) + 1
+    }
+  }
+  return counts
+}
+
 function InspectionReviewForm({
   row,
+  earlierOpen,
   savedManagerName,
   todayDisplay,
 }: {
   row: InspectionRow
+  earlierOpen: Record<string, number>
   savedManagerName: string
   todayDisplay: string
 }) {
@@ -728,7 +748,7 @@ function InspectionReviewForm({
                                 ? "Marked fixed — click to reopen"
                                 : "Click to mark fixed"
                             }
-                            className="flex h-full w-full cursor-pointer items-center justify-center rounded px-1 py-1 text-center transition-colors duration-100 active:scale-95"
+                            className="flex h-full w-full cursor-pointer flex-col items-center justify-center rounded px-1 py-1 text-center transition-colors duration-100 active:scale-95"
                           >
                             <input
                               type="checkbox"
@@ -740,6 +760,14 @@ function InspectionReviewForm({
                             <span className="animate-pulse text-[10px] font-bold tracking-wide text-amber-600 uppercase peer-checked:hidden">
                               Tap to Fix
                             </span>
+                            {(earlierOpen[q.id] ?? 0) > 0 && (
+                              <span
+                                title={`Also closes this issue on ${earlierOpen[q.id]} earlier inspection${earlierOpen[q.id] === 1 ? "" : "s"}`}
+                                className="text-[10px] font-semibold text-gray-500 peer-checked:hidden"
+                              >
+                                +{earlierOpen[q.id]} earlier
+                              </span>
+                            )}
                             <span className="hidden text-[10px] font-bold tracking-wide text-green-700 uppercase peer-checked:inline">
                               Fixed
                             </span>
@@ -956,7 +984,14 @@ function ActivityLine({ entry }: { entry: ActivityEntry }) {
         <span className={entry.status === "complete" ? "text-brand" : "text-amber-700"}>
           {q?.label ?? entry.questionId} marked {label}
         </span>{" "}
-        by <span className="font-medium text-gray-800">{entry.authorName}</span> — {when}
+        by <span className="font-medium text-gray-800">{entry.authorName}</span>
+        {entry.appliedFrom && (
+          <>
+            {" "}
+            via the {entry.appliedFrom.date} {entry.appliedFrom.shift} inspection
+          </>
+        )}{" "}
+        — {when}
       </>
     )
   }
