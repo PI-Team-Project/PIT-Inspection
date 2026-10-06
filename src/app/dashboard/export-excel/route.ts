@@ -1,12 +1,10 @@
 import { NextRequest, NextResponse } from "next/server"
-import { cookies } from "next/headers"
-import { DASHBOARD_COOKIE, dashboardSessionValue } from "@/lib/auth"
+import { hasDashboardSession } from "@/lib/auth"
 import { buildInspectionsExcel } from "@/lib/inspectionsExcel"
 import { fetchInspectionsForExport, type ExportRange, type ExportScope } from "@/lib/exportFilter"
 
 export async function GET(request: NextRequest) {
-  const cookieStore = await cookies()
-  const authed = cookieStore.get(DASHBOARD_COOKIE)?.value === dashboardSessionValue()
+  const authed = (await hasDashboardSession())
   if (!authed) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }

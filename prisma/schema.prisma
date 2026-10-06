@@ -130,7 +130,20 @@ model Equipment {
 model AppConfig {
   id               String   @id @default("singleton")
   dashboardPinHash String?
+  // Random 256-bit key that signs dashboard session cookies (see
+  // src/lib/session.ts). Created on first use; replaced whenever the PIN
+  // changes, which signs every existing session out.
+  sessionSecret    String?
   updatedAt        DateTime @updatedAt
+}
+
+// Failed dashboard PIN attempts, counted on the server so clearing cookies
+// does not reset them. One row per client (hashed IP) plus one "global" row.
+model LoginThrottle {
+  key         String    @id
+  failures    Int       @default(0)
+  windowStart DateTime  @default(now())
+  lockedUntil DateTime?
 }
 
 // The names offered in every Supervisor Signature picker, managed from the

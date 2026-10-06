@@ -3,7 +3,7 @@ import { cookies } from "next/headers"
 import { redirect } from "next/navigation"
 import { equipmentTypeLabel } from "@/lib/equipment"
 import { getAllEquipmentIncludingRetired, RETENTION_DAYS } from "@/lib/equipmentLocations"
-import { DASHBOARD_COOKIE, MANAGER_NAME_COOKIE, dashboardSessionValue } from "@/lib/auth"
+import { MANAGER_NAME_COOKIE, hasDashboardSession } from "@/lib/auth"
 import { easternDateKey } from "@/lib/shifts"
 import { restoreVehicle } from "./actions"
 import ActiveVehiclesTable from "./ActiveVehiclesTable"
@@ -18,7 +18,7 @@ export default async function ManageVehiclesPage({
   searchParams: Promise<{ sort?: string; dir?: string }>
 }) {
   const cookieStore = await cookies()
-  const authed = cookieStore.get(DASHBOARD_COOKIE)?.value === dashboardSessionValue()
+  const authed = (await hasDashboardSession())
   if (!authed) redirect("/dashboard")
 
   const params = await searchParams

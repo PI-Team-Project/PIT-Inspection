@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server"
-import { cookies } from "next/headers"
-import { DASHBOARD_COOKIE, dashboardSessionValue } from "@/lib/auth"
+import { hasDashboardSession } from "@/lib/auth"
 import { PHOTO_BUCKET, isPhotoStorageConfigured, uploadPhoto, signedPhotoUrls, deletePhotoObjects } from "@/lib/photoStorage"
 
 // Answers one question that is otherwise unanswerable from outside: does the
@@ -16,8 +15,7 @@ import { PHOTO_BUCKET, isPhotoStorageConfigured, uploadPhoto, signedPhotoUrls, d
 // one. Behind the dashboard session, because even the shape of a
 // misconfiguration is not worth publishing.
 export async function GET() {
-  const cookieStore = await cookies()
-  if (cookieStore.get(DASHBOARD_COOKIE)?.value !== dashboardSessionValue()) {
+  if (!(await hasDashboardSession())) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 

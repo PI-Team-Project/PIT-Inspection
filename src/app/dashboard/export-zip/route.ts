@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
-import { cookies } from "next/headers"
 import { ZipArchive } from "archiver"
-import { DASHBOARD_COOKIE, dashboardSessionValue } from "@/lib/auth"
+import { hasDashboardSession } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { buildInspectionsExcel } from "@/lib/inspectionsExcel"
 import { fetchInspectionsForExport, type ExportRange, type ExportScope } from "@/lib/exportFilter"
@@ -28,8 +27,7 @@ import { photoBytes } from "@/lib/photoStorage"
 const MAX_PHOTOS_PER_EXPORT = 600
 
 export async function GET(request: NextRequest) {
-  const cookieStore = await cookies()
-  if (cookieStore.get(DASHBOARD_COOKIE)?.value !== dashboardSessionValue()) {
+  if (!(await hasDashboardSession())) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 

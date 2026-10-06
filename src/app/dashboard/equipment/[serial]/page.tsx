@@ -19,7 +19,7 @@ import {
 } from "@/lib/equipmentLocations"
 import { isCriticalInspection, isCriticalFlag, type ActivityEntry, type Stage } from "@/lib/review"
 import { FLEET_TIME_ZONE, easternDateKey } from "@/lib/shifts"
-import { DASHBOARD_COOKIE, MANAGER_NAME_COOKIE, dashboardSessionValue } from "@/lib/auth"
+import { MANAGER_NAME_COOKIE, hasDashboardSession } from "@/lib/auth"
 import {
   buildRow,
   badSince,
@@ -124,7 +124,7 @@ export default async function EquipmentDetailPage({
   searchParams: Promise<{ date?: string; shift?: string; view?: string }>
 }) {
   const cookieStore = await cookies()
-  const authed = cookieStore.get(DASHBOARD_COOKIE)?.value === dashboardSessionValue()
+  const authed = (await hasDashboardSession())
   if (!authed) {
     redirect("/dashboard")
   }

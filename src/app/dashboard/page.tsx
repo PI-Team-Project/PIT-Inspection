@@ -1,6 +1,5 @@
 import Link from "next/link"
 import type { ReactNode } from "react"
-import { cookies } from "next/headers"
 import { prisma } from "@/lib/prisma"
 import { type Question } from "@/lib/questions"
 import { equipmentTypeLabel, isUnderRepair, type Equipment } from "@/lib/equipment"
@@ -16,7 +15,7 @@ import {
   easternDateKey,
   FLEET_TIME_ZONE,
 } from "@/lib/shifts"
-import { DASHBOARD_COOKIE, dashboardSessionValue } from "@/lib/auth"
+import { hasDashboardSession } from "@/lib/auth"
 import PinForm from "./PinForm"
 import HomeLink from "./HomeLink"
 import StatusDot from "./StatusDot"
@@ -67,8 +66,7 @@ export default async function DashboardPage({
   }>
 }) {
   const params = await searchParams
-  const cookieStore = await cookies()
-  const authed = cookieStore.get(DASHBOARD_COOKIE)?.value === dashboardSessionValue()
+  const authed = (await hasDashboardSession())
 
   if (!authed) {
     return (
