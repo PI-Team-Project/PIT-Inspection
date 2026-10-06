@@ -1,17 +1,16 @@
 "use server"
 
-import { cookies } from "next/headers"
+import { cookies, headers } from "next/headers"
 import { redirect } from "next/navigation"
 import { revalidatePath } from "next/cache"
 import {
   DASHBOARD_COOKIE,
   MANAGER_NAME_COOKIE,
-  PIN_ATTEMPTS_COOKIE,
-  dashboardSessionValue,
-  getPinLockout,
-  recordFailedPinAttempt,
+  newDashboardSessionToken,
   requireDashboardSession,
 } from "@/lib/auth"
+import { SESSION_TTL_MS } from "@/lib/session"
+import { clearLoginFailures, clientKey, loginLockedMinutes, recordLoginFailure } from "@/lib/loginThrottle"
 import { verifyPin, setDashboardPin } from "@/lib/dashboardPin"
 import { prisma } from "@/lib/prisma"
 import { computeMaybeOpen } from "@/app/dashboard/inspectionRow"
@@ -28,48 +27,41 @@ import {
 
 export async function unlockDashboard(formData: FormData) {
   const pin = String(formData.get("pin") ?? "")
-  const cookieStore = await cookies()
+  const headerStore = await headers()
+  // Vercel sets x-real-ip / x-forwarded-for from the actual connection.
+  const ip =
+    headerStore.get("x-real-ip") ?? headerStore.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown"
+  const throttleKey = clientKey(ip)
 
-  const existingLockout = getPinLockout(cookieStore.get(PIN_ATTEMPTS_COOKIE)?.value)
-  if (existingLockout) {
-    const minutes = Math.ceil((existingLockout.lockedUntil - Date.now()) / 60000)
-    redirect(`/dashboard?error=locked&minutes=${minutes}`)
-  }
+  const lockedMinutes = await loginLockedMinutes(throttleKey)
+  if (lockedMinutes !== null) redirect(`/dashboard?error=locked&minutes=${lockedMinutes}`)
 
   if (!(await verifyPin(pin))) {
-    const { cookieValue, lockedUntil } = recordFailedPinAttempt(
-      cookieStore.get(PIN_ATTEMPTS_COOKIE)?.value
-    )
-    cookieStore.set(PIN_ATTEMPTS_COOKIE, cookieValue, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      maxAge: 60 * 60,
-    })
-    if (lockedUntil) {
-      const minutes = Math.ceil((lockedUntil - Date.now()) / 60000)
-      redirect(`/dashboard?error=locked&minutes=${minutes}`)
-    }
-    redirect("/dashboard?error=1")
+    await recordLoginFailure(throttleKey)
+    const nowLocked = await loginLockedMinutes(throttleKey)
+    redirect(nowLocked !== null ? `/dashboard?error=locked&minutes=${nowLocked}` : "/dashboard?error=1")
   }
 
-  cookieStore.delete(PIN_ATTEMPTS_COOKIE)
-  cookieStore.set(DASHBOARD_COOKIE, dashboardSessionValue(), {
+  await clearLoginFailures(throttleKey)
+  await setSessionCookie()
+  redirect("/dashboard")
+}
+
+async function setSessionCookie() {
+  const cookieStore = await cookies()
+  cookieStore.set(DASHBOARD_COOKIE, await newDashboardSessionToken(), {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
-    maxAge: 60 * 60 * 8,
+    maxAge: SESSION_TTL_MS / 1000,
   })
-
-  redirect("/dashboard")
 }
 
 export type ChangePinState = { error: string | null; ok: boolean }
 
 // Change the manager PIN from the dashboard. Verifies the current PIN, then
-// stores the new one (hashed) in the database. The session cookie is derived
-// from the DASHBOARD_PIN env var, not this stored value, so the manager doing
-// the change stays logged in — only future logins use the new PIN.
+// stores the new one (scrypt) and a new session secret, which signs every
+// other session out. The manager making the change gets a fresh cookie.
 export async function changeDashboardPin(
   _prevState: ChangePinState,
   formData: FormData
@@ -98,6 +90,9 @@ export async function changeDashboardPin(
   } catch {
     return { error: "Could not save the new PIN. Please try again.", ok: false }
   }
+  // The PIN change replaced the session secret, signing everyone out;
+  // keep the manager who made the change signed in.
+  await setSessionCookie()
   return { error: null, ok: true }
 }
 

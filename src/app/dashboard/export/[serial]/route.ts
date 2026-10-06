@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
-import { cookies } from "next/headers"
 import { prisma } from "@/lib/prisma"
-import { DASHBOARD_COOKIE, dashboardSessionValue } from "@/lib/auth"
+import { hasDashboardSession } from "@/lib/auth"
 import { buildInspectionsCsv } from "@/lib/inspectionsCsv"
 import { getEquipmentBySerial } from "@/lib/equipmentLocations"
 import { easternDateKey, exportRangeStart } from "@/lib/shifts"
@@ -14,8 +13,7 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ serial: string }> }
 ) {
-  const cookieStore = await cookies()
-  const authed = cookieStore.get(DASHBOARD_COOKIE)?.value === dashboardSessionValue()
+  const authed = (await hasDashboardSession())
   if (!authed) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
