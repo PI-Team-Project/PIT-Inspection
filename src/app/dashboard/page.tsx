@@ -18,6 +18,7 @@ import {
 import { hasDashboardSession } from "@/lib/auth"
 import PinForm from "./PinForm"
 import HomeLink from "./HomeLink"
+import DashboardHomeTab from "./DashboardHomeTab"
 import StatusDot from "./StatusDot"
 import EquipmentSearch from "./EquipmentSearch"
 import EquipmentBrowser from "./EquipmentBrowser"
@@ -349,6 +350,7 @@ export default async function DashboardPage({
   return (
     <main className="mx-auto max-w-lg px-4 pt-1 pb-8 sm:max-w-2xl lg:max-w-4xl">
       <AutoRefresh />
+      <DashboardHomeTab />
       <div className="flex items-center gap-3">
         <HomeLink />
         <h1 className="text-xl font-bold text-gray-900 sm:text-2xl">
@@ -379,10 +381,10 @@ export default async function DashboardPage({
       <div className="mt-3">
         <div className="flex items-end gap-2">
           <span className="text-4xl leading-none font-bold tracking-tight text-gray-900">
-            {checkedThisShiftCount}
+            {checkedPct}%
           </span>
-          <span className="pb-0.5 text-base font-medium text-gray-500">
-            of {equipmentList.length} checked
+          <span className="ml-1.5 pb-0.5 text-base font-medium text-gray-500">
+            {checkedThisShiftCount} of {equipmentList.length} checked
           </span>
           <span className="ml-auto pb-1 text-xs text-gray-400">
             {selectedShiftLabel} shift
@@ -670,9 +672,9 @@ function ShiftOverview({
           })}
         </div>
 
-        {/* Four states now, so the legend gets its own centered row rather
+        {/* Four states now, so the legend gets its own right-aligned row rather
             than tucking into a leftover grid cell. */}
-        <div className="mt-2 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-[10px] font-medium text-gray-400">
+        <div className="mt-2 flex flex-wrap items-center justify-end gap-x-3 gap-y-1 text-[10px] font-medium text-gray-400">
           <span className="flex items-center gap-1 whitespace-nowrap">
             <span className="h-2 w-2 shrink-0 rounded-sm bg-green-100" />
             Clean
