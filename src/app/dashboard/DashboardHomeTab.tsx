@@ -10,7 +10,7 @@ import { usePathname } from "next/navigation"
 // The page scrolls inside #app-scroll-container (see layout.tsx), not the
 // window, so that's the element to scroll.
 const TAB_CLASS =
-  "fixed top-1/3 right-0 z-40 flex h-11 w-10 items-center justify-center rounded-l-lg bg-brand text-white shadow-md transition-transform duration-100 hover:w-11 active:scale-95"
+  "fixed top-1/3 right-0 z-40 flex h-11 w-10 items-center justify-center rounded-l-lg bg-brand text-white opacity-70 shadow-md transition-[width,opacity,transform] duration-100 hover:w-11 hover:opacity-100 active:scale-95"
 
 function HouseIcon() {
   return (
