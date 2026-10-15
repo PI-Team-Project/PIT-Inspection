@@ -36,14 +36,14 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${inter.variable} ${geistMono.variable} h-full overflow-x-hidden antialiased`}
+      className={`${inter.variable} ${geistMono.variable} h-full overflow-x-hidden overscroll-none antialiased`}
       data-theme="light"
       suppressHydrationWarning
     >
       <head>
         <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
       </head>
-      <body className="flex h-dvh flex-col overflow-hidden">
+      <body className="flex h-dvh flex-col overflow-hidden overscroll-none">
         {/* Setting only overflow-y (not overflow-x) makes the x-axis
             compute to "auto" per spec, not "visible" — any content that's
             even 1px too wide turns this into a horizontally pannable div
@@ -55,7 +55,16 @@ export default function RootLayout({
           <ScrollPreserver />
           {children}
         </div>
-        <footer className="flex shrink-0 justify-center border-t border-gray-100 bg-white py-0.5">
+        {/* Fixed brand strip: it must not move, stretch or react. A drag that
+            starts here sits outside the scroll container, so iOS hands it to
+            the page and rubber-bands the whole layout (the bar looked pulled
+            and taller). touch-none stops that gesture at the source; the
+            overscroll-none on html/body above stops any bounce that still
+            reaches the root. The logo can't be dragged, selected or
+            long-pressed for the image menu. */}
+        <footer
+          className="flex shrink-0 touch-none justify-center border-t border-gray-100 bg-white py-0.5 select-none [-webkit-touch-callout:none]"
+        >
           <Image
             src="/lx-pantos-logo.png"
             alt="LX Pantos"
@@ -63,7 +72,8 @@ export default function RootLayout({
             height={28}
             // The grey wordmark disappears on the dark footer; inverting
             // lightens it, and the hue turn puts the red mark back near red.
-            className="opacity-70 dark:invert dark:hue-rotate-180"
+            draggable={false}
+            className="pointer-events-none opacity-70 dark:invert dark:hue-rotate-180"
           />
         </footer>
       </body>
