@@ -288,7 +288,7 @@ export default async function EquipmentDetailPage({
   // regardless of how big the screen actually is.
   return (
     <main className="mx-auto max-w-lg px-2 py-8 sm:max-w-2xl sm:px-4">
-      <DashboardHomeTab />
+      <DashboardHomeTab tucked />
       {/* One breadcrumb instead of two competing "back" links — it always
           says exactly where you are (dashboard, this vehicle, optionally a
           specific day) and every level but the current one is a link. */}

@@ -691,19 +691,19 @@ function ShiftOverview({
             than tucking into a leftover grid cell. */}
         <div className="mt-2 flex flex-wrap items-center justify-end gap-x-3 gap-y-1 text-[10px] font-medium text-gray-400">
           <span className="flex items-center gap-1 whitespace-nowrap">
-            <span className="h-2 w-2 shrink-0 rounded-sm bg-green-100" />
+            <span className="h-2 w-2 shrink-0 rounded-sm bg-green-100 dark:bg-green-600" />
             Clean
           </span>
           <span className="flex items-center gap-1 whitespace-nowrap">
-            <span className="h-2 w-2 shrink-0 rounded-sm bg-amber-100" />
+            <span className="h-2 w-2 shrink-0 rounded-sm bg-amber-100 dark:bg-amber-500" />
             Attention
           </span>
           <span className="flex items-center gap-1 whitespace-nowrap">
-            <span className="h-2 w-2 shrink-0 rounded-sm bg-red-100" />
+            <span className="h-2 w-2 shrink-0 rounded-sm bg-red-100 dark:bg-red-500" />
             Unresolved
           </span>
           <span className="flex items-center gap-1 whitespace-nowrap">
-            <span className="h-2 w-2 shrink-0 rounded-sm border border-gray-300 bg-white" />
+            <span className="h-2 w-2 shrink-0 rounded-sm border border-gray-300 bg-white dark:border-gray-400" />
             Not yet
           </span>
         </div>
