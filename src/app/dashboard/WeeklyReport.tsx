@@ -488,9 +488,10 @@ export default function WeeklyReport({
 
 // Per shift: inspected vehicles against the fleet that day. Every bar is the
 // same height — the whole bar is the fleet, the filled part is inspected —
-// so an empty shift reads as empty at a glance. On wider screens the columns
-// sit directly above their day in the table (same 14rem of Loc + FL# on the
-// left); on a phone the seven days take the full width.
+// so an empty shift reads as empty at a glance. On wider screens a label sits
+// on the left with the same outer margin as the last bar has on the right —
+// balanced within the card rather than column-aligned with the table below;
+// on a phone the label is hidden and the seven days take the full width.
 function CoverageChart({
   weekDays,
   dayLabels,
@@ -509,10 +510,9 @@ function CoverageChart({
   highlightClass: string
 }) {
   return (
-    <div className="mt-5 grid grid-cols-7 gap-x-1 sm:-mx-3 sm:grid-cols-[14rem_repeat(7,minmax(0,1fr))] sm:gap-x-0">
-      <div className="hidden flex-col justify-center px-3 text-xs text-gray-500 sm:flex">
+    <div className="mt-5 grid grid-cols-7 gap-x-1 sm:grid-cols-[auto_repeat(7,minmax(0,1fr))] sm:gap-x-0">
+      <div className="hidden flex-col justify-center pr-6 pl-1 text-xs text-gray-500 sm:flex">
         <span className="font-semibold text-gray-700">Inspected per shift</span>
-        <span>Bar = vehicles in the fleet that day</span>
       </div>
       {weekDays.map((dateKey, i) => {
         const c = coverage[i]
