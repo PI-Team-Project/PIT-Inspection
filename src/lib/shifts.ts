@@ -14,6 +14,23 @@ export const SHIFTS: Shift[] = [
 
 export const FLEET_TIME_ZONE = "America/Detroit"
 
+// "11:27AM" plus the zone's current abbreviation — "EDT" in summer, "EST"
+// in winter — so the dashboard clock never claims the wrong one.
+export function formatClock(timeZone: string, date: Date): { time: string; zone: string } {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+    timeZoneName: "short",
+  }).formatToParts(date)
+  const get = (type: Intl.DateTimeFormatPartTypes) => parts.find((p) => p.type === type)?.value ?? ""
+  return {
+    time: `${get("hour")}:${get("minute")}${get("dayPeriod")}`,
+    zone: get("timeZoneName"),
+  }
+}
+
 function easternOffsetMinutes(date: Date): number {
   const parts = new Intl.DateTimeFormat("en-US", {
     timeZone: FLEET_TIME_ZONE,
