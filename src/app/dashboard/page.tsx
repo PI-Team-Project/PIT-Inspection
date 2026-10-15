@@ -29,6 +29,7 @@ import WeeklyReport from "./WeeklyReport"
 import ExportOptions from "./ExportOptions"
 import DashboardSettings from "./DashboardSettings"
 import ThemeToggle from "./ThemeToggle"
+import IssueCountLink from "./IssueCountLink"
 import AutoRefresh from "./AutoRefresh"
 import { getSupervisors } from "@/lib/supervisorRoster"
 import {
@@ -388,16 +389,22 @@ export default async function DashboardPage({
         {(unresolvedCount > 0 || attentionCount > 0) && (
           <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[13px] font-medium">
             {unresolvedCount > 0 && (
-              <span className="flex items-center gap-1.5 text-red-700">
+              <IssueCountLink
+                status="red"
+                className="flex items-center gap-1.5 text-red-700 hover:underline active:scale-95"
+              >
                 <span className="h-1.5 w-1.5 rounded-full bg-red-500" />
                 {unresolvedCount} unresolved
-              </span>
+              </IssueCountLink>
             )}
             {attentionCount > 0 && (
-              <span className="flex items-center gap-1.5 text-amber-700">
+              <IssueCountLink
+                status="yellow"
+                className="flex items-center gap-1.5 text-amber-700 hover:underline active:scale-95"
+              >
                 <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
                 {attentionCount} attention
-              </span>
+              </IssueCountLink>
             )}
           </div>
         )}
@@ -470,7 +477,7 @@ export default async function DashboardPage({
 
       <div className="my-3 border-t border-gray-200" />
 
-      <p className="mb-2 text-center text-sm font-semibold text-gray-900">All Vehicles</p>
+      <p id="all-vehicles" className="mb-2 scroll-mt-4 text-center text-sm font-semibold text-gray-900">All Vehicles</p>
       <EquipmentBrowser
         cards={rows.map((row) => ({
           serial: row.equipment.serial,
@@ -651,8 +658,18 @@ function ShiftOverview({
             // checked, the tile lights up by the vehicle's own standing so
             // the whole shift reads at a glance: red unresolved, amber
             // awaiting sign-off, green clean.
+            // Not checked yet but carrying an open issue from an earlier
+            // shift: same 1px outline, just tinted, so the headline's
+            // unresolved/attention counts have somewhere to point without
+            // looking like this shift's result.
             const cls = !done
-              ? "border border-gray-200 bg-white text-gray-600"
+              ? `border bg-white text-gray-600 ${
+                  row.stage === "unresolved"
+                    ? "border-red-200"
+                    : row.stage === "pending-confirm"
+                      ? "border-amber-200"
+                      : "border-gray-200"
+                }`
               : row.stage === "unresolved"
                 ? "bg-red-100 text-red-700"
                 : row.stage === "pending-confirm"
