@@ -8,6 +8,7 @@ import { easternDateKey } from "@/lib/shifts"
 import { restoreVehicle } from "./actions"
 import ActiveVehiclesTable from "./ActiveVehiclesTable"
 import BackLink from "./BackLink"
+import DashboardHomeTab from "../DashboardHomeTab"
 import ManageVehicleSearch from "./ManageVehicleSearch"
 import { RETIRED_COLS, HIDE_ON_MOBILE, SORT_FIELDS, isSortField, type SortField } from "./tableShared"
 import { getSupervisors } from "@/lib/supervisorRoster"
@@ -38,6 +39,7 @@ export default async function ManageVehiclesPage({
 
   return (
     <main className="mx-auto max-w-lg px-4 py-8 sm:max-w-2xl lg:max-w-4xl">
+      <DashboardHomeTab />
       <BackLink />
 
       <div className="flex items-start justify-between gap-3">

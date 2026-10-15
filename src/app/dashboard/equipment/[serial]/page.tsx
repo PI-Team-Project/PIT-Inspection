@@ -38,6 +38,7 @@ import SignConfirmButton from "../../SignConfirmButton"
 import { saveActivity } from "../../actions"
 import VehicleHistory, { type LogEntry } from "./VehicleHistory"
 import ExportOptions from "../../ExportOptions"
+import DashboardHomeTab from "../../DashboardHomeTab"
 
 // A date KEY ("2026-08-07") has no time zone of its own — formatting as UTC
 // (not the server's local zone) guarantees the digits shown always match
@@ -287,12 +288,13 @@ export default async function EquipmentDetailPage({
   // regardless of how big the screen actually is.
   return (
     <main className="mx-auto max-w-lg px-2 py-8 sm:max-w-2xl sm:px-4">
+      <DashboardHomeTab />
       {/* One breadcrumb instead of two competing "back" links — it always
-          says exactly where you are (Fleet, this vehicle, optionally a
+          says exactly where you are (dashboard, this vehicle, optionally a
           specific day) and every level but the current one is a link. */}
       <nav className="mb-4 flex items-center gap-1.5 text-sm font-medium text-gray-500">
         <Link href="/dashboard" className="hover:text-gray-700 hover:underline">
-          Fleet
+          Dashboard
         </Link>
         <span className="text-gray-300">›</span>
         {isBrowsingHistory ? (
