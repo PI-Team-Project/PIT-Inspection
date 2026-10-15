@@ -1,5 +1,6 @@
 "use client"
 
+import { useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 
@@ -9,8 +10,18 @@ import { usePathname } from "next/navigation"
 //
 // The page scrolls inside #app-scroll-container (see layout.tsx), not the
 // window, so that's the element to scroll.
+//
+// `tucked`: on phones the tab sits mostly off-screen, leaving a thin edge
+// showing, so it doesn't cover controls at the right of a full-width table
+// (Manage Vehicles). The first tap, or a pull to the left, slides it out;
+// tapping it again uses it. It tucks back after a few seconds or a tap
+// anywhere else.
 const TAB_CLASS =
-  "fixed top-1/3 right-0 z-40 flex h-11 w-10 items-center justify-center rounded-l-lg bg-brand text-white opacity-70 shadow-md transition-[width,opacity,transform] duration-100 hover:w-11 hover:opacity-100 active:scale-95"
+  "fixed top-1/3 right-0 z-40 flex h-11 w-10 items-center justify-center rounded-l-lg bg-brand text-white opacity-70 shadow-md transition-[width,opacity,transform] duration-150 hover:w-11 hover:opacity-100 active:scale-95"
+
+// Matches Tailwind's `max-sm` — the widths where the tab is tucked.
+const PHONE_QUERY = "(max-width: 639px)"
+const AUTO_TUCK_MS = 3000
 
 function HouseIcon() {
   return (
@@ -30,16 +41,62 @@ function HouseIcon() {
   )
 }
 
-export default function DashboardHomeTab() {
+export default function DashboardHomeTab({ tucked = false }: { tucked?: boolean }) {
   const pathname = usePathname()
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLElement>(null)
+  const touchStartX = useRef<number | null>(null)
+
+  useEffect(() => {
+    if (!open) return
+    const timer = setTimeout(() => setOpen(false), AUTO_TUCK_MS)
+    function onOutside(e: PointerEvent) {
+      if (!ref.current?.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener("pointerdown", onOutside)
+    return () => {
+      clearTimeout(timer)
+      document.removeEventListener("pointerdown", onOutside)
+    }
+  }, [open])
+
+  const isTucked = tucked && !open
+  const className = `${TAB_CLASS} ${isTucked ? "max-sm:translate-x-7" : ""}`
+
+  // True when this tap should only slide the tab out, not act.
+  function slideOutFirst(e: React.MouseEvent) {
+    if (isTucked && window.matchMedia(PHONE_QUERY).matches) {
+      e.preventDefault()
+      setOpen(true)
+      return true
+    }
+    return false
+  }
+
+  const touchHandlers = tucked
+    ? {
+        onTouchStart: (e: React.TouchEvent) => {
+          touchStartX.current = e.touches[0].clientX
+        },
+        onTouchMove: (e: React.TouchEvent) => {
+          const start = touchStartX.current
+          if (start !== null && start - e.touches[0].clientX > 8) setOpen(true)
+        },
+      }
+    : {}
 
   if (pathname === "/dashboard") {
     return (
       <button
+        ref={ref as React.RefObject<HTMLButtonElement>}
         type="button"
-        onClick={() => document.getElementById("app-scroll-container")?.scrollTo({ top: 0 })}
+        onClick={(e) => {
+          if (slideOutFirst(e)) return
+          document.getElementById("app-scroll-container")?.scrollTo({ top: 0 })
+        }}
         aria-label="Back to top of dashboard"
-        className={TAB_CLASS}
+        className={className}
+        {...touchHandlers}
       >
         <HouseIcon />
       </button>
@@ -47,7 +104,14 @@ export default function DashboardHomeTab() {
   }
 
   return (
-    <Link href="/dashboard" aria-label="Dashboard" className={TAB_CLASS}>
+    <Link
+      ref={ref as React.RefObject<HTMLAnchorElement>}
+      href="/dashboard"
+      onClick={slideOutFirst}
+      aria-label="Dashboard"
+      className={className}
+      {...touchHandlers}
+    >
       <HouseIcon />
     </Link>
   )

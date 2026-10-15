@@ -39,7 +39,7 @@ export default async function ManageVehiclesPage({
 
   return (
     <main className="mx-auto max-w-lg px-4 py-8 sm:max-w-2xl lg:max-w-4xl">
-      <DashboardHomeTab />
+      <DashboardHomeTab tucked />
       <BackLink />
 
       <div className="flex items-start justify-between gap-3">
