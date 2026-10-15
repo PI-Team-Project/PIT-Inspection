@@ -512,7 +512,6 @@ function CoverageChart({
     <div className="mt-5 grid grid-cols-7 gap-x-1 sm:-mx-3 sm:grid-cols-[14rem_repeat(7,minmax(0,1fr))] sm:gap-x-0">
       <div className="hidden flex-col justify-center px-3 text-xs text-gray-500 sm:flex">
         <span className="font-semibold text-gray-700">Inspected per shift</span>
-        <span>Bar = vehicles in the fleet that day</span>
       </div>
       {weekDays.map((dateKey, i) => {
         const c = coverage[i]
