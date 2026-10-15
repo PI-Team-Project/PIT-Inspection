@@ -510,7 +510,7 @@ function CoverageChart({
 }) {
   return (
     <div className="mt-5 grid grid-cols-7 gap-x-1 sm:-mx-3 sm:grid-cols-[14rem_repeat(7,minmax(0,1fr))] sm:gap-x-0">
-      <div className="hidden flex-col justify-center px-3 text-xs text-gray-500 sm:flex">
+      <div className="hidden flex-col items-center justify-center pr-2.5 pl-5 text-center text-xs text-gray-500 sm:flex">
         <span className="font-semibold text-gray-700">Inspected per shift</span>
       </div>
       {weekDays.map((dateKey, i) => {
@@ -522,7 +522,7 @@ function CoverageChart({
             type="button"
             onClick={() => onSelectDay(dateKey)}
             aria-label={`${dayLabels[i]}: Day ${c.day ?? "not started"}, Night ${c.night ?? "not started"} of ${c.fleet}`}
-            className={`flex min-w-0 flex-col gap-0.5 pt-0.5 pb-1 sm:px-1 ${
+            className={`flex min-w-0 flex-col gap-0.5 pt-0.5 pb-1 sm:px-1 lg:px-2.5 ${
               dateKey === todayKey ? "bg-brand/10" : ""
             } ${selectedDay === dateKey ? highlightClass : ""}`}
           >
