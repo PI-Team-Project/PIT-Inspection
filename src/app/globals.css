@@ -1,5 +1,9 @@
 @import "tailwindcss";
 
+/* `dark:` targets night mode as set by data-theme (see layout.tsx), not the
+   raw system setting, so a manual Day/Night choice wins. */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
 :root {
   --background: #ffffff;
   --foreground: #171717;
@@ -22,8 +26,77 @@
   --font-mono: var(--font-geist-mono);
 }
 
-/* Intentionally no dark-mode media query: this app is styled for light
-   mode only, so it always renders the same regardless of system theme. */
+/* Night mode. The inline script in layout.tsx sets data-theme on <html>
+   before first paint: the choice saved in Settings (Light/Dark), or the
+   device setting when it's Auto.
+
+   Components are written for light mode only — no dark: variants. Instead
+   Tailwind's palette variables are redefined here, so every existing class
+   flips at once: greys invert (gray-900 text becomes near-white, gray-100
+   fills become dark), "white" becomes the card surface, and the pale status
+   tints (red/amber/green 50–300) become dark tints while their dark text
+   shades (700–900) become light. Mid shades (400–600: dots, filled
+   buttons) stay as they are. */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --background: #111113;
+  --foreground: #ececee;
+  --color-white: #1b1b1f;
+
+  --color-gray-50: #1f1f23;
+  --color-gray-100: #26262b;
+  --color-gray-200: #303036;
+  --color-gray-300: #3e3e45;
+  --color-gray-400: #8a8a93;
+  --color-gray-500: #a3a3ac;
+  --color-gray-600: #b8b8c0;
+  --color-gray-700: #d0d0d6;
+  --color-gray-800: #e2e2e7;
+  --color-gray-900: #f2f2f5;
+
+  --color-red-50: #2a1416;
+  --color-red-100: #3a181b;
+  --color-red-200: #5a2026;
+  --color-red-700: #fca5a5;
+  --color-red-800: #fecaca;
+
+  --color-amber-50: #29200d;
+  --color-amber-100: #392b0f;
+  --color-amber-200: #574114;
+  --color-amber-300: #765817;
+  --color-amber-700: #fcd34d;
+  --color-amber-800: #fde68a;
+  --color-amber-900: #fef3c7;
+
+  --color-green-50: #11251a;
+  --color-green-100: #163222;
+  --color-green-700: #86efac;
+  --color-green-800: #bbf7d0;
+}
+
+/* Classes that must NOT follow the flip. White text and white-on-photo
+   overlays stay white; the few solid dark chips (tooltips, confirm buttons)
+   stay dark so their white text keeps its contrast; brand-coloured text is
+   lifted, since the taupe brand on a dark background is too faint to read.
+   Unlayered rules, so they win over Tailwind's utilities layer. */
+:root[data-theme="dark"] :is(.text-white) {
+  color: #fff;
+}
+:root[data-theme="dark"] :is(.text-white\/70) {
+  color: rgb(255 255 255 / 0.7);
+}
+:root[data-theme="dark"] :is(.bg-white\/10) {
+  background-color: rgb(255 255 255 / 0.1);
+}
+:root[data-theme="dark"] :is(.bg-gray-700, .bg-gray-800, .bg-gray-900) {
+  background-color: #3a3a41;
+}
+:root[data-theme="dark"] :is(.text-brand, .hover\:text-brand:hover) {
+  color: #c4b8b2;
+}
+:root[data-theme="dark"] :is(.active\:text-brand-dark:active) {
+  color: #e0d6d1;
+}
 
 @keyframes status-blink {
   0%,

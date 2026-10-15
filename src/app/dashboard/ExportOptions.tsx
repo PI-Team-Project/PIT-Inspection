@@ -151,7 +151,7 @@ export default function ExportOptions({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"
       onClick={() => setOpen(false)}
     >
       <div
@@ -161,7 +161,7 @@ export default function ExportOptions({
         // overflowed — including the Download button itself. max-h + its
         // own overflow-y-auto means IT scrolls internally instead of
         // silently extending past the screen.
-        className="flex max-h-[85vh] w-full max-w-sm flex-col rounded-t-2xl bg-white p-4 sm:rounded-2xl"
+        className="flex max-h-[85vh] w-full max-w-sm flex-col rounded-2xl bg-white p-4"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-3 flex shrink-0 items-center justify-between">

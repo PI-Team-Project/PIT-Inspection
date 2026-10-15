@@ -14,6 +14,7 @@ import {
   shiftDateKeyByDays,
   easternDateKey,
   FLEET_TIME_ZONE,
+  formatClock,
 } from "@/lib/shifts"
 import { hasDashboardSession } from "@/lib/auth"
 import PinForm from "./PinForm"
@@ -27,6 +28,7 @@ import ShiftSwipeArea from "./ShiftSwipeArea"
 import WeeklyReport from "./WeeklyReport"
 import ExportOptions from "./ExportOptions"
 import DashboardSettings from "./DashboardSettings"
+import ThemeToggle from "./ThemeToggle"
 import AutoRefresh from "./AutoRefresh"
 import { getSupervisors } from "@/lib/supervisorRoster"
 import {
@@ -109,14 +111,7 @@ export default async function DashboardPage({
   // Which shift and week are on screen depends only on the clock and the
   // URL, never on the data — so it is settled before the queries below,
   // which need the week's bounds to know what to ask for.
-  const timeLabel = new Intl.DateTimeFormat("en-US", {
-    timeZone: FLEET_TIME_ZONE,
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: true,
-  })
-    .format(now)
-    .replace(" ", "")
+  const timeLabel = formatClock(FLEET_TIME_ZONE, now)
   const currentShift = getCurrentShiftWindow(now)
   const recentShifts = getMostRecentShiftWindows(now)
   const selectedShiftLabel = params.shift === "night" ? "Night" : params.shift === "day" ? "Day" : currentShift.label
@@ -353,41 +348,35 @@ export default async function DashboardPage({
       <DashboardHomeTab />
       <div className="flex items-center gap-3">
         <HomeLink />
-        <h1 className="text-xl font-bold text-gray-900 sm:text-2xl">
-          Inspection Dashboard
-        </h1>
+        {/* Clock and place sit under the title as one line of context, so
+            everything below starts from the same left edge. */}
+        <div className="min-w-0">
+          <h1 className="text-xl font-bold text-gray-900 sm:text-2xl">
+            Inspection Dashboard
+          </h1>
+          <div className="flex min-w-0 items-baseline gap-1.5 text-xs font-medium text-gray-400">
+            <LiveClock timeZone={FLEET_TIME_ZONE} initialLabel={timeLabel} />
+            <span>·</span>
+            <span className="truncate">Holland, MI</span>
+          </div>
+        </div>
         <div className="ml-auto">
           <EquipmentSearch equipment={searchableEquipment} />
         </div>
       </div>
 
-      <div className="mt-1.5 border-t border-gray-100" />
-
-      {/* The inspected count sits up here on the clock row rather than down
-          in the shift nav. Sharing that row meant the nav could only ever be
-          left-aligned — "Daily Report · Tue, Sep 8" had to keep clear of the
-          chip — so lifting it one line up is what lets the nav center. */}
-      <div className="mt-2 flex min-w-0 items-center gap-2">
-        <LiveClock timeZone={FLEET_TIME_ZONE} initialLabel={timeLabel} />
-        <span className="truncate text-xs font-medium text-gray-400">
-          Eastern Time — Holland, MI
-        </span>
-      </div>
+      <div className="mt-2 border-t border-gray-100" />
 
       {/* The checked count is the dashboard's own question, so it leads: a
           big number, a progress bar, and the fleet's open-issue tally under
-          it. Replaces the small "5/34 inspected" chip that used to sit on
-          the clock row above. */}
-      <div className="mt-3">
+          it. The Day/Night toggle below already says which shift this is. */}
+      <div className="mt-4">
         <div className="flex items-end gap-2">
           <span className="text-4xl leading-none font-bold tracking-tight text-gray-900">
             {checkedPct}%
           </span>
-          <span className="ml-1.5 pb-0.5 text-base font-medium text-gray-500">
+          <span className="ml-auto pb-0.5 text-base font-medium text-gray-500">
             {checkedThisShiftCount} of {equipmentList.length} checked
-          </span>
-          <span className="ml-auto pb-1 text-xs text-gray-400">
-            {selectedShiftLabel} shift
           </span>
         </div>
         <div className="mt-2.5 h-1 overflow-hidden rounded-full bg-gray-100">
@@ -519,28 +508,37 @@ export default async function DashboardPage({
         </Link>
       )}
 
-      {/* One row for all three footer actions. Manage Vehicles and Export
-          are peer navigation actions — matching bordered buttons on the
-          right. Settings is a quieter utility: no box, pushed to the far
-          left (mr-auto) so it reads as a different kind of thing. */}
-      <div className="mt-8 flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-gray-100 pt-4">
-        <DashboardSettings supervisors={supervisors} triggerClassName="mr-auto inline-flex items-center gap-1.5 text-sm font-medium text-gray-500 transition-colors duration-100 hover:text-brand active:scale-95" />
-        <Link
-          href="/dashboard/manage"
-          className="shrink-0 rounded-lg border border-brand/30 px-3 py-2 text-sm font-medium text-brand transition-transform duration-100 active:scale-95 active:bg-brand/10"
-        >
-          Manage Vehicles
-        </Link>
-        <ExportOptions
-          exportPath="/dashboard/export"
-          excelPath="/dashboard/export-excel"
-          zipPath="/dashboard/export-zip"
-          vehicleOptions={equipmentList.map((eq) => ({
-            serial: eq.serial,
-            label: `${eq.flNumber} — ${eq.makeColor}`,
-          }))}
-          triggerClassName="shrink-0 rounded-lg border border-brand/30 px-3 py-2 text-sm font-medium text-brand transition-transform duration-100 active:scale-95 active:bg-brand/10"
-        />
+      {/* Two rows. The peer navigation actions, Manage Vehicles and Export,
+          share the first as equal bordered buttons. Settings and Day/Night
+          are quieter utilities — no box — on a second row under them.
+          Grids, not flex, so a button that turns into its open popup
+          doesn't shift the one beside it. */}
+      <div className="mt-8 border-t border-gray-100 pt-4">
+        <div className="grid grid-cols-2 gap-2">
+          <Link
+            href="/dashboard/manage"
+            className="rounded-lg border border-brand/30 px-3 py-2 text-center text-sm font-medium text-brand transition-transform duration-100 active:scale-95 active:bg-brand/10"
+          >
+            Manage Vehicles
+          </Link>
+          <ExportOptions
+            exportPath="/dashboard/export"
+            excelPath="/dashboard/export-excel"
+            zipPath="/dashboard/export-zip"
+            vehicleOptions={equipmentList.map((eq) => ({
+              serial: eq.serial,
+              label: `${eq.flNumber} — ${eq.makeColor}`,
+            }))}
+            triggerClassName="rounded-lg border border-brand/30 px-3 py-2 text-center text-sm font-medium text-brand transition-transform duration-100 active:scale-95 active:bg-brand/10"
+          />
+        </div>
+        <div className="mt-3 grid grid-cols-2">
+          <DashboardSettings
+            supervisors={supervisors}
+            triggerClassName="inline-flex items-center gap-1.5 justify-self-start text-sm font-medium text-gray-500 transition-colors duration-100 hover:text-brand active:scale-95"
+          />
+          <ThemeToggle className="col-start-2 justify-self-end text-sm font-medium text-gray-500 transition-colors duration-100 hover:text-brand active:scale-95" />
+        </div>
       </div>
     </main>
   )

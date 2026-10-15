@@ -23,6 +23,11 @@ export const metadata: Metadata = {
   description: "Warehouse vehicle pre-shift inspection",
 };
 
+// Runs in <head> before first paint, so night mode never flashes light
+// first. A saved Day/Night choice (ThemeToggle) wins; otherwise it follows
+// the device setting, live.
+const THEME_SCRIPT = `(function(){try{var m=matchMedia("(prefers-color-scheme: dark)");function a(){var t=null;try{t=localStorage.getItem("theme")}catch(e){}document.documentElement.setAttribute("data-theme",t==="dark"||t==="light"?t:m.matches?"dark":"light")}a();m.addEventListener("change",a)}catch(e){}})()`;
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -32,7 +37,12 @@ export default function RootLayout({
     <html
       lang="en"
       className={`${inter.variable} ${geistMono.variable} h-full overflow-x-hidden antialiased`}
+      data-theme="light"
+      suppressHydrationWarning
     >
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
+      </head>
       <body className="flex h-dvh flex-col overflow-hidden">
         {/* Setting only overflow-y (not overflow-x) makes the x-axis
             compute to "auto" per spec, not "visible" — any content that's
@@ -51,7 +61,9 @@ export default function RootLayout({
             alt="LX Pantos"
             width={100}
             height={28}
-            className="opacity-70"
+            // The grey wordmark disappears on the dark footer; inverting
+            // lightens it, and the hue turn puts the red mark back near red.
+            className="opacity-70 dark:invert dark:hue-rotate-180"
           />
         </footer>
       </body>
