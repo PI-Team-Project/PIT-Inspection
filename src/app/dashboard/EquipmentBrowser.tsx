@@ -1,6 +1,7 @@
 "use client"
 
-import { useState, type ReactNode } from "react"
+import { useEffect, useState, type ReactNode } from "react"
+import { SHOW_VEHICLES_EVENT, type ShowVehiclesDetail } from "./IssueCountLink"
 import { equipmentTypeLabel, LOCATIONS, type EquipmentType, type Location } from "@/lib/equipment"
 import type { Stage } from "@/lib/review"
 
@@ -128,6 +129,22 @@ export default function EquipmentBrowser({ cards }: { cards: Card[] }) {
   // whatever the bulk state happens to be.
   const [allOpen, setAllOpen] = useState(false)
   const [openOverrides, setOpenOverrides] = useState<Record<string, boolean>>({})
+
+  // The headline's unresolved/attention counts ask for this list with the
+  // matching status dot on and every group open, so the vehicles behind the
+  // number are on screen without another tap (see IssueCountLink).
+  useEffect(() => {
+    function onShow(e: Event) {
+      setTab((e as CustomEvent<ShowVehiclesDetail>).detail)
+      setAllOpen(true)
+      setOpenOverrides({})
+      // After the groups have opened, or there isn't enough page below the
+      // heading yet to bring it to the top.
+      requestAnimationFrame(() => document.getElementById("all-vehicles")?.scrollIntoView())
+    }
+    window.addEventListener(SHOW_VEHICLES_EVENT, onShow)
+    return () => window.removeEventListener(SHOW_VEHICLES_EVENT, onShow)
+  }, [])
 
   if (cards.length === 0) {
     return <p className="mt-3 text-gray-500">No equipment on file.</p>
