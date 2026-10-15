@@ -11,7 +11,7 @@ import { usePathname } from "next/navigation"
 // The page scrolls inside #app-scroll-container (see layout.tsx), not the
 // window, so that's the element to scroll.
 //
-// `tucked`: on phones the tab sits mostly off-screen, leaving a thin edge
+// `tucked`: on phones the tab sits half off-screen, leaving the inner 20px
 // showing, so it doesn't cover controls at the right of a full-width table
 // (Manage Vehicles). The first tap, or a pull to the left, slides it out;
 // tapping it again uses it. It tucks back after a few seconds or a tap
@@ -61,7 +61,7 @@ export default function DashboardHomeTab({ tucked = false }: { tucked?: boolean 
   }, [open])
 
   const isTucked = tucked && !open
-  const className = `${TAB_CLASS} ${isTucked ? "max-sm:translate-x-7" : ""}`
+  const className = `${TAB_CLASS} ${isTucked ? "max-sm:translate-x-5" : ""}`
 
   // True when this tap should only slide the tab out, not act.
   function slideOutFirst(e: React.MouseEvent) {
