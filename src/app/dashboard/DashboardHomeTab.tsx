@@ -12,8 +12,9 @@ import { usePathname } from "next/navigation"
 // window, so that's the element to scroll.
 //
 // `tucked`: on phones the tab sits half off-screen, leaving the inner 20px
-// showing, so it doesn't cover controls at the right of a full-width table
-// (Manage Vehicles). The first tap, or a pull to the left, slides it out;
+// showing, so it doesn't cover the right edge of full-width content (Manage
+// Vehicles' table, a vehicle page's values). The dashboard itself keeps the
+// full tab. The first tap, or a pull to the left, slides it out;
 // tapping it again uses it. It tucks back after a few seconds or a tap
 // anywhere else.
 const TAB_CLASS =
