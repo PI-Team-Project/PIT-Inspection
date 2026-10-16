@@ -35,7 +35,9 @@ export function isPhotoStorageConfigured(): boolean {
 
 let cached: StorageClient | null = null
 
-function client(): StorageClient | null {
+// Exported for the photo backup (src/lib/photoBackup.ts), which copies
+// between buckets with the same credentials.
+export function client(): StorageClient | null {
   if (cached) return cached
   const creds = credentials()
   if (!creds) return null
