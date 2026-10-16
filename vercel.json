@@ -2,7 +2,7 @@
   "crons": [
     {
       "path": "/api/cron/retention-cleanup?dryRun=false",
-      "schedule": "0 9 * * 1"
+      "schedule": "0 7 * * 1"
     }
   ]
 }

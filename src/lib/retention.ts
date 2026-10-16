@@ -6,8 +6,8 @@ import type { EquipmentType } from "./equipment"
 // The dashboard/export queries only ever *filter out* old rows — nothing
 // has ever deleted them, so the Inspection/Photo tables grow forever even
 // though the UI treats data past RETENTION_YEARS as gone. This is the
-// actual enforcement: per-equipment-type cutoff (forklifts kept 2 years,
-// pallet jacks 5), deleting Inspection rows past it. Photo rows cascade
+// actual enforcement: per-equipment-type cutoff (currently 5 years for
+// every type), deleting Inspection rows past it. Photo rows cascade
 // automatically (see the Photo model's onDelete: Cascade).
 export type RetentionResult = {
   dryRun: boolean
