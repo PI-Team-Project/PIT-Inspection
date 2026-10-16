@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import TranslateNote from "./TranslateNote"
 
 export default function PhotoGallery({
   photos,
@@ -139,6 +140,7 @@ function Lightbox({
           className="mx-auto mb-3 max-w-[85%] rounded-lg bg-black/60 px-3 py-1.5 text-center text-sm text-white"
         >
           {notes[index]}
+          <TranslateNote key={index} text={notes[index]} dark />
         </p>
       )}
 

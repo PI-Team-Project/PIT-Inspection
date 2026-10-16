@@ -31,6 +31,7 @@ import {
 import StatusDot from "../../StatusDot"
 import SupervisorNameField from "@/app/dashboard/SupervisorNameField"
 import { getSupervisors } from "@/lib/supervisorRoster"
+import TranslateNote from "../../TranslateNote"
 import PhotoGallery from "../../PhotoGallery"
 import LocationChangeControl from "../../LocationChangeControl"
 import PendingLocationApproval from "../../PendingLocationApproval"
@@ -709,7 +710,10 @@ function InspectionReviewForm({
                         const hasPhotos = Boolean(answer.photos && answer.photos.length > 0)
                         const hasNoteOrPhotos = Boolean(answer.note) || hasPhotos
                         const specifyLine = !isRepairRequest && answer.specify && (
-                          <span className="block text-xs text-gray-500">{answer.specify}</span>
+                          <span className="block text-xs text-gray-500">
+                            {answer.specify}
+                            <TranslateNote text={answer.specify} />
+                          </span>
                         )
                         // No more permanent "Note: …" row underneath every
                         // flagged item — that's back to a plain <details>
@@ -750,6 +754,7 @@ function InspectionReviewForm({
                               <p className="mt-1 text-xs text-gray-500">
                                 {isRepairRequest ? "" : "Note: "}
                                 {answer.note}
+                                <TranslateNote text={answer.note} />
                               </p>
                             )}
                             {answer.photos && answer.photos.length > 0 && (
