@@ -5,8 +5,9 @@ import { useState } from "react"
 // Workers can fill the inspection in Spanish, and while every tapped answer
 // is stored in English (see src/lib/i18n.ts), anything they TYPE — a note,
 // a repair description, an actual location — is kept as written. This puts
-// an English translation one tap away for the supervisor, right under the
-// text, without touching the stored record.
+// an English translation one tap away for the supervisor: the button swaps
+// the text in place, and tapping again swaps it back. The stored record is
+// never touched.
 //
 // Desktop Chrome 138+ / Edge 148+ ship a built-in Translator API that runs
 // on the device: free, no API key, and the note never leaves the browser.
@@ -33,15 +34,17 @@ function googleTranslateUrl(text: string) {
 }
 
 export default function TranslateNote({ text, dark = false }: { text: string; dark?: boolean }) {
+  // Kept after the first translation so switching back and forth is instant.
   const [translation, setTranslation] = useState<string | null>(null)
+  const [showEnglish, setShowEnglish] = useState(false)
   const [busy, setBusy] = useState(false)
 
   async function onClick(e: React.MouseEvent) {
     // Notes sit inside a <details> and a sign-off <form>; neither should react.
     e.preventDefault()
     e.stopPropagation()
-    if (translation !== null) {
-      setTranslation(null)
+    if (showEnglish || translation !== null) {
+      setShowEnglish(!showEnglish)
       return
     }
     const Translator = builtInTranslator()
@@ -57,6 +60,7 @@ export default function TranslateNote({ text, dark = false }: { text: string; da
         translatorPromise = Translator.create(opts)
       }
       setTranslation(await (await translatorPromise).translate(text))
+      setShowEnglish(true)
     } catch {
       translatorPromise = null
       window.open(googleTranslateUrl(text), "_blank", "noopener")
@@ -67,17 +71,15 @@ export default function TranslateNote({ text, dark = false }: { text: string; da
 
   return (
     <>
+      {showEnglish && translation !== null ? translation : text}
       <button
         type="button"
         onClick={onClick}
         disabled={busy}
         className={`ml-1 text-[10px] font-semibold underline ${dark ? "text-white/70" : "text-brand"}`}
       >
-        {busy ? "Translating…" : translation !== null ? "Hide English" : "Translate"}
+        {busy ? "Translating…" : showEnglish ? "Original" : "Translate"}
       </button>
-      {translation !== null && (
-        <span className={`block italic ${dark ? "text-white/80" : "text-gray-600"}`}>EN: {translation}</span>
-      )}
     </>
   )
 }

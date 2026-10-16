@@ -139,7 +139,6 @@ function Lightbox({
           onClick={(e) => e.stopPropagation()}
           className="mx-auto mb-3 max-w-[85%] rounded-lg bg-black/60 px-3 py-1.5 text-center text-sm text-white"
         >
-          {notes[index]}
           <TranslateNote key={index} text={notes[index]} dark />
         </p>
       )}

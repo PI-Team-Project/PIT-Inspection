@@ -711,7 +711,6 @@ function InspectionReviewForm({
                         const hasNoteOrPhotos = Boolean(answer.note) || hasPhotos
                         const specifyLine = !isRepairRequest && answer.specify && (
                           <span className="block text-xs text-gray-500">
-                            {answer.specify}
                             <TranslateNote text={answer.specify} />
                           </span>
                         )
@@ -753,7 +752,6 @@ function InspectionReviewForm({
                             {answer.note && (
                               <p className="mt-1 text-xs text-gray-500">
                                 {isRepairRequest ? "" : "Note: "}
-                                {answer.note}
                                 <TranslateNote text={answer.note} />
                               </p>
                             )}
