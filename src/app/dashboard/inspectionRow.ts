@@ -166,9 +166,9 @@ export function badSince(
   return open && open.inspection.date < today ? open.inspection.date : null
 }
 
-// Forklift inspection/activity history is dropped after 2 years; pallet
-// jacks are kept longer (5 years) for now — separate retention windows per
-// equipment category, not a single blanket cutoff.
+// Inspection/activity history is dropped after 5 years for every equipment
+// type. The window is still set per type, so one category can change
+// without touching the others.
 // INTERIM, pending a compliance decision. These were 2 years for forklifts
 // and 5 for pallet jacks, with nothing in the code or the history explaining
 // why a pallet jack's records should outlive a forklift's — and nobody who

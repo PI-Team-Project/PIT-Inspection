@@ -4,6 +4,10 @@ import { runRetentionCleanup } from "@/lib/retention"
 // Vercel Cron sends `Authorization: Bearer ${CRON_SECRET}` automatically
 // once CRON_SECRET is set as an env var — this rejects anyone else,
 // since real deletion is otherwise a single unauthenticated GET away.
+//
+// Scheduled in vercel.json for Mondays 07:00 UTC — 3am EDT / 2am EST, the
+// middle of the night shift. Not 09:00 UTC, which is 5am EDT, the day shift's
+// start, when workers are opening the inspection form.
 export async function GET(request: NextRequest) {
   const secret = process.env.CRON_SECRET
   const authHeader = request.headers.get("authorization")
