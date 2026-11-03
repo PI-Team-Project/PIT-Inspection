@@ -175,6 +175,7 @@ export default async function FleetUsagePage({
         <span className="ml-auto">
           <RangeSelect value={range} />
         </span>
+        <p className="-mt-1 basis-full text-[11px] leading-tight text-gray-400">Current shift not included</p>
       </div>
 
       <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
