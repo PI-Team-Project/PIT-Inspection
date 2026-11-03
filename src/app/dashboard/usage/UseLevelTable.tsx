@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { FIRST_COL, TABLE, TABLE_WRAP, TD, TH, UsageCell } from "./tableParts"
+import { FIRST_COL, TABLE, TABLE_WRAP, TD, TH, TH_TODAY, UsageCell } from "./tableParts"
 
 export type UseLevelRow = {
   serial: string
@@ -65,10 +65,10 @@ export default function UseLevelTable({
               <tr>
                 <th className={`${TH} ${FIRST_COL} text-left`}>Vehicle</th>
                 <th className={`${TH} text-left`}>Contract</th>
-                <th className={`${TH} hidden text-left sm:table-cell`}>Location</th>
+                <th className={`${TH_TODAY} hidden text-left sm:table-cell`}>Location</th>
                 <th className={`${TH} text-center`}>Shifts Used</th>
                 <th className={`${TH} text-center`}>Usage</th>
-                <th className={`${TH} text-center`}>Last Used</th>
+                <th className={`${TH_TODAY} text-center`}>Last Used</th>
               </tr>
             </thead>
             <tbody>
