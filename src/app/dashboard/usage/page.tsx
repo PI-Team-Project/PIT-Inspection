@@ -136,9 +136,13 @@ export default async function FleetUsagePage({
 
   const shiftLabel = (s: ShiftUsage | null) =>
     s ? `${formatDateKey(s.dateKey, true)} · ${s.label}` : "—"
-  const rangeDates = shifts.length
-    ? `${formatDateKey(shifts[0].dateKey)} – ${formatDateKey(shifts[shifts.length - 1].dateKey)}`
-    : "No completed shifts"
+  // The dates run through today, so "This Week" on a Tuesday reads Mon – Tue.
+  // The numbers still cover finished shifts only (the shift in progress is
+  // left out), which the shift count shows.
+  const rangeDates =
+    startKey === todayKey
+      ? formatDateKey(todayKey)
+      : `${formatDateKey(startKey)} – ${formatDateKey(todayKey)}`
 
   return (
     <main className="mx-auto max-w-lg px-4 pt-1 pb-8 sm:max-w-2xl lg:max-w-4xl">
@@ -165,7 +169,7 @@ export default async function FleetUsagePage({
         {/* The shift count drops at phone width so the bar stays one line. */}
         <p className="min-w-0 truncate text-sm font-medium text-gray-500">
           {rangeDates}
-          {shifts.length > 0 && <span className="hidden sm:inline"> · {shifts.length} shifts</span>}
+          <span className="hidden sm:inline"> · {shifts.length} shifts</span>
         </p>
         <ScopeLegend />
         <span className="ml-auto">
