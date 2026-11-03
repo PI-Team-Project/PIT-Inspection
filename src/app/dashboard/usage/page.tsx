@@ -18,7 +18,7 @@ import HomeLink from "../HomeLink"
 import LiveClock from "../LiveClock"
 import RangeSelect from "./RangeSelect"
 import UseLevelTable, { type UseLevelRow } from "./UseLevelTable"
-import { FIRST_COL, TABLE, TABLE_WRAP, TD, TH, UsageCell, pct } from "./tableParts"
+import { FIRST_COL, ScopeLegend, TABLE, TABLE_WRAP, TD, TH, TH_TODAY, UsageCell, pct } from "./tableParts"
 
 const TYPE_ORDER: EquipmentType[] = ["Sit Down", "Propane", "Standup", "Pallet Jack"]
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
@@ -136,8 +136,8 @@ export default async function FleetUsagePage({
 
   const shiftLabel = (s: ShiftUsage | null) =>
     s ? `${formatDateKey(s.dateKey, true)} · ${s.label}` : "—"
-  const rangeLabel = shifts.length
-    ? `${formatDateKey(shifts[0].dateKey)} – ${formatDateKey(shifts[shifts.length - 1].dateKey)} · ${shifts.length} shifts`
+  const rangeDates = shifts.length
+    ? `${formatDateKey(shifts[0].dateKey)} – ${formatDateKey(shifts[shifts.length - 1].dateKey)}`
     : "No completed shifts"
 
   return (
@@ -159,9 +159,18 @@ export default async function FleetUsagePage({
 
       <div className="mt-2 border-t border-gray-100" />
 
-      <div className="mt-4 flex items-center justify-between gap-2">
-        <p className="min-w-0 truncate text-sm font-medium text-gray-500">{rangeLabel}</p>
-        <RangeSelect value={range} />
+      {/* Stays at the top while scrolling, so the period every number below
+          covers is always in view. */}
+      <div className="sticky top-0 z-20 -mx-4 mt-2 flex flex-wrap items-center gap-x-2 gap-y-1.5 sm:gap-x-3 border-b border-gray-100 bg-background px-4 py-2">
+        {/* The shift count drops at phone width so the bar stays one line. */}
+        <p className="min-w-0 truncate text-sm font-medium text-gray-500">
+          {rangeDates}
+          {shifts.length > 0 && <span className="hidden sm:inline"> · {shifts.length} shifts</span>}
+        </p>
+        <ScopeLegend />
+        <span className="ml-auto">
+          <RangeSelect value={range} />
+        </span>
       </div>
 
       <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
@@ -185,7 +194,7 @@ export default async function FleetUsagePage({
             <thead>
               <tr>
                 <th className={`${TH} ${FIRST_COL} text-left`}>Type</th>
-                <th className={`${TH} text-center`}>Total Vehicles</th>
+                <th className={`${TH_TODAY} text-center`}>Total Vehicles</th>
                 <th className={`${TH} text-center`}>Max Used per Shift</th>
                 <th className={`${TH} text-center`}>Unused at Peak</th>
                 <th className={`${TH} text-center`}>Avg Usage</th>
@@ -243,8 +252,8 @@ export default async function FleetUsagePage({
           <table className={TABLE}>
             <thead>
               <tr>
-                <th className={`${TH} ${FIRST_COL} text-left`}>Location</th>
-                <th className={`${TH} text-center`}>Vehicles</th>
+                <th className={`${TH_TODAY} ${FIRST_COL} text-left`}>Location</th>
+                <th className={`${TH_TODAY} text-center`}>Vehicles</th>
                 <th className={`${TH} text-center`}>Avg Used per Shift</th>
                 <th className={`${TH} text-center`}>Avg Usage</th>
               </tr>
@@ -273,10 +282,10 @@ export default async function FleetUsagePage({
             <thead>
               <tr>
                 <th className={`${TH} ${FIRST_COL} text-left`}>Vehicle</th>
-                <th className={`${TH} hidden text-left sm:table-cell`}>Location</th>
+                <th className={`${TH_TODAY} hidden text-left sm:table-cell`}>Location</th>
                 <th className={`${TH} text-center`}>Shifts Used</th>
                 <th className={`${TH} text-center`}>Usage</th>
-                <th className={`${TH} text-center`}>Last Used</th>
+                <th className={`${TH_TODAY} text-center`}>Last Used</th>
               </tr>
             </thead>
             <tbody>
