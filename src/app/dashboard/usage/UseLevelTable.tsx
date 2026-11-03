@@ -84,7 +84,7 @@ export default function UseLevelTable({
                     <span className="block truncate text-[11px] text-gray-400">{v.typeLabel}</span>
                   </td>
                   <td className={`${TD} text-gray-700`}>{v.contract}</td>
-                  <td className={`${TD} hidden truncate text-gray-700 sm:table-cell`}>{v.location}</td>
+                  <td className={`${TD} hidden leading-tight text-gray-700 sm:table-cell`}>{v.location}</td>
                   <td className={`${TD} text-center tabular-nums text-gray-700`}>
                     {v.shiftsUsed}/{v.shiftsInFleet}
                   </td>
