@@ -20,6 +20,7 @@ import { hasDashboardSession } from "@/lib/auth"
 import PinForm from "./PinForm"
 import HomeLink from "./HomeLink"
 import DashboardHomeTab from "./DashboardHomeTab"
+import DashboardTabs from "./DashboardTabs"
 import StatusDot from "./StatusDot"
 import EquipmentSearch from "./EquipmentSearch"
 import EquipmentBrowser from "./EquipmentBrowser"
@@ -352,8 +353,8 @@ export default async function DashboardPage({
         {/* Clock and place sit under the title as one line of context, so
             everything below starts from the same left edge. */}
         <div className="min-w-0">
-          <h1 className="text-xl font-bold text-gray-900 sm:text-2xl">
-            Inspection Dashboard
+          <h1>
+            <DashboardTabs active="inspection" />
           </h1>
           <div className="flex min-w-0 items-baseline gap-1.5 text-xs font-medium text-gray-400">
             <LiveClock timeZone={FLEET_TIME_ZONE} initialLabel={timeLabel} />
