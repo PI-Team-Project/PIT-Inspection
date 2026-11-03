@@ -377,6 +377,10 @@ function WeekdayGrid({
     { label: "Day", values: grid.day },
     { label: "Night", values: grid.night },
   ]
+  const shares = [...grid.day, ...grid.night]
+    .filter((v): v is number => v !== null)
+    .map((v) => (fleetSize === 0 ? 0 : v / fleetSize))
+  const scale = { min: Math.min(...shares), max: Math.max(...shares) }
   return (
     <div className="grid grid-cols-[auto_repeat(7,minmax(0,1fr))] gap-1 text-center">
       <span />
@@ -386,42 +390,48 @@ function WeekdayGrid({
         </span>
       ))}
       {rows.map((row) => (
-        <Row key={row.label} label={row.label} values={row.values} fleetSize={fleetSize} />
+        <Row key={row.label} label={row.label} values={row.values} fleetSize={fleetSize} scale={scale} />
       ))}
     </div>
   )
 }
 
-// Cell shade is the share of the fleet used, mixed from the brand colour so
-// it reads the same in day and night mode.
-function Row({ label, values, fleetSize }: { label: string; values: (number | null)[]; fleetSize: number }) {
+// Cell shade runs from the period's quietest cell (lightest) to its busiest
+// (darkest), mixed from the brand colour so it reads in day and night mode.
+// The darkest shade stops at 70% so the dark text stays readable on it.
+const SHADE_MIN = 8
+const SHADE_MAX = 70
+
+function Row({
+  label,
+  values,
+  fleetSize,
+  scale,
+}: {
+  label: string
+  values: (number | null)[]
+  fleetSize: number
+  scale: { min: number; max: number }
+}) {
   return (
     <>
       <span className="flex items-center pr-2 text-left text-[11px] font-semibold text-gray-500">{label}</span>
       {values.map((value, i) => {
         const share = value === null || fleetSize === 0 ? 0 : value / fleetSize
+        const t = scale.max > scale.min ? (share - scale.min) / (scale.max - scale.min) : 0.5
+        const shade = Math.round(SHADE_MIN + t * (SHADE_MAX - SHADE_MIN))
         return (
           <span
             key={i}
             className="flex h-11 flex-col items-center justify-center rounded border border-gray-200 leading-tight"
             style={
-              value === null
-                ? undefined
-                : { backgroundColor: `color-mix(in srgb, var(--brand) ${Math.round(share * 100)}%, transparent)` }
+              value === null ? undefined : { backgroundColor: `color-mix(in srgb, var(--brand) ${shade}%, transparent)` }
             }
           >
-            <span
-              className={`text-sm font-bold tabular-nums ${
-                value === null ? "text-gray-300" : share >= 0.45 ? "text-white" : "text-gray-900"
-              }`}
-            >
+            <span className={`text-sm font-bold tabular-nums ${value === null ? "text-gray-300" : "text-gray-900"}`}>
               {value === null ? "—" : value.toFixed(1)}
             </span>
-            {value !== null && (
-              <span className={`text-[10px] tabular-nums ${share >= 0.45 ? "text-white/70" : "text-gray-500"}`}>
-                {pct(share)}
-              </span>
-            )}
+            {value !== null && <span className="text-[10px] tabular-nums text-gray-900">{pct(share)}</span>}
           </span>
         )
       })}
