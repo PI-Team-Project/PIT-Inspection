@@ -254,7 +254,7 @@ export default async function FleetUsagePage({
                 .filter((g) => g.label !== REPAIR_LOCATION)
                 .map((g) => (
                   <tr key={g.label}>
-                    <td className={`${TD} truncate font-medium text-gray-900`}>{g.label}</td>
+                    <td className={`${TD} leading-tight font-medium text-gray-900`}>{g.label}</td>
                     <td className={`${TD} text-center tabular-nums text-gray-700`}>{g.vehicles}</td>
                     <td className={`${TD} text-center tabular-nums text-gray-700`}>{g.avgUsed.toFixed(1)}</td>
                     <td className={TD}>
@@ -276,7 +276,7 @@ export default async function FleetUsagePage({
                 <th className={`${TH} hidden text-left sm:table-cell`}>Location</th>
                 <th className={`${TH} text-center`}>Shifts Used</th>
                 <th className={`${TH} text-center`}>Usage</th>
-                <th className={`${TH} hidden text-center sm:table-cell`}>Last Used</th>
+                <th className={`${TH} text-center`}>Last Used</th>
               </tr>
             </thead>
             <tbody>
@@ -298,7 +298,7 @@ export default async function FleetUsagePage({
                       {equipmentTypeLabel(v.type as EquipmentType)}
                     </span>
                   </td>
-                  <td className={`${TD} hidden truncate text-gray-700 sm:table-cell`}>
+                  <td className={`${TD} hidden leading-tight text-gray-700 sm:table-cell`}>
                     {locationLabel(v.location)}
                   </td>
                   <td className={`${TD} text-center tabular-nums text-gray-700`}>
@@ -307,7 +307,7 @@ export default async function FleetUsagePage({
                   <td className={TD}>
                     <UsageCell rate={v.rate} />
                   </td>
-                  <td className={`${TD} hidden text-center tabular-nums text-gray-700 sm:table-cell`}>
+                  <td className={`${TD} text-center tabular-nums text-gray-700`}>
                     {lastUsedLabel(v.serial)}
                   </td>
                 </tr>
