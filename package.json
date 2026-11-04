@@ -22,15 +22,15 @@
     "dev:prod": "node scripts/with-env.mjs .env -- next dev"
   },
   "dependencies": {
-    "@prisma/adapter-pg": "^7.9.1",
-    "@prisma/client": "^7.9.1",
+    "@prisma/adapter-pg": "^7.10.1",
+    "@prisma/client": "^7.10.1",
     "@supabase/storage-js": "^2.116.0",
     "archiver": "^8.0.0",
     "exceljs": "^4.4.0",
     "heic2any": "^0.0.4",
     "next": "16.4.5",
     "pg": "^8.22.0",
-    "prisma": "^7.9.1",
+    "prisma": "^7.10.1",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "sharp": "^0.35.5"
